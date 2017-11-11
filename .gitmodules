@@ -1,0 +1,3 @@
+[submodule "jemalloc"]
+	path = jemalloc
+	url = https://github.com/allisterb/jemalloc.git
