@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CppSharp;
 using CppSharp.AST;
 using CppSharp.Generators;
+using CppSharp.Passes;
 
 namespace jemalloc.Bindings
 {
@@ -24,27 +25,29 @@ namespace jemalloc.Bindings
             module.IncludeDirs.Add(@"..\..\..\..\jemalloc\include\msvc_compat");
             module.IncludeDirs.Add(@".\");
             module.Headers.Add("jemalloc-cs.h");
-            
             module.LibraryDirs.Add(@"..\..\..\..\x64\Debug\");
-            //module.Libraries.Add("jemallocd.lib");
+            module.Libraries.Add("jemallocd.lib");
+            module.OutputNamespace = "jemalloc";
+            options.OutputDir = @"..\..\..\..\jemalloc.Api";
+            options.Verbose = true;
         }
 
         /// Setup your passes here.
         public void SetupPasses(Driver driver)
         {
-           
+            
         }
 
         /// Do transformations that should happen before passes are processed.
         public void Preprocess(Driver driver, ASTContext ctx)
         {
-
+            
         }
 
         /// Do transformations that should happen after passes are processed.
         public void Postprocess(Driver driver, ASTContext ctx)
         {
-
+            ctx.SetClassBindName("ExtentHooksS", "ExtentHooks");
         }
     }
 }
