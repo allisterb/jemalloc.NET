@@ -149,7 +149,7 @@ namespace jemalloc
         }
     }
 
-    public unsafe partial class jemalloc_cs
+    public unsafe partial class Je
     {
         public partial struct __Internal
         {
@@ -242,6 +242,11 @@ namespace jemalloc
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_malloc_usable_size")]
             internal static extern ulong JeMallocUsableSize(global::System.IntPtr ptr);
+
+            [SuppressUnmanagedCodeSecurity]
+            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, EntryPoint = "je_mallctl")]
+            internal static extern void JeSetMallocConf([MarshalAs(UnmanagedType.LPStr)] string name, global::System.IntPtr oldp, ulong* oldlenp, global::System.IntPtr newp, ulong newlen);
+
         }
 
         public static global::System.IntPtr Malloc(ulong size)

@@ -146,8 +146,7 @@ extern "C" {
  * JEMALLOC_NO_DEMANGLE is defined (see jemalloc_mangle.h).
  */
 extern JEMALLOC_EXPORT const char	*je_malloc_conf;
-extern JEMALLOC_EXPORT void		(*je_malloc_message)(void *cbopaque,
-    const char *s);
+extern JEMALLOC_EXPORT void		(*je_malloc_message)(void *cbopaque, const char *s);
 
 
 JEMALLOC_EXPORT JEMALLOC_ALLOCATOR JEMALLOC_RESTRICT_RETURN
@@ -196,6 +195,15 @@ JEMALLOC_EXPORT void JEMALLOC_NOTHROW	je_malloc_stats_print(
 JEMALLOC_EXPORT size_t JEMALLOC_NOTHROW	je_malloc_usable_size(
     JEMALLOC_USABLE_SIZE_CONST void *ptr) JEMALLOC_CXX_THROW;
 
+JEMALLOC_EXPORT void JEMALLOC_NOTHROW je_set_malloc_conf(const char *name)
+{
+    je_malloc_conf = name;
+}
+
+JEMALLOC_EXPORT *char JEMALLOC_NOTHROW je_get_malloc_conf()
+{
+    return je_malloc_conf;
+}
 
 typedef struct extent_hooks_s extent_hooks_t;
 
