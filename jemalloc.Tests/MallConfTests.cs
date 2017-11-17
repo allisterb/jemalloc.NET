@@ -6,7 +6,7 @@ using Xunit;
 
 namespace jemalloc.Tests
 {
-    public class ConfTests
+    public class MallConfTests
     {
         [Fact]
         public void CanGetConf()

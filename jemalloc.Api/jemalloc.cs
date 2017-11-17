@@ -421,17 +421,13 @@ namespace jemalloc
         
         public static int MallCtl(string name)
         {
-
-            //int* px = stackalloc int()
-            //IntPtr px = IntPtr.Zero;
-            //IntPtr r = Marshal.StructureToPtr(x, ;
-            //__Internal.JeMallctl(name,
-            return 0;
-                //__Internal.JeMallctl(name, )
-            
+            IntPtr retp = Marshal.AllocHGlobal(sizeof(int));
+            ulong size = sizeof(int);
+            Mallctl("opt.narenas", retp, ref size, IntPtr.Zero, 0);
+            int ret = Marshal.ReadInt32(retp);
+            Marshal.FreeHGlobal(retp);
+            return ret;   
         }
-        /*
-        */
     }
 
     
