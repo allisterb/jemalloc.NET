@@ -11,6 +11,9 @@ using System.Security;
 namespace jemalloc
 {
     [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    public unsafe delegate void JeMallocMessagePtr(global::System.IntPtr _0, [MarshalAs(UnmanagedType.LPStr)] string _1);
+
+    [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
     public unsafe delegate global::System.IntPtr ExtentAllocT(global::System.IntPtr _0, global::System.IntPtr _1, ulong _2, ulong _3, bool* _4, bool* _5, uint _6);
 
     [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
@@ -253,6 +256,13 @@ namespace jemalloc
                 EntryPoint = "je_get_malloc_conf", CharSet = CharSet.Ansi)]
             internal static extern IntPtr JeGetMallocConf();
 
+            [SuppressUnmanagedCodeSecurity]
+            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, EntryPoint = "je_get_malloc_message_ptr")]
+            internal static extern global::System.IntPtr JeGetMallocMessagePtr();
+
+            [SuppressUnmanagedCodeSecurity]
+            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, EntryPoint = "je_set_malloc_message_ptr")]
+            internal static extern void JeSetMallocMessagePtr(global::System.IntPtr p);
         }
 
         public static global::System.IntPtr Malloc(ulong size)
@@ -380,16 +390,35 @@ namespace jemalloc
             return __ret;
         }
 
-        public static string GetMallocConf()
+        public static string MallocConf
         {
-            return Marshal.PtrToStringAnsi(__Internal.JeGetMallocConf());
+            get
+            {
+                return Marshal.PtrToStringAnsi(__Internal.JeGetMallocConf());
+            }
+            set
+            {
+                __Internal.JeSetMallocConf(Marshal.StringToHGlobalAnsi(value));
+            }
         }
 
-        public static void SetMallocConf(string name)
+        
+        public static global::jemalloc.JeMallocMessagePtr MallocMessage
         {
-            __Internal.JeSetMallocConf(Marshal.StringToHGlobalAnsi(name));
-        }
+            get
+            {
+                var __ret = __Internal.JeGetMallocMessagePtr();
+                var __ptr0 = __ret;
+                return __ptr0 == IntPtr.Zero ? null : (global::jemalloc.JeMallocMessagePtr)Marshal.GetDelegateForFunctionPointer(__ptr0, typeof(global::jemalloc.JeMallocMessagePtr));
+            }
 
+            set
+            {
+                IntPtr __ptr = __Internal.JeGetMallocMessagePtr();
+                __ptr = value == null ? global::System.IntPtr.Zero : Marshal.GetFunctionPointerForDelegate(value);
+            }
+        }
+        
         public static int MallCtl(string name)
         {
 
@@ -402,36 +431,6 @@ namespace jemalloc
             
         }
         /*
-        public static string MallocConf
-        {
-            get
-            {
-                var __ptr = (global::System.IntPtr*)CppSharp.SymbolResolver.ResolveSymbol("jemalloc", "je_malloc_conf");
-                return Marshal.PtrToStringAnsi(*__ptr);
-            }
-
-            set
-            {
-                var __ptr = (global::System.IntPtr*)CppSharp.SymbolResolver.ResolveSymbol("jemalloc", "je_malloc_conf");
-                *__ptr = Marshal.StringToHGlobalAnsi(value);
-            }
-        }
-
-        public static Action<global::System.IntPtr cbopaque, string s> JeMallocMessage
-        {
-            get
-            {
-                var __ptr = (global::System.IntPtr*)CppSharp.SymbolResolver.ResolveSymbol("jemalloc", "je_malloc_message");
-                var __ptr0 = *__ptr;
-                return (Action<global::System.IntPtr cbopaque, string s>)Marshal.GetDelegateForFunctionPointer(__ptr0, typeof(Action<global::System.IntPtr cbopaque, string s>));
-            }
-
-            set
-            {
-                var __ptr = (global::System.IntPtr*)CppSharp.SymbolResolver.ResolveSymbol("jemalloc", "je_malloc_message");
-                *__ptr = value == null ? global::System.IntPtr.Zero : Marshal.GetFunctionPointerForDelegate(value);
-            }
-        }
         */
     }
 

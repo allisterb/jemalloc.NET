@@ -11,8 +11,8 @@ namespace jemalloc.Tests
         [Fact]
         public void CanGetConf()
         {
-            Je.SetMallocConf("narenas:3");
-            string c = Je.GetMallocConf();
+            Je.MallocConf = "narenas:3";
+            Assert.Equal("narenas:3", Je.MallocConf);
         }
     }
 }

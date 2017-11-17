@@ -20,15 +20,15 @@ namespace jemalloc.Bindings
             options.GeneratorKind = GeneratorKind.CSharp;
             Module module = options.AddModule("jemalloc");
             module.Defines.AddRange(@"JEMALLOC_NO_PRIVATE_NAMESPACE;REENTRANT;WINDLL;DLLEXPORT;JEMALLOC_DEBUG;DEBUG".Split(';'));
-            module.IncludeDirs.Add(@"..\..\..\..\jemalloc\include\jemalloc");
-            module.IncludeDirs.Add(@"..\..\..\..\jemalloc\include\jemalloc\internal");
-            module.IncludeDirs.Add(@"..\..\..\..\jemalloc\include\msvc_compat");
+            module.IncludeDirs.Add(@"..\..\jemalloc\include\jemalloc");
+            module.IncludeDirs.Add(@"..\..\jemalloc\include\jemalloc\internal");
+            module.IncludeDirs.Add(@"..\..\jemalloc\include\msvc_compat");
             module.IncludeDirs.Add(@".\");
-            module.Headers.Add("jemalloc-cs.h");
-            module.LibraryDirs.Add(@"..\..\..\..\x64\Debug\");
+            module.Headers.Add("jemalloc-win-msvc.h");
+            module.LibraryDirs.Add(@".\");
             module.Libraries.Add("jemallocd.lib");
             module.OutputNamespace = "jemalloc";
-            options.OutputDir = @"..\..\..\..\jemalloc.Api";
+            options.OutputDir = @".\";
             options.Verbose = true;
         }
 
