@@ -421,12 +421,14 @@ namespace jemalloc
         
         public static int MallCtl(string name)
         {
-            IntPtr retp = Marshal.AllocHGlobal(sizeof(int));
-            ulong size = sizeof(int);
-            Mallctl("opt.narenas", retp, ref size, IntPtr.Zero, 0);
-            int ret = Marshal.ReadInt32(retp);
-            Marshal.FreeHGlobal(retp);
-            return ret;   
+            unsafe
+            {
+                void* i = stackalloc int[1];
+                IntPtr retp = new IntPtr(i);
+                ulong size = sizeof(int);
+                Mallctl(name, retp, ref size, IntPtr.Zero, 0);   
+                return Marshal.ReadInt32(retp);
+            }
         }
     }
 
