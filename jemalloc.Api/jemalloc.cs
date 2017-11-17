@@ -244,8 +244,14 @@ namespace jemalloc
             internal static extern ulong JeMallocUsableSize(global::System.IntPtr ptr);
 
             [SuppressUnmanagedCodeSecurity]
-            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, EntryPoint = "je_mallctl")]
-            internal static extern void JeSetMallocConf([MarshalAs(UnmanagedType.LPStr)] string name, global::System.IntPtr oldp, ulong* oldlenp, global::System.IntPtr newp, ulong newlen);
+            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, 
+                EntryPoint = "je_set_malloc_conf", CharSet = CharSet.Ansi)]
+            internal static extern void JeSetMallocConf(IntPtr ptr);
+
+            [SuppressUnmanagedCodeSecurity]
+            [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, 
+                EntryPoint = "je_get_malloc_conf", CharSet = CharSet.Ansi)]
+            internal static extern IntPtr JeGetMallocConf();
 
         }
 
@@ -374,6 +380,27 @@ namespace jemalloc
             return __ret;
         }
 
+        public static string GetMallocConf()
+        {
+            return Marshal.PtrToStringAnsi(__Internal.JeGetMallocConf());
+        }
+
+        public static void SetMallocConf(string name)
+        {
+            __Internal.JeSetMallocConf(Marshal.StringToHGlobalAnsi(name));
+        }
+
+        public static int MallCtl(string name)
+        {
+
+            //int* px = stackalloc int()
+            //IntPtr px = IntPtr.Zero;
+            //IntPtr r = Marshal.StructureToPtr(x, ;
+            //__Internal.JeMallctl(name,
+            return 0;
+                //__Internal.JeMallctl(name, )
+            
+        }
         /*
         public static string MallocConf
         {

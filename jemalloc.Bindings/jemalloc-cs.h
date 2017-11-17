@@ -196,14 +196,7 @@ JEMALLOC_EXPORT size_t JEMALLOC_NOTHROW	je_malloc_usable_size(
     JEMALLOC_USABLE_SIZE_CONST void *ptr) JEMALLOC_CXX_THROW;
 
 JEMALLOC_EXPORT void JEMALLOC_NOTHROW je_set_malloc_conf(const char *name)
-{
-    je_malloc_conf = name;
-}
-
-JEMALLOC_EXPORT *char JEMALLOC_NOTHROW je_get_malloc_conf()
-{
-    return je_malloc_conf;
-}
+JEMALLOC_EXPORT char* JEMALLOC_NOTHROW je_get_malloc_conf()
 
 typedef struct extent_hooks_s extent_hooks_t;
 
