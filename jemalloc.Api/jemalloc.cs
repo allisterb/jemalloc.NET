@@ -419,15 +419,57 @@ namespace jemalloc
             }
         }
         
-        public static int MallCtl(string name)
+        public static int GetMallCtlInt32(string name)
         {
             unsafe
             {
                 void* i = stackalloc int[1];
                 IntPtr retp = new IntPtr(i);
-                ulong size = sizeof(int);
-                Mallctl(name, retp, ref size, IntPtr.Zero, 0);   
-                return Marshal.ReadInt32(retp);
+                ulong size = sizeof(Int32);
+                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+                return *(Int32*)(i);
+            }
+        }
+
+        public static bool GetMallCtlBool(string name)
+        {
+            return GetMallCtlInt32(name) == 1 ? true : false;
+        }
+
+ 
+        public static UInt64 GetMallCtlUInt64(string name)
+        {
+            unsafe
+            {
+                void* i = stackalloc UInt64[1];
+                IntPtr retp = new IntPtr(i);
+                ulong size = sizeof(UInt64);
+                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+                return *(UInt64*)(i);
+            }
+        }
+
+        public static Int64 GetMallCtlSInt64(string name)
+        {
+            unsafe
+            {
+                void* i = stackalloc Int64[1];
+                IntPtr retp = new IntPtr(i);
+                ulong size = sizeof(Int64);
+                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+                return *(Int64*)(i);
+            }
+        }
+
+        public static string GetMallCtlStr(string name)
+        {
+            unsafe
+            {
+                IntPtr* p = stackalloc IntPtr[1];
+                IntPtr retp = new IntPtr(p);
+                ulong size = (ulong) sizeof(IntPtr);
+                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+                return Marshal.PtrToStringAnsi(*p);
             }
         }
     }
