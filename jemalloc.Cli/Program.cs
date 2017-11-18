@@ -37,7 +37,7 @@ namespace jemalloc.Cli
                 help.Heading = new HeadingInfo("AzSync", Version.ToString(3));
                 help.Copyright = string.Empty;
                 help.AddPreOptionsLine(string.Empty);
-
+                /*
                 if (errors.Any(e => e.Tag == ErrorType.VersionRequestedError))
                 {
                     Exit(ExitResult.SUCCESS);
@@ -49,7 +49,7 @@ namespace jemalloc.Cli
                     {
                         help.AddVerbs(error.Type);
                     }
-                    L.Info(help);
+                    Log.Info(help);
                     Exit(ExitResult.SUCCESS);
                 }
                 else if (errors.Any(e => e.Tag == ErrorType.HelpRequestedError))
@@ -86,7 +86,7 @@ namespace jemalloc.Cli
                     help.AddVerbs(typeof(SyncOptions), typeof(CopyOptions), typeof(GenerateOptions));
                     L.Info(help);
                     Exit(ExitResult.INVALID_OPTIONS);
-                }
+                }*/
             });
 
 
@@ -95,11 +95,7 @@ namespace jemalloc.Cli
         static void Exit(ExitResult result)
         {
             Log.CloseAndFlush();
-            if (CTS != null)
-            {
-                CTS.Dispose();
-            }
-
+            
             Environment.Exit((int)result);
         }
 
