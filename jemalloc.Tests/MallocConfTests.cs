@@ -6,13 +6,14 @@ using Xunit;
 
 namespace jemalloc.Tests
 {
-    public class MallConfTests
+    public class MallocConfTests : jemallocTest
     {
+        public MallocConfTests() : base() {}
+
         [Fact]
         public void CanGetConf()
         {
-            Je.MallocConf = "narenas:3";
-            Assert.Equal("narenas:3", Je.MallocConf);
+            Assert.Equal("tcache:false,narenas:3", Je.MallocConf);
         }
     }
 }

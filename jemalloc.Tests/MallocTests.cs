@@ -8,13 +8,12 @@ namespace jemalloc.Tests
     {
         public Process CurrentProcess { get; protected set; } = Process.GetCurrentProcess();
 
-        public MallocTests()
+        public MallocTests() : base()
         {
             init_privateMemorySize = CurrentProcess.PrivateMemorySize64;
             init_peakPagedMem = CurrentProcess.PeakPagedMemorySize64;
             init_peakWorkingSet = CurrentProcess.PeakWorkingSet64;
             init_peakVirtualMem = CurrentProcess.PeakVirtualMemorySize64;
-
         }
 
         [Fact]

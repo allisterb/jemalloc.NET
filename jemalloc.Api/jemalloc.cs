@@ -421,14 +421,11 @@ namespace jemalloc
         
         public static int GetMallCtlInt32(string name)
         {
-            unsafe
-            {
-                void* i = stackalloc int[1];
-                IntPtr retp = new IntPtr(i);
-                ulong size = sizeof(Int32);
-                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
-                return *(Int32*)(i);
-            }
+            void* i = stackalloc int[1];
+            IntPtr retp = new IntPtr(i);
+            ulong size = sizeof(Int32);
+            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            return *(Int32*)(i);           
         }
 
         public static bool GetMallCtlBool(string name)
@@ -439,37 +436,43 @@ namespace jemalloc
  
         public static UInt64 GetMallCtlUInt64(string name)
         {
-            unsafe
-            {
-                void* i = stackalloc UInt64[1];
-                IntPtr retp = new IntPtr(i);
-                ulong size = sizeof(UInt64);
-                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
-                return *(UInt64*)(i);
-            }
+            void* i = stackalloc UInt64[1];
+            IntPtr retp = new IntPtr(i);
+            ulong size = sizeof(UInt64);
+            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            return *(UInt64*)(i);            
         }
 
         public static Int64 GetMallCtlSInt64(string name)
         {
-            unsafe
-            {
-                void* i = stackalloc Int64[1];
-                IntPtr retp = new IntPtr(i);
-                ulong size = sizeof(Int64);
-                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
-                return *(Int64*)(i);
-            }
+            void* i = stackalloc Int64[1];
+            IntPtr retp = new IntPtr(i);
+            ulong size = sizeof(Int64);
+            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            return *(Int64*)(i);           
         }
 
         public static string GetMallCtlStr(string name)
         {
-            unsafe
+            IntPtr* p = stackalloc IntPtr[1];
+            IntPtr retp = new IntPtr(p);
+            ulong size = (ulong) sizeof(IntPtr);
+            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            return Marshal.PtrToStringAnsi(*p);            
+        }
+
+        public static bool Initialized { get; protected set; }
+        public static bool Init(string conf)
+        {
+            if (Initialized)
             {
-                IntPtr* p = stackalloc IntPtr[1];
-                IntPtr retp = new IntPtr(p);
-                ulong size = (ulong) sizeof(IntPtr);
-                Mallctl(name, retp, ref size, IntPtr.Zero, 0);
-                return Marshal.PtrToStringAnsi(*p);
+                return Initialized;
+            }
+            else
+            {
+                Je.MallocConf = conf;
+                Initialized = true;
+                return Initialized;
             }
         }
     }
