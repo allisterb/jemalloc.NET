@@ -10,9 +10,7 @@ using System.Security;
 
 namespace jemalloc
 {
-    [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
-    public unsafe delegate void JeMallocMessagePtr(global::System.IntPtr _0, [MarshalAs(UnmanagedType.LPStr)] string _1);
-
+    #region Delegates
     [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
     public unsafe delegate global::System.IntPtr ExtentAllocT(global::System.IntPtr _0, global::System.IntPtr _1, ulong _2, ulong _3, bool* _4, bool* _5, uint _6);
 
@@ -42,6 +40,9 @@ namespace jemalloc
     [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     public unsafe delegate bool ExtentMergeT(global::System.IntPtr _0, global::System.IntPtr _1, ulong _2, global::System.IntPtr _3, ulong _4, [MarshalAs(UnmanagedType.I1)] bool _5, uint _6);
+
+    public delegate void JeMallocMessageAction(string m);
+    #endregion
 
     public unsafe partial class ExtentHooks : IDisposable
     {
@@ -246,6 +247,9 @@ namespace jemalloc
                 EntryPoint="je_malloc_usable_size")]
             internal static extern ulong JeMallocUsableSize(global::System.IntPtr ptr);
 
+            [SuppressUnmanagedCodeSecurity, UnmanagedFunctionPointer(global::System.Runtime.InteropServices.CallingConvention.Cdecl)]
+            internal unsafe delegate void JeMallocMessageCallback(global::System.IntPtr _0, [MarshalAs(UnmanagedType.LPStr)] string _1);
+
             [SuppressUnmanagedCodeSecurity]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, 
                 EntryPoint = "je_set_malloc_conf", CharSet = CharSet.Ansi)]
@@ -263,6 +267,22 @@ namespace jemalloc
             [SuppressUnmanagedCodeSecurity]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, EntryPoint = "je_set_malloc_message_ptr")]
             internal static extern void JeSetMallocMessagePtr(global::System.IntPtr p);
+
+            internal static JeMallocMessageCallback JeMallocMessage
+            {
+                get
+                {
+                    var ret = __Internal.JeGetMallocMessagePtr();
+                    return ret == IntPtr.Zero ? null :
+                        (__Internal.JeMallocMessageCallback)Marshal.GetDelegateForFunctionPointer(ret, typeof(__Internal.JeMallocMessageCallback));
+                }
+
+                set
+                {
+                    IntPtr ptr = value == null ? global::System.IntPtr.Zero : Marshal.GetFunctionPointerForDelegate(value);
+                    __Internal.JeSetMallocMessagePtr(ptr);
+                }
+            }
         }
 
         public static global::System.IntPtr Malloc(ulong size)
@@ -378,10 +398,14 @@ namespace jemalloc
             }
         }
 
-        public static void MallocStatsPrint(global::jemalloc.Delegates.Action_IntPtr_string write_cb, global::System.IntPtr je_cbopaque, string opts)
+        public static void MallocStatsPrint()
         {
-            var __arg0 = write_cb == null ? global::System.IntPtr.Zero : Marshal.GetFunctionPointerForDelegate(write_cb);
-            __Internal.JeMallocStatsPrint(__arg0, je_cbopaque, opts);
+            __Internal.JeMallocStatsPrint(IntPtr.Zero, IntPtr.Zero, string.Empty);
+        }
+
+        public static void MallocStatsPrint(string opt)
+        {
+            __Internal.JeMallocStatsPrint(IntPtr.Zero, IntPtr.Zero, opt);
         }
 
         public static ulong MallocUsableSize(global::System.IntPtr ptr)
@@ -401,24 +425,7 @@ namespace jemalloc
                 __Internal.JeSetMallocConf(Marshal.StringToHGlobalAnsi(value));
             }
         }
-
-        
-        public static global::jemalloc.JeMallocMessagePtr MallocMessage
-        {
-            get
-            {
-                var __ret = __Internal.JeGetMallocMessagePtr();
-                var __ptr0 = __ret;
-                return __ptr0 == IntPtr.Zero ? null : (global::jemalloc.JeMallocMessagePtr)Marshal.GetDelegateForFunctionPointer(__ptr0, typeof(global::jemalloc.JeMallocMessagePtr));
-            }
-
-            set
-            {
-                IntPtr __ptr = __Internal.JeGetMallocMessagePtr();
-                __ptr = value == null ? global::System.IntPtr.Zero : Marshal.GetFunctionPointerForDelegate(value);
-            }
-        }
-        
+ 
         public static int GetMallCtlInt32(string name)
         {
             void* i = stackalloc int[1];
@@ -462,6 +469,9 @@ namespace jemalloc
         }
 
         public static bool Initialized { get; protected set; }
+
+        public static event JeMallocMessageAction MallocMessage;
+
         public static bool Init(string conf)
         {
             if (Initialized)
@@ -471,9 +481,49 @@ namespace jemalloc
             else
             {
                 Je.MallocConf = conf;
+                __Internal.JeMallocMessage = (o, m) => { MallocMessage.Invoke(m); };
                 Initialized = true;
                 return Initialized;
             }
+        }
+
+        internal enum ERR_NO
+        {
+            EPERM = 1,
+            ENOENT = 2,
+            ESRCH = 3,
+            EINTR = 4,
+            EIO = 5,
+            ENXIO = 6,
+            E2BIG = 7,
+            ENOEXEC = 8,
+            EBADF = 9,
+            ECHILD = 10,
+            EAGAIN = 11,
+            ENOMEM = 12,
+            EACCES = 13,
+            EFAULT = 14,
+            EBUSY = 16,
+            EEXIST = 17,
+            EXDEV = 18,
+            ENODEV = 19,
+            ENOTDIR = 20,
+            EISDIR = 21,
+            ENFILE = 23,
+            EMFILE = 24,
+            ENOTTY = 25,
+            EFBIG = 27,
+            ENOSPC = 28,
+            ESPIPE = 29,
+            EROFS = 30,
+            EMLINK = 31,
+            EPIPE = 32,
+            EDOM = 33,
+            EDEADLK = 36,
+            ENAMETOOLONG = 38,
+            ENOLCK = 39,
+            ENOSYS = 40,
+            ENOTEMPTY = 41
         }
     }
 
