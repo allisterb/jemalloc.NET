@@ -22,10 +22,14 @@ namespace jemalloc.Tests
             long size = 100 * 1000 * 1000;
             Assert.True(init_privateMemorySize < size);
             IntPtr p = Je.Malloc((ulong) size);
+            string stats = Je.MallocStatsPrint();
+            
             CurrentProcess.Refresh();
             Assert.True((CurrentProcess.PrivateMemorySize64 - init_privateMemorySize) >= size);
             Je.Free(p);
         }
+
+        
 
         #region Fields
         long init_privateMemorySize = 0;

@@ -8,15 +8,10 @@ namespace jemalloc.Tests
 {
     public class MallocMessageTests : jemallocTest
     {
-        
         [Fact]
-        public void CanSetMallocMessageAction()
+        public void CanPrintMallocStats()
         {
-            StringBuilder messagesBuilder = new StringBuilder();
-            Je.MallocMessage += (m) => { messagesBuilder.Append(m); };
-            Je.MallocStatsPrint();
-            string messages = messagesBuilder.ToString();
-            Assert.True(messages.Contains("opt.narenas: 3"));
+            Assert.True(Je.MallocStatsPrint().Contains("opt.narenas: 3"));
         }
     }
 }

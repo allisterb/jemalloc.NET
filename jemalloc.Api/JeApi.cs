@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Security;
+using System.Text;
 
 namespace jemalloc
 {
-    public unsafe partial class Je
+    public unsafe static partial class Je
     {
         public static global::System.IntPtr Malloc(ulong size)
         {
@@ -119,14 +120,17 @@ namespace jemalloc
             }
         }
 
-        public static void MallocStatsPrint()
+        public static string MallocStatsPrint()
         {
-            __Internal.JeMallocStatsPrint(IntPtr.Zero, IntPtr.Zero, string.Empty);
+            return MallocStatsPrint(string.Empty);
         }
 
-        public static void MallocStatsPrint(string opt)
+        public static string MallocStatsPrint(string opt)
         {
-            __Internal.JeMallocStatsPrint(IntPtr.Zero, IntPtr.Zero, opt);
+            StringBuilder statsBuilder = new StringBuilder();
+            __Internal.JeMallocMessageCallback stats = (o, m) => { statsBuilder.Append(m); };
+            __Internal.JeMallocStatsPrint(Marshal.GetFunctionPointerForDelegate(stats), IntPtr.Zero, opt);
+            return statsBuilder.ToString();
         }
 
         public static ulong MallocUsableSize(global::System.IntPtr ptr)
@@ -189,23 +193,32 @@ namespace jemalloc
             return Marshal.PtrToStringAnsi(*p);
         }
 
-        public static bool Initialized { get; protected set; }
+        public static bool Initialized { get; private set; } = false;
 
         public static event JeMallocMessageAction MallocMessage;
+ 
+        public static string MallocMessages => mallocMessagesBuilder.ToString();
 
-        public static bool Init(string conf)
+        private static StringBuilder mallocMessagesBuilder = new StringBuilder();
+        
+        public static void Init(string conf)
         {
-            if (Initialized)
+            if (!Initialized)
             {
-                return Initialized;
-            }
-            else
-            {
-                Je.MallocConf = conf;
-                __Internal.JeMallocMessage = (o, m) => { MallocMessage.Invoke(m); };
+                MallocConf = conf;
                 Initialized = true;
-                return Initialized;
             }
+        }
+
+        private static __Internal.JeMallocMessageCallback messagesCallback = (o, m) =>
+        {
+            mallocMessagesBuilder.Append(m);
+            MallocMessage.Invoke(m);
+        };
+
+        static Je()
+        {
+            __Internal.JeMallocMessage += messagesCallback;
         }
 
         internal enum ERR_NO
