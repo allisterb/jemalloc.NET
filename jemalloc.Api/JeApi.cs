@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Security;
 using System.Text;
 
@@ -7,16 +9,35 @@ namespace jemalloc
 {
     public unsafe static partial class Je
     {
-        public static global::System.IntPtr Malloc(ulong size)
+        public static global::System.IntPtr Malloc(ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            var __ret = __Internal.JeMalloc(size);
-            return __ret;
+            CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
+            IntPtr __ret = __Internal.JeMalloc(size);
+            if (__ret != IntPtr.Zero)
+            {
+                Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                return __ret;
+            }
+            else
+            {
+                throw new OutOfMemoryException($"Could not allocate {size} bytes for {GetCallerDetails(caller)}.");
+            }
         }
 
-        public static global::System.IntPtr Calloc(ulong num, ulong size)
+        public static global::System.IntPtr Calloc(ulong num, ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            var __ret = __Internal.JeCalloc(num, size);
-            return __ret;
+            CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
+            IntPtr __ret = __Internal.JeCalloc(num, size);
+            if (__ret != IntPtr.Zero)
+            {
+                Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                return __ret;
+            }
+            else
+            {
+                throw new OutOfMemoryException($"Could not allocate {num * size} bytes for {GetCallerDetails(caller)}.");
+            }
+
         }
 
         public static int PosixMemalign(void** memptr, ulong alignment, ulong size)
@@ -37,7 +58,7 @@ namespace jemalloc
             return __ret;
         }
 
-        public static void Free(global::System.IntPtr ptr)
+        public static void Free(global::System.IntPtr ptr, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             __Internal.JeFree(ptr);
         }
@@ -221,7 +242,9 @@ namespace jemalloc
             __Internal.JeMallocMessage += messagesCallback;
         }
 
-        internal enum ERR_NO
+        public static List<Tuple<IntPtr, ulong, CallerInformation>> Allocations { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
+
+        internal enum ERRNO
         {
             EPERM = 1,
             ENOENT = 2,
@@ -258,6 +281,46 @@ namespace jemalloc
             ENOLCK = 39,
             ENOSYS = 40,
             ENOTEMPTY = 41
+        }
+
+        internal static Exception GetExceptionForErrNo(ERRNO no)
+        {
+            switch (no)
+            {
+                case ERRNO.ENOMEM:
+                    return new OutOfMemoryException();
+                default:
+                    return new Exception();
+            }
+        }
+
+        public static string GetCallerDetails(string memberName, string fileName, int lineNumber)
+        {
+            return $"Member {memberName} at line {lineNumber} in file {fileName}";
+        }
+
+        public static string GetCallerDetails(CallerInformation c)
+        {
+            return $"Member {c.Name} at line {c.LineNumber} in file {c.File}";
+        }
+
+        public class CallerInformation
+        {
+            public string Name;
+            public string File;
+            public int LineNumber;
+
+            public CallerInformation(string name, string file, int line_number)
+            {
+                this.Name = name;
+                this.File = file;
+                this.LineNumber = line_number;
+            }
+
+            public override string ToString()
+            {
+                return GetCallerDetails(this);
+            }
         }
     }
 }
