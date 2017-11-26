@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Security;
@@ -9,13 +10,26 @@ namespace jemalloc
 {
     public unsafe static partial class Je
     {
+        #region Constructor
+        static Je()
+        {
+            __Internal.JeMallocMessage += messagesCallback;
+        }
+        #endregion
+
+        #region Methods
+
+        #region Low-level jemalloc API
         public static global::System.IntPtr Malloc(ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
             IntPtr __ret = __Internal.JeMalloc(size);
             if (__ret != IntPtr.Zero)
             {
-                Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                lock (allocationsLock)
+                {
+                    Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                }
                 return __ret;
             }
             else
@@ -30,7 +44,10 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
-                Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                lock (allocationsLock)
+                {
+                    Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                }
                 return __ret;
             }
             else
@@ -140,7 +157,9 @@ namespace jemalloc
                 }
             }
         }
+        #endregion
 
+        #region High-level API
         public static string MallocStatsPrint()
         {
             return MallocStatsPrint(string.Empty);
@@ -210,18 +229,17 @@ namespace jemalloc
             IntPtr* p = stackalloc IntPtr[1];
             IntPtr retp = new IntPtr(p);
             ulong size = (ulong)sizeof(IntPtr);
-            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
-            return Marshal.PtrToStringAnsi(*p);
+            int ret = Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            if ((ERRNO)ret == ERRNO.ENONE)
+            {
+                return Marshal.PtrToStringAnsi(*p);
+            }
+            else
+            {
+               throw GetExceptionForErrNo((ERRNO) ret);
+            }
         }
 
-        public static bool Initialized { get; private set; } = false;
-
-        public static event JeMallocMessageAction MallocMessage;
- 
-        public static string MallocMessages => mallocMessagesBuilder.ToString();
-
-        private static StringBuilder mallocMessagesBuilder = new StringBuilder();
-        
         public static void Init(string conf)
         {
             if (!Initialized)
@@ -231,21 +249,67 @@ namespace jemalloc
             }
         }
 
+        #endregion
+
+        #region Utility methods
+        internal static Exception GetExceptionForErrNo(ERRNO no)
+        {
+            switch (no)
+            {
+                case ERRNO.ENOMEM:
+                    return new OutOfMemoryException();
+                default:
+                    return new Exception();
+            }
+        }
+
+        internal static string GetCallerDetails(string memberName, string fileName, int lineNumber)
+        {
+            return $"Member {memberName} at line {lineNumber} in file {fileName}";
+        }
+
+        internal static string GetCallerDetails(CallerInformation c)
+        {
+            return $"Member {c.Name} at line {c.LineNumber} in file {c.File}";
+        }
+        #endregion
+
+        #endregion
+
+        #region Properties
+        public static bool Initialized { get; private set; } = false;
+
+        public static event JeMallocMessageAction MallocMessage;
+
+        public static string MallocMessages => mallocMessagesBuilder.ToString();
+
         private static __Internal.JeMallocMessageCallback messagesCallback = (o, m) =>
         {
             mallocMessagesBuilder.Append(m);
             MallocMessage.Invoke(m);
         };
 
-        static Je()
-        {
-            __Internal.JeMallocMessage += messagesCallback;
-        }
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> Allocations { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
+        
+        public static bool PtrIsAllocated(IntPtr ptr)
+        {
+            lock (allocationsLock)
+            {
+                return Allocations.Any(a => a.Item1 == ptr);
+            }
+        }
+        #endregion
 
+        #region Fields
+        private static object allocationsLock = new object();
+        private static StringBuilder mallocMessagesBuilder = new StringBuilder();
+        #endregion
+
+        #region Types and Enums
         internal enum ERRNO
         {
+            ENONE = 0,
             EPERM = 1,
             ENOENT = 2,
             ESRCH = 3,
@@ -283,27 +347,6 @@ namespace jemalloc
             ENOTEMPTY = 41
         }
 
-        internal static Exception GetExceptionForErrNo(ERRNO no)
-        {
-            switch (no)
-            {
-                case ERRNO.ENOMEM:
-                    return new OutOfMemoryException();
-                default:
-                    return new Exception();
-            }
-        }
-
-        public static string GetCallerDetails(string memberName, string fileName, int lineNumber)
-        {
-            return $"Member {memberName} at line {lineNumber} in file {fileName}";
-        }
-
-        public static string GetCallerDetails(CallerInformation c)
-        {
-            return $"Member {c.Name} at line {c.LineNumber} in file {c.File}";
-        }
-
         public class CallerInformation
         {
             public string Name;
@@ -322,5 +365,6 @@ namespace jemalloc
                 return GetCallerDetails(this);
             }
         }
+        #endregion
     }
 }

@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\jemalloc.Api\jemalloc.Api.csproj" />
+    <ProjectReference Include="..\jemalloc.Buffers\jemalloc.Buffers.csproj" />
   </ItemGroup>
 
 </Project>
