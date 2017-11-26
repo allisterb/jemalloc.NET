@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Numerics;
@@ -9,7 +8,7 @@ using System.Runtime.ConstrainedExecution;
 using System.Linq;
 using System.Text;
 
-namespace jemalloc.Buffers
+namespace jemalloc
 {
     #region Enums
     public enum AllocationType
@@ -24,10 +23,11 @@ namespace jemalloc.Buffers
         #region Constructors
         protected Buffer(uint length) : base(IntPtr.Zero, true)
         {
+            /*
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
-            }
+            }*/
             base.SetHandle(Allocate());
         }
         #endregion
