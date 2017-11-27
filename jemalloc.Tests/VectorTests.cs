@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -12,13 +13,13 @@ namespace jemalloc.Tests
     public class VectorTests
     {
         [Fact(DisplayName = "Buffer elements can be accessed as vector.")]
-        public void CanConstructJArray()
+        public void CanConstructVectors()
         {
-            NativeMemory<float> buffer = new NativeMemory<float>(3);
-            Span<float> span = buffer.Span;
-            span[0] = 1f;
-            NativeMemoryVectors<float> vectorsBuffer = buffer.AsVectors();
-            Span<Vector<float>> vectors = vectorsBuffer.Span;
+            NativeMemory<uint> memory = new NativeMemory<uint>(1, 11, 94, 5, 0, 0, 0, 8);      
+            NativeMemory<Vector<uint>> v = memory.AsVector();
+            Assert.True(v.Span[0][0] == 1);
+            Assert.True(v.Span[0][1] == 11);
+            Assert.True(v.Span[0][2] == 99994);
         }
 
     }
