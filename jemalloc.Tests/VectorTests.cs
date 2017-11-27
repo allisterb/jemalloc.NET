@@ -16,10 +16,10 @@ namespace jemalloc.Tests
         public void CanConstructVectors()
         {
             NativeMemory<uint> memory = new NativeMemory<uint>(1, 11, 94, 5, 0, 0, 0, 8);      
-            NativeMemory<Vector<uint>> v = memory.AsVector();
-            Assert.True(v.Span[0][0] == 1);
-            Assert.True(v.Span[0][1] == 11);
-            Assert.True(v.Span[0][2] == 99994);
+            Vector<uint> v = memory.AsVector();
+            Assert.True(v[0] == 1);
+            Assert.True(v[1] == 11);
+            Assert.True(v[2] == 94);
         }
 
     }

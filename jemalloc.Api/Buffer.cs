@@ -86,37 +86,6 @@ namespace jemalloc
                 pointer = (byte*)handle;
             }
         }
-
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        public void ReleasePointer()
-        {
-            Contract.Requires(handle != IntPtr.Zero);
-            DangerousRelease();
-        }
-
-        // FCALL limitations mean we can't have generic FCALL methods.  However, we can pass 
-        // TypedReferences to FCALL methods.
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        internal unsafe static void GenericPtrToStructure(byte* ptr, out T structure, uint sizeofT)
-        {
-            structure = default; 
-            PtrToStructureNative(ptr, __makeref(structure), sizeofT);
-        }
-
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        internal unsafe static void GenericStructureToPtr(ref T structure, byte* ptr, uint sizeofT)
-        {
-            StructureToPtrNative(__makeref(structure), ptr, sizeofT);
-        }
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        private unsafe static extern void PtrToStructureNative(byte* ptr, /*out T*/ TypedReference structure, uint sizeofT);
-
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        private unsafe static extern void StructureToPtrNative(TypedReference structure, byte* ptr, uint sizeofT);
         #endregion
 
         #region Fields

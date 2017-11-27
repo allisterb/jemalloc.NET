@@ -112,16 +112,16 @@ namespace jemalloc.Buffers
             return new DenseTensor<T>(this.Memory, new ReadOnlySpan<int>(dimensions), false);
         }
 
-        public unsafe NativeMemory<Vector<T>> AsVector()
+        public unsafe Vector<T> AsVector()
         {
-            int c = Length >= Vector<T>.Count ? Vector<T>.Count : Length;
-            IntPtr pointer = new IntPtr(Pin().Pointer);
-            Vector<T> v = new Vector<T>(Element);
-            NativeMemory<Vector<T>> vector = new NativeMemory<Vector<T>>(1);
-            Span<Vector<T>> span = vector.Span;
-            object[] args = new object[2] { pointer, 0 };
-            span[0] = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
-            return vector;
+            if (length < Vector<T>.Count)
+            {
+                throw new InvalidOperationException($"The length of the memory buffer must be at least {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            Retain();
+            object[] args = new object[2] { ptr, 0 };
+            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
+            return v;
         }
 
         protected virtual IntPtr Allocate()
@@ -131,9 +131,24 @@ namespace jemalloc.Buffers
             return ptr;
         }
 
-        protected virtual void OnNoReferences() {}        
+        protected virtual void OnNoReferences() {}
+        
         #endregion
 
+        #region Fields
+        protected static readonly Type CLRType = typeof(T);
+        protected static readonly T Element = default;
+        protected static readonly int ElementSizeInBytes = Marshal.SizeOf(Element);
+        private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null,
+            new Type[] { typeof(void*), typeof(int) }, null);
+        IntPtr ptr;
+
+        int length;
+        ulong sizeInBytes;
+        int referenceCount;
+        bool disposed;
+
+        #endregion
 
         #region Disposer and finalizer
         protected override void Dispose(bool disposing)
@@ -155,21 +170,5 @@ namespace jemalloc.Buffers
             Dispose(false);
         }
         #endregion
-
-        #region Fields
-        protected static readonly Type CLRType = typeof(T);
-        protected static readonly T Element = default;
-        protected static readonly int ElementSizeInBytes = Marshal.SizeOf(Element);
-        private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, 
-            new Type[] { typeof(void*), typeof(int) }, null);
-        IntPtr ptr;
-
-        int length;
-        ulong sizeInBytes;
-        int referenceCount;
-        bool disposed;
-
-        #endregion
-
     }
 }
