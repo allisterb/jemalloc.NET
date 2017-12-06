@@ -106,22 +106,32 @@ namespace jemalloc.Buffers
         #endregion
 
         #region Methods
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Tensor<T> AsTensor(params int[] dimensions)
         {
             Retain();
             return new DenseTensor<T>(this.Memory, new ReadOnlySpan<int>(dimensions), false);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe Vector<T> AsVector()
         {
-            if (length < Vector<T>.Count)
+            int count = Vector<T>.Count;
+            if (!NumericTypes.Contains(CLRType))
             {
-                throw new InvalidOperationException($"The length of the memory buffer must be at least {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+                throw new InvalidOperationException($"{CLRType.Name} is not a numeric type.");
             }
-            Retain();
-            object[] args = new object[2] { ptr, 0 };
-            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
-            return v;
+            else if (length != count)
+            {
+                throw new InvalidOperationException($"The length of the memory buffer must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            else
+            {
+                Retain();
+                object[] args = new object[2] { ptr, 0 };
+                Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
+                return v;
+            }
         }
 
         protected virtual IntPtr Allocate()
@@ -132,7 +142,25 @@ namespace jemalloc.Buffers
         }
 
         protected virtual void OnNoReferences() {}
+
         
+        protected bool IsNumericType()
+        {
+
+            if (
+                CLRType == ByteCLRType || CLRType == SByteCLRType ||
+                CLRType == UInt16CLRType || CLRType == Int16CLRType ||
+                CLRType == UInt32CLRType || CLRType == Int32CLRType ||
+                CLRType == UInt64CLRType || CLRType == Int64CLRType
+            )
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
         #endregion
 
         #region Fields
@@ -141,8 +169,23 @@ namespace jemalloc.Buffers
         protected static readonly int ElementSizeInBytes = Marshal.SizeOf(Element);
         private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null,
             new Type[] { typeof(void*), typeof(int) }, null);
+        private static readonly Type ByteCLRType = typeof(Byte);
+        private static readonly Type SByteCLRType = typeof(SByte);
+        private static readonly Type Int16CLRType = typeof(Int16);
+        private static readonly Type UInt16CLRType = typeof(UInt16);
+        private static readonly Type Int32CLRType = typeof(Int32);
+        private static readonly Type UInt32CLRType = typeof(UInt32);
+        private static readonly Type Int64CLRType = typeof(Int64);
+        private static readonly Type UInt64CLRType = typeof(UInt64);
+        private static readonly Type SingleCLRType = typeof(Single);
+        private static readonly Type DoubleCLRType = typeof(Double);
+        private static readonly Type StringCLRType = typeof(String);
+        private static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
+        {
+            ByteCLRType, SByteCLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
+            SingleCLRType, DoubleCLRType
+        });
         IntPtr ptr;
-
         int length;
         ulong sizeInBytes;
         int referenceCount;

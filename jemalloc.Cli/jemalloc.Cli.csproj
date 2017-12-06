@@ -17,8 +17,19 @@
     <OutputPath>..\x64\Debug</OutputPath>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutputPath>..\x64\Release</OutputPath>
+    <LangVersion>default</LangVersion>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.10.10" />
+    <Compile Remove="BenchmarkDotNet.Artifacts\**" />
+    <EmbeddedResource Remove="BenchmarkDotNet.Artifacts\**" />
+    <None Remove="BenchmarkDotNet.Artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.10.11" />
     <PackageReference Include="CommandLineParser" Version="2.1.1-beta" />
     <PackageReference Include="Serilog" Version="2.5.0" />
     <PackageReference Include="Serilog.Enrichers.Process" Version="2.0.1" />
@@ -27,7 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\jemalloc.Api\jemalloc.Api.csproj" />
+    <ProjectReference Include="..\jemalloc.Benchmarks\jemalloc.Benchmarks.csproj" />
   </ItemGroup>
 
 </Project>

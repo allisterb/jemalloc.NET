@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Security;
@@ -8,11 +9,83 @@ using System.Text;
 
 namespace jemalloc
 {
+    #region Types and Enums
+    public class CallerInformation
+    {
+        public string Name;
+        public string File;
+        public int LineNumber;
+
+        public CallerInformation(string name, string file, int line_number)
+        {
+            this.Name = name;
+            this.File = file;
+            this.LineNumber = line_number;
+        }
+
+        public override string ToString()
+        {
+            return Je.GetCallerDetails(this);
+        }
+    }
+
+    internal enum ERRNO
+    {
+        ENONE = 0,
+        EPERM = 1,
+        ENOENT = 2,
+        ESRCH = 3,
+        EINTR = 4,
+        EIO = 5,
+        ENXIO = 6,
+        E2BIG = 7,
+        ENOEXEC = 8,
+        EBADF = 9,
+        ECHILD = 10,
+        EAGAIN = 11,
+        ENOMEM = 12,
+        EACCES = 13,
+        EFAULT = 14,
+        EBUSY = 16,
+        EEXIST = 17,
+        EXDEV = 18,
+        ENODEV = 19,
+        ENOTDIR = 20,
+        EISDIR = 21,
+        ENFILE = 23,
+        EMFILE = 24,
+        ENOTTY = 25,
+        EFBIG = 27,
+        ENOSPC = 28,
+        ESPIPE = 29,
+        EROFS = 30,
+        EMLINK = 31,
+        EPIPE = 32,
+        EDOM = 33,
+        EDEADLK = 36,
+        ENAMETOOLONG = 38,
+        ENOLCK = 39,
+        ENOSYS = 40,
+        ENOTEMPTY = 41
+    }
+
+    [Flags]
+    public enum ALLOC_FLAGS
+    {
+        ZERO,
+        DETAILS
+    }
+    #endregion
+
     public unsafe static partial class Je
     {
         #region Constructor
         static Je()
         {
+            if (!File.Exists(@".\jemallocd.dll"))
+            {
+                File.Copy(@"C:\Projects\jemalloc.NET\x64\Debug\jemallocd.dll", @".\jemallocd.dll");
+            }
             __Internal.JeMallocMessage += messagesCallback;
         }
         #endregion
@@ -28,7 +101,8 @@ namespace jemalloc
             {
                 lock (allocationsLock)
                 {
-                    Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                    Allocations.Add(__ret);
+                    //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
                 }
                 return __ret;
             }
@@ -46,7 +120,8 @@ namespace jemalloc
             {
                 lock (allocationsLock)
                 {
-                    Allocations.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
+                    Allocations.Add(__ret);
+                    //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
                 }
                 return __ret;
             }
@@ -75,9 +150,18 @@ namespace jemalloc
             return __ret;
         }
 
-        public static void Free(global::System.IntPtr ptr, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        public static bool Free(global::System.IntPtr ptr, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            __Internal.JeFree(ptr);
+            if (Allocations.Contains(ptr))
+            {
+                __Internal.JeFree(ptr);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+            
         }
 
         public static global::System.IntPtr Mallocx(ulong size, int flags)
@@ -160,6 +244,20 @@ namespace jemalloc
         #endregion
 
         #region High-level API
+        public static void Init(string conf)
+        {
+            if (!Initialized)
+            {
+                MallocConf = conf;
+                Initialized = true;
+            }
+        }
+
+        public static void Init(ALLOC_FLAGS flags, string conf = null)
+        {
+            Flags = flags;
+        }
+
         public static string MallocStatsPrint()
         {
             return MallocStatsPrint(string.Empty);
@@ -194,9 +292,8 @@ namespace jemalloc
         public static int GetMallCtlInt32(string name)
         {
             void* i = stackalloc int[1];
-            IntPtr retp = new IntPtr(i);
             ulong size = sizeof(Int32);
-            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
             return *(Int32*)(i);
         }
 
@@ -209,30 +306,28 @@ namespace jemalloc
         public static UInt64 GetMallCtlUInt64(string name)
         {
             void* i = stackalloc UInt64[1];
-            IntPtr retp = new IntPtr(i);
             ulong size = sizeof(UInt64);
-            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
             return *(UInt64*)(i);
         }
 
         public static Int64 GetMallCtlSInt64(string name)
         {
             void* i = stackalloc Int64[1];
-            IntPtr retp = new IntPtr(i);
             ulong size = sizeof(Int64);
-            Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
             return *(Int64*)(i);
         }
 
         public static string GetMallCtlStr(string name)
         {
-            IntPtr* p = stackalloc IntPtr[1];
+            void* p = stackalloc IntPtr[1];
             IntPtr retp = new IntPtr(p);
             ulong size = (ulong)sizeof(IntPtr);
-            int ret = Mallctl(name, retp, ref size, IntPtr.Zero, 0);
+            int ret = Mallctl(name, (IntPtr) p, ref size, IntPtr.Zero, 0);
             if ((ERRNO)ret == ERRNO.ENONE)
             {
-                return Marshal.PtrToStringAnsi(*p);
+                return Marshal.PtrToStringAnsi(*(IntPtr*)p);
             }
             else
             {
@@ -240,18 +335,25 @@ namespace jemalloc
             }
         }
 
-        public static void Init(string conf)
+        public static int TryFreeAll()
         {
-            if (!Initialized)
+            int c = Allocations.Count;
+            foreach (IntPtr p in Allocations)
             {
-                MallocConf = conf;
-                Initialized = true;
+                Je.Free(p);
             }
+            Allocations = new HashSet<IntPtr>();
+            return c;
         }
 
         #endregion
 
         #region Utility methods
+        internal static bool AllocFlagSet(ALLOC_FLAGS flag)
+        {
+            return (flag & Flags) == flag;
+        }
+
         internal static Exception GetExceptionForErrNo(ERRNO no)
         {
             switch (no)
@@ -279,6 +381,8 @@ namespace jemalloc
         #region Properties
         public static bool Initialized { get; private set; } = false;
 
+        public static ALLOC_FLAGS Flags;
+
         public static event JeMallocMessageAction MallocMessage;
 
         public static string MallocMessages => mallocMessagesBuilder.ToString();
@@ -289,14 +393,15 @@ namespace jemalloc
             MallocMessage.Invoke(m);
         };
 
+        public static HashSet<IntPtr> Allocations { get; private set; } = new HashSet<IntPtr>();
 
-        public static List<Tuple<IntPtr, ulong, CallerInformation>> Allocations { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
+        public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         
         public static bool PtrIsAllocated(IntPtr ptr)
         {
             lock (allocationsLock)
             {
-                return Allocations.Any(a => a.Item1 == ptr);
+                return Allocations.Any(a => a == ptr);
             }
         }
         #endregion
@@ -304,67 +409,6 @@ namespace jemalloc
         #region Fields
         private static object allocationsLock = new object();
         private static StringBuilder mallocMessagesBuilder = new StringBuilder();
-        #endregion
-
-        #region Types and Enums
-        internal enum ERRNO
-        {
-            ENONE = 0,
-            EPERM = 1,
-            ENOENT = 2,
-            ESRCH = 3,
-            EINTR = 4,
-            EIO = 5,
-            ENXIO = 6,
-            E2BIG = 7,
-            ENOEXEC = 8,
-            EBADF = 9,
-            ECHILD = 10,
-            EAGAIN = 11,
-            ENOMEM = 12,
-            EACCES = 13,
-            EFAULT = 14,
-            EBUSY = 16,
-            EEXIST = 17,
-            EXDEV = 18,
-            ENODEV = 19,
-            ENOTDIR = 20,
-            EISDIR = 21,
-            ENFILE = 23,
-            EMFILE = 24,
-            ENOTTY = 25,
-            EFBIG = 27,
-            ENOSPC = 28,
-            ESPIPE = 29,
-            EROFS = 30,
-            EMLINK = 31,
-            EPIPE = 32,
-            EDOM = 33,
-            EDEADLK = 36,
-            ENAMETOOLONG = 38,
-            ENOLCK = 39,
-            ENOSYS = 40,
-            ENOTEMPTY = 41
-        }
-
-        public class CallerInformation
-        {
-            public string Name;
-            public string File;
-            public int LineNumber;
-
-            public CallerInformation(string name, string file, int line_number)
-            {
-                this.Name = name;
-                this.File = file;
-                this.LineNumber = line_number;
-            }
-
-            public override string ToString()
-            {
-                return GetCallerDetails(this);
-            }
-        }
         #endregion
     }
 }

@@ -20,5 +20,11 @@ namespace jemalloc.Cli
 
     }
 
+    [Verb("bench", HelpText = "Benchmark.")]
+    class BenchmarkOptions : Options
+    {
+ 
+    }
+
 
 }

@@ -29,7 +29,6 @@ namespace jemalloc.Tests
             CurrentProcess.Refresh();
             Assert.True((CurrentProcess.PrivateMemorySize64 - init_privateMemorySize) >= size);
             Assert.True(allocated > (ulong)size);
-            Assert.Equal("CanMallocandFree", Je.Allocations[0].Item3.Name);
             Je.Free(p);
         }
 

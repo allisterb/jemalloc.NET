@@ -6,6 +6,12 @@ using System.Reflection;
 using Serilog;
 using CommandLine;
 using CommandLine.Text;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Reports;
+
+using jemalloc.Benchmarks;
 
 namespace jemalloc.Cli
 {
@@ -32,7 +38,7 @@ namespace jemalloc.Cli
                 .MinimumLevel.Debug()
                 .WriteTo.Console(outputTemplate: "{Timestamp:HH:mm:ss}<{ThreadId:d2}> [{Level:u3}] {Message}{NewLine}{Exception}");
             L = Log.Logger = LConfig.CreateLogger();
-            ParserResult<object> result = new Parser().ParseArguments<Options, MallocOptions>(args);
+            ParserResult<object> result = new Parser().ParseArguments<Options, BenchmarkOptions, MallocOptions>(args);
             result.WithNotParsed((IEnumerable<Error> errors) =>
             {
                 HelpText help = GetAutoBuiltHelpText(result);
@@ -89,9 +95,23 @@ namespace jemalloc.Cli
                     L.Information(help);
                     Exit(ExitResult.INVALID_OPTIONS);
                 }
+            }).WithParsed<BenchmarkOptions>(o =>
+            {
+                Benchmark();
             });
 
 
+        }
+
+        static void Benchmark()
+        {
+            /*
+            IConfig config = ManualConfig.Create(DefaultConfig.Instance)
+                .With(Job.Core)
+                .With()
+                */
+            Summary summary = BenchmarkRunner.Run<MallocBenchmarks>();
+            
         }
 
         static void Exit(ExitResult result)

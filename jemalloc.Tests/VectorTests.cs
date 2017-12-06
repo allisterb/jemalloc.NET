@@ -8,6 +8,7 @@ using System.Text;
 using Xunit;
 
 using jemalloc.Buffers;
+
 namespace jemalloc.Tests
 {
     public class VectorTests
@@ -20,7 +21,12 @@ namespace jemalloc.Tests
             Assert.True(v[0] == 1);
             Assert.True(v[1] == 11);
             Assert.True(v[2] == 94);
+            Assert.Equal(1, Je.TryFreeAll());
+            NativeMemory<Vector<uint>> vectors = new NativeMemory<Vector<uint>>(4);
+            vectors.Retain();
+            //vectors.Span[0]
         }
 
+      
     }
 }
