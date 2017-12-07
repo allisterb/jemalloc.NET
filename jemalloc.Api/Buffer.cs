@@ -23,12 +23,14 @@ namespace jemalloc
         #region Constructors
         protected Buffer(uint length) : base(IntPtr.Zero, true)
         {
-            /*
-            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            
+            if (BufferHelpers.IsReferenceOrContainsReferences<T>())
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
-            }*/
+            }
+            this.Length = length;
             base.SetHandle(Allocate());
+            
         }
         #endregion
 
@@ -59,7 +61,7 @@ namespace jemalloc
         #region Methods
         protected virtual IntPtr Allocate()
         {
-            handle = Je.Calloc(Length, (ulong) ElementSizeInBytes);
+            handle = Je.Calloc(Length, ElementSizeInBytes);
             sizeInBytes = Length * ElementSizeInBytes;
             return handle;
         }
@@ -108,12 +110,27 @@ namespace jemalloc
             SingleCLRType, DoubleCLRType
         });
         private ulong sizeInBytes = 0;
+        
         #endregion
 
         #region Operators
-
+        public ref T this[int index]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if (handle == IntPtr.Zero)
+                    throw new InvalidOperationException("The handle has been disposed.");
+                if ((uint)index >= (Length))
+                    throw new IndexOutOfRangeException();
+                unsafe
+                {
+                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(handle.ToPointer()), index);
+                }
+            }
+        }
         #endregion
 
-        
+
     }
 }

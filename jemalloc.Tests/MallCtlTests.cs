@@ -16,15 +16,14 @@ namespace jemalloc.Tests
         [Fact]
         public void CanReadMallCtlBool()
         {
-            Assert.Equal(true, Je.GetMallCtlBool("config.debug"));
-            Assert.Equal(false, Je.GetMallCtlBool("config.valgrind"));
+            Assert.True(Je.GetMallCtlBool("config.debug"));
+            Assert.False(Je.GetMallCtlBool("config.valgrind"));
         }
 
         [Fact]
         public void CanReadMallCtlStr()
         {
-            string version = Je.GetMallCtlStr("version");
-            Assert.True(version.StartsWith("5"));
+            Assert.StartsWith("5", Je.GetMallCtlStr("version"));
         }
     }
 }

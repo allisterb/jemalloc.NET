@@ -38,7 +38,7 @@ namespace jemalloc.Cli
                 .MinimumLevel.Debug()
                 .WriteTo.Console(outputTemplate: "{Timestamp:HH:mm:ss}<{ThreadId:d2}> [{Level:u3}] {Message}{NewLine}{Exception}");
             L = Log.Logger = LConfig.CreateLogger();
-            ParserResult<object> result = new Parser().ParseArguments<Options, BenchmarkOptions, MallocOptions>(args);
+            ParserResult<object> result = new Parser().ParseArguments<Options, MallocBenchmarkOptions>(args);
             result.WithNotParsed((IEnumerable<Error> errors) =>
             {
                 HelpText help = GetAutoBuiltHelpText(result);
@@ -62,13 +62,13 @@ namespace jemalloc.Cli
                 }
                 else if (errors.Any(e => e.Tag == ErrorType.HelpRequestedError))
                 {
-                    help.AddVerbs(typeof(MallocOptions));
+                    help.AddVerbs(typeof(MallocBenchmarkOptions));
                     L.Information(help);
                     Exit(ExitResult.SUCCESS);
                 }
                 else if (errors.Any(e => e.Tag == ErrorType.NoVerbSelectedError))
                 {
-                    help.AddVerbs(typeof(MallocOptions));
+                    help.AddVerbs(typeof(MallocBenchmarkOptions));
                     L.Error("No operation selected. Specify one of: malloc, calloc, gen.");
                     L.Information(help);
                     Exit(ExitResult.INVALID_OPTIONS);
@@ -83,7 +83,7 @@ namespace jemalloc.Cli
                 else if (errors.Any(e => e.Tag == ErrorType.UnknownOptionError))
                 {
                     UnknownOptionError error = (UnknownOptionError)errors.First(e => e.Tag == ErrorType.UnknownOptionError);
-                    help.AddVerbs(typeof(MallocOptions));
+                    help.AddVerbs(typeof(MallocBenchmarkOptions));
                     L.Error("Unknown option: {error}.", error.Token);
                     L.Information(help);
                     Exit(ExitResult.INVALID_OPTIONS);
@@ -91,11 +91,11 @@ namespace jemalloc.Cli
                 else
                 {
                     L.Error("An error occurred parsing the program options: {errors}.", errors);
-                    help.AddVerbs(typeof(MallocOptions));
+                    help.AddVerbs(typeof(MallocBenchmarkOptions));
                     L.Information(help);
                     Exit(ExitResult.INVALID_OPTIONS);
                 }
-            }).WithParsed<BenchmarkOptions>(o =>
+            }).WithParsed<MallocBenchmarkOptions>(o =>
             {
                 Benchmark();
             });
@@ -110,7 +110,7 @@ namespace jemalloc.Cli
                 .With(Job.Core)
                 .With()
                 */
-            Summary summary = BenchmarkRunner.Run<MallocBenchmarks>();
+            Summary summary = BenchmarkRunner.Run<MallocVsArrayBenchmarks>();
             
         }
 

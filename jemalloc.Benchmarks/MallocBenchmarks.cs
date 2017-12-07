@@ -10,14 +10,14 @@ using BenchmarkDotNet.Engines;
 namespace jemalloc.Benchmarks
 {
     [CoreJob]
-    public class MallocBenchmarks
+    [MemoryDiagnoser]
+    public class MallocVsArrayBenchmarks
     {
-        //[Params(10, 510, 1010, 1510, 2010, 2510, 3010, 3510, 4010, 6000, 16000, 26000, 36000, 46000, 56000, 66000, 76000, 86000, 96000)]
-        [Params(10, 510)]
+        [Params(100000, 200000, 500000, 1000000)]
         public int ArraySize { get; set; }
 
-        [Benchmark]
-        public int AllocManagedArray()
+        [Benchmark(Description = "Create array of integers on the managed heap and fill with a single value.", Baseline = true)]
+        public void CreateAndFillManagedArray()
         {
             int value = ArraySize / 2;
             int[] someNumbers = new int[ArraySize];
@@ -25,22 +25,22 @@ namespace jemalloc.Benchmarks
             {
                 someNumbers[i] = value;
             }
-            return someNumbers[value];
+            int r =  someNumbers[value];
         }
 
-        /*
-        [Benchmark]
-        public int Malloc()
+        
+        [Benchmark(Description = "Allocate memory on the system unmanaged heap with access via Span<int> and fill with a single value.")]
+        public void MallocAndFillSpan()
         {
             int value = ArraySize / 2;
-            NativeArray<int> someNumbers = new NativeArray<int>((uint)ArraySize);
-            Span<int> s = someNumbers.Span();
-            for (int i = 0; i < someNumbers.Length; i++)
-            {
-                s[i] = value;
-            }
-            return s[value];
+            ulong msize = (ulong)(ArraySize * sizeof(int));
+            IntPtr ptr = Je.Malloc(msize);
+            Span<int> s = Je.GetSpanFromPtr<int>(ptr, ArraySize);
+            
+            s.Fill(value);
+            int r = s[value];
+            Je.Free(ptr);
         }
-        */
+        
     }
 }

@@ -163,6 +163,23 @@ namespace jemalloc.Buffers
         }
         #endregion
 
+        #region Operators
+        public ref T this[int index]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                Contract.Requires(!IsDisposed);
+                if ((uint)index >= (Length))
+                    throw new IndexOutOfRangeException();
+                unsafe
+                {
+                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr.ToPointer()), index);
+                }
+            }
+        }
+        #endregion
+
         #region Fields
         protected static readonly Type CLRType = typeof(T);
         protected static readonly T Element = default;

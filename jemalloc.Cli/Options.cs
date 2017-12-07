@@ -12,18 +12,16 @@ namespace jemalloc.Cli
 
     }
 
-    [Verb("malloc", HelpText = "Allocate memory and print process statistics.")]
-    class MallocOptions : Options
+    [Verb("malloc", HelpText = "Benchmark data structures backed by native memory allocated using jemalloc vs. .NET managed arrays, vectors, and tensors.")]
+    class MallocBenchmarkOptions : Options
     {
-        [Option('s', "size", Required = true, HelpText = "The amount of memory in KB to allocate.")]
-        public ulong MemorySize { get; set; }
+        [Option('i', "int", Required = false, HelpText = "Use Int32 integers as the underlying data type.")]
+        public bool Integer { get; set; }
 
-    }
 
-    [Verb("bench", HelpText = "Benchmark.")]
-    class BenchmarkOptions : Options
-    {
- 
+        [Value(0, Required = false, HelpText = "The sizes of data structures to .")]
+        public IEnumerable<int> Sizes { get; set; }
+
     }
 
 

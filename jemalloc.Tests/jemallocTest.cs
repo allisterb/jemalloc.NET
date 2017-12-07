@@ -12,5 +12,7 @@ namespace jemalloc.Tests
         {
             Je.Init("tcache:false,narenas:3");  
         }
+
+        
     }
 }
