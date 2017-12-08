@@ -38,15 +38,14 @@ namespace jemalloc
             return Je.Free(handle);        
         }
 
+
         public override bool IsInvalid => handle == IntPtr.Zero;
         #endregion
 
         #region Properties
         public uint Length { get; protected set; }
         public ulong SizeInBytes
-        {
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-            get
+        {            get
             {
                 return sizeInBytes;
             }
@@ -62,7 +61,7 @@ namespace jemalloc
             return new InvalidOperationException("The handle is invalid.");
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+       
         protected virtual IntPtr Allocate()
         {
             handle = Je.Calloc(Length, ElementSizeInBytes);
@@ -77,7 +76,7 @@ namespace jemalloc
             return new Span<T>((void*)handle, (int) Length);
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+        
         public unsafe void AcquirePointer(ref byte* pointer)
         {
             if (IsInvalid)
@@ -85,16 +84,9 @@ namespace jemalloc
                 HandleIsInvalid();
             }
             pointer = null;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-            }
-            finally
-            {
-                bool result = false;
-                DangerousAddRef(ref result);
-                pointer = (byte*)handle;
-            }
+            bool result = false;
+            DangerousAddRef(ref result);
+            pointer = (byte*)handle;            
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]

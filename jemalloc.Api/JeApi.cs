@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -100,11 +101,10 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeMalloc(size);
             if (__ret != IntPtr.Zero)
             {
-                lock (allocationsLock)
-                {
+                
                     Allocations.Add(__ret);
                     //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
-                }
+                
                 return __ret;
             }
             else
@@ -162,7 +162,7 @@ namespace jemalloc
             }
             finally
             {
-                if (Allocations.Contains(ptr))
+                if (Allocations.TryTake(out ptr))
                 {
                     __Internal.JeFree(ptr);
                     ret = true;
@@ -354,7 +354,7 @@ namespace jemalloc
             {
                 Je.Free(p);
             }
-            Allocations = new HashSet<IntPtr>();
+           
             return c;
         }
 
@@ -417,7 +417,7 @@ namespace jemalloc
             MallocMessage.Invoke(m);
         };
 
-        public static HashSet<IntPtr> Allocations { get; private set; } = new HashSet<IntPtr>();
+        public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         
