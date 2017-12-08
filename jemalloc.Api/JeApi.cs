@@ -4,6 +4,7 @@ using System.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
 using System.Security;
 using System.Text;
 
@@ -150,18 +151,29 @@ namespace jemalloc
             return __ret;
         }
 
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         public static bool Free(global::System.IntPtr ptr, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            if (Allocations.Contains(ptr))
+            bool ret = false;
+            RuntimeHelpers.PrepareConstrainedRegions();
+            try
             {
-                __Internal.JeFree(ptr);
-                return true;
+
             }
-            else
+            finally
             {
-                return false;
+                if (Allocations.Contains(ptr))
+                {
+                    __Internal.JeFree(ptr);
+                    ret = true;
+
+                }
+                else
+                {
+                    ret = false;
+                }
             }
-            
+            return ret;
         }
 
         public static global::System.IntPtr Mallocx(ulong size, int flags)

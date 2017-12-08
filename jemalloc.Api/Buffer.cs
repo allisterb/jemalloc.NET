@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
@@ -23,23 +22,20 @@ namespace jemalloc
         #region Constructors
         protected Buffer(uint length) : base(IntPtr.Zero, true)
         {
-            
             if (BufferHelpers.IsReferenceOrContainsReferences<T>())
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
             }
             this.Length = length;
             base.SetHandle(Allocate());
-            
         }
         #endregion
 
         #region Overriden members
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected override bool ReleaseHandle()
         {
-            Je.Free(handle);
-            handle = IntPtr.Zero;
-            return true;
+            return Je.Free(handle);        
         }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
@@ -55,10 +51,18 @@ namespace jemalloc
                 return sizeInBytes;
             }
         }
-        public AllocationType AllocationType { get; protected set; }
+        public AllocationType AllocationType { get; protected set; } = AllocationType.HEAP;
         #endregion
 
         #region Methods
+  
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        private static InvalidOperationException HandleIsInvalid()
+        {
+            return new InvalidOperationException("The handle is invalid.");
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected virtual IntPtr Allocate()
         {
             handle = Je.Calloc(Length, ElementSizeInBytes);
@@ -68,14 +72,18 @@ namespace jemalloc
 
         public unsafe Span<T> Span()
         {
-            Contract.Requires(handle != IntPtr.Zero);
+            if (IsInvalid)
+                HandleIsInvalid();
             return new Span<T>((void*)handle, (int) Length);
         }
-        
+
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         public unsafe void AcquirePointer(ref byte* pointer)
         {
-            Contract.Requires(handle != IntPtr.Zero);
+            if (IsInvalid)
+            {
+                HandleIsInvalid();
+            }
             pointer = null;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
@@ -83,10 +91,20 @@ namespace jemalloc
             }
             finally
             {
-                bool junk = false;
-                DangerousAddRef(ref junk);
+                bool result = false;
+                DangerousAddRef(ref result);
                 pointer = (byte*)handle;
             }
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        public void ReleasePointer()
+        {
+            if (IsInvalid)
+            {
+                HandleIsInvalid();
+            }
+            DangerousRelease();
         }
         #endregion
 
@@ -119,8 +137,8 @@ namespace jemalloc
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (handle == IntPtr.Zero)
-                    throw new InvalidOperationException("The handle has been disposed.");
+                if (IsInvalid)
+                    throw new InvalidOperationException("The handle is invalid.");
                 if ((uint)index >= (Length))
                     throw new IndexOutOfRangeException();
                 unsafe
@@ -130,7 +148,5 @@ namespace jemalloc
             }
         }
         #endregion
-
-
     }
 }
