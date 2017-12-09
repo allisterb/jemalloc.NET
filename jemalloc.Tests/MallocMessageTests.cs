@@ -11,7 +11,7 @@ namespace jemalloc.Tests
         [Fact]
         public void CanPrintMallocStats()
         {
-            Assert.Contains("opt.narenas: 3", Je.MallocStatsPrint());
+            Assert.Contains("opt.narenas: 3", Jem.MallocStatsPrint());
         }
     }
 }

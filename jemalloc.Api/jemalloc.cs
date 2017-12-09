@@ -39,7 +39,7 @@ namespace jemalloc
     public delegate void JeMallocMessageAction(string m);
     #endregion
 
-    public unsafe static partial class Je
+    public unsafe static partial class Jem
     {
         public partial struct __Internal
         {

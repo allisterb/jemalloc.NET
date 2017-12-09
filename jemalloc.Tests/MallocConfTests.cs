@@ -13,7 +13,7 @@ namespace jemalloc.Tests
         [Fact]
         public void CanGetConf()
         {
-            Assert.Equal("tcache:false,narenas:3", Je.MallocConf);
+            Assert.Equal("tcache:false,narenas:3", Jem.MallocConf);
         }
     }
 }

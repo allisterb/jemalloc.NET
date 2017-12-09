@@ -27,7 +27,7 @@ namespace jemalloc
 
         public override string ToString()
         {
-            return Je.GetCallerDetails(this);
+            return Jem.GetCallerDetails(this);
         }
     }
 
@@ -79,10 +79,10 @@ namespace jemalloc
     }
     #endregion
 
-    public unsafe static partial class Je
+    public unsafe static partial class Jem
     {
         #region Constructor
-        static Je()
+        static Jem()
         {
             if (!File.Exists(@".\jemallocd.dll"))
             {
@@ -352,7 +352,7 @@ namespace jemalloc
             int c = Allocations.Count;
             foreach (IntPtr p in Allocations)
             {
-                Je.Free(p);
+                Jem.Free(p);
             }
            
             return c;

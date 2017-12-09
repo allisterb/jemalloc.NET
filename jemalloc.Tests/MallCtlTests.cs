@@ -10,20 +10,20 @@ namespace jemalloc.Tests
         [Fact]
         public void CanReadMallCtlInt32()
         {
-            Assert.Equal(3, Je.GetMallCtlInt32("opt.narenas"));
+            Assert.Equal(3, Jem.GetMallCtlInt32("opt.narenas"));
         }
 
         [Fact]
         public void CanReadMallCtlBool()
         {
-            Assert.True(Je.GetMallCtlBool("config.debug"));
-            Assert.False(Je.GetMallCtlBool("config.valgrind"));
+            Assert.True(Jem.GetMallCtlBool("config.debug"));
+            Assert.False(Jem.GetMallCtlBool("config.valgrind"));
         }
 
         [Fact]
         public void CanReadMallCtlStr()
         {
-            Assert.StartsWith("5", Je.GetMallCtlStr("version"));
+            Assert.StartsWith("5", Jem.GetMallCtlStr("version"));
         }
     }
 }

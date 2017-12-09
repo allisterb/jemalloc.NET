@@ -35,7 +35,7 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected override bool ReleaseHandle()
         {
-            return Je.Free(handle);        
+            return Jem.Free(handle);        
         }
 
 
@@ -64,7 +64,7 @@ namespace jemalloc
        
         protected virtual IntPtr Allocate()
         {
-            handle = Je.Calloc(Length, ElementSizeInBytes);
+            handle = Jem.Calloc(Length, ElementSizeInBytes);
             sizeInBytes = Length * ElementSizeInBytes;
             return handle;
         }

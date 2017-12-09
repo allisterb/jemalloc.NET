@@ -136,7 +136,7 @@ namespace jemalloc.Buffers
 
         protected virtual IntPtr Allocate()
         {
-            ptr = Je.Calloc((ulong)length, (ulong) ElementSizeInBytes);
+            ptr = Jem.Calloc((ulong)length, (ulong) ElementSizeInBytes);
             sizeInBytes = (ulong)Length * (ulong) ElementSizeInBytes;
             return ptr;
         }
@@ -219,7 +219,7 @@ namespace jemalloc.Buffers
             }
             if (ptr != null)
             {
-                Je.Free(ptr);
+                Jem.Free(ptr);
             }
             ptr = IntPtr.Zero;
             disposed = disposing;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reflection;
 
@@ -24,9 +25,15 @@ namespace jemalloc.Cli
             INVALID_OPTIONS = 2
         }
 
+        public enum Operation
+        {
+            MALLOC
+        }
+    
         static Version Version = Assembly.GetExecutingAssembly().GetName().Version;
         static LoggerConfiguration LConfig;
         static ILogger L;
+        static Dictionary<string, object> BenchmarkOptions = new Dictionary<string, object>();
 
         static void Main(string[] args)
         {
@@ -95,8 +102,18 @@ namespace jemalloc.Cli
                     L.Information(help);
                     Exit(ExitResult.INVALID_OPTIONS);
                 }
-            }).WithParsed<MallocBenchmarkOptions>(o =>
+            })
+            .WithParsed((Options o) =>
             {
+              
+                foreach (PropertyInfo prop in o.GetType().GetProperties())
+                {
+                    BenchmarkOptions.Add(prop.Name, prop.GetValue(o));
+                }
+            })
+            .WithParsed<MallocBenchmarkOptions>(o =>
+            {
+                BenchmarkOptions.Add("Operation", Operation.MALLOC);
                 Benchmark();
             });
 
@@ -105,12 +122,17 @@ namespace jemalloc.Cli
 
         static void Benchmark()
         {
-            /*
-            IConfig config = ManualConfig.Create(DefaultConfig.Instance)
-                .With(Job.Core)
-                .With()
-                */
-            Summary summary = BenchmarkRunner.Run<MallocVsArrayBenchmarks>();
+            Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
+            switch ((Operation) BenchmarkOptions["Operation"])
+            {
+                case Operation.MALLOC:
+                    MallocVsArrayBenchmarks<int>.BenchmarkParameters = new int[] { 100000 };
+                    Summary summary = BenchmarkRunner.Run<MallocVsArrayBenchmarks<int>>();
+                    break;
+                default:
+                    throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]}.");
+            }
+            
             
         }
 

@@ -909,7 +909,7 @@ namespace jemalloc
             private static IntPtr MeasureArrayAdjustment()
             {
                 T[] sampleArray = new T[1];
-                return Unsafe.ByteOffset<T>(ref Unsafe.As<JePinnable<T>>(sampleArray).Data, ref sampleArray[0]);
+                return Unsafe.ByteOffset<T>(ref Unsafe.As<JemPinnable<T>>(sampleArray).Data, ref sampleArray[0]);
             }
         }
 

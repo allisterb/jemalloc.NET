@@ -1,5 +1,5 @@
 ﻿using System;
-using System.IO;
+using System.Collections.Generic;
 
 using BenchmarkDotNet;
 using BenchmarkDotNet.Attributes;
@@ -9,37 +9,35 @@ using BenchmarkDotNet.Engines;
 
 namespace jemalloc.Benchmarks
 {
-    [CoreJob]
-    [MemoryDiagnoser]
-    public class MallocVsArrayBenchmarks
+    
+    public class MallocVsArrayBenchmarks<T> : JemBenchmark<T, int> where T : struct
     {
-        [Params(100000, 200000, 500000, 1000000)]
-        public int ArraySize { get; set; }
+        public int ArraySize  => Parameter;
 
-        [Benchmark(Description = "Create array of integers on the managed heap and fill with a single value.", Baseline = true)]
+        [Benchmark(Description = "Create array of data on the managed heap and fill with a single value.", Baseline = true)]
         public void CreateAndFillManagedArray()
         {
-            int value = ArraySize / 2;
-            int[] someNumbers = new int[ArraySize];
-            for (int i = 0; i < someNumbers.Length; i++)
+            T value = default;
+            T[] someData = new T[ArraySize];
+            for (int i = 0; i < someData.Length; i++)
             {
-                someNumbers[i] = value;
+                someData[i] = value;
             }
-            int r =  someNumbers[value];
+            T r =  someData[ArraySize / 2];
         }
 
         
-        [Benchmark(Description = "Allocate memory on the system unmanaged heap with access via Span<int> and fill with a single value.")]
+        [Benchmark(Description = "Allocate memory on the system unmanaged heap with access via Span<T> and fill with a single value.")]
         public void MallocAndFillSpan()
         {
             int value = ArraySize / 2;
             ulong msize = (ulong)(ArraySize * sizeof(int));
-            IntPtr ptr = Je.Malloc(msize);
-            Span<int> s = Je.GetSpanFromPtr<int>(ptr, ArraySize);
+            IntPtr ptr = Jem.Malloc(msize);
+            Span<int> s = Jem.GetSpanFromPtr<int>(ptr, ArraySize);
             
             s.Fill(value);
             int r = s[value];
-            Je.Free(ptr);
+            Jem.Free(ptr);
         }
         
     }

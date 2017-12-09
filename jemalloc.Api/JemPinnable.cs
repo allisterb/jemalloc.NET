@@ -7,7 +7,7 @@ using System.Text;
 namespace jemalloc
 {
     [StructLayout(LayoutKind.Sequential)]
-    internal sealed class JePinnable<T>
+    internal sealed class JemPinnable<T>
     {
         public T Data;
     }

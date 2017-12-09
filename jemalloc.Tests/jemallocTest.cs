@@ -10,7 +10,7 @@ namespace jemalloc.Tests
     { 
         public jemallocTest()
         {
-            Je.Init("tcache:false,narenas:3");  
+            Jem.Init("tcache:false,narenas:3");  
         }
 
         
