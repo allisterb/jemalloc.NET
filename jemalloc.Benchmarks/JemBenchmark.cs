@@ -11,7 +11,7 @@ using BenchmarkDotNet.Code;
 
 namespace jemalloc.Benchmarks
 {
-    [InProcess]
+    [JemBenchmarkJob]
     [MemoryDiagnoser]
     public class JemBenchmark<TData, TParam> where TData : struct where TParam : struct
     {
@@ -23,5 +23,11 @@ namespace jemalloc.Benchmarks
         public IEnumerable<IParam> GetParameters() => BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
 
         public static IEnumerable<TParam> BenchmarkParameters { get; set; }
+
+        public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
+        {
+            return typeof(TBench).GetMethods(BindingFlags.Public).Where(m => m.GetCustomAttribute(typeof(BenchmarkAttribute)) != null).Count();
+        }
+
     }
 }

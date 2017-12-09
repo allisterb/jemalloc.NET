@@ -28,6 +28,7 @@ namespace jemalloc
             }
             this.Length = length;
             base.SetHandle(Allocate());
+            
         }
         #endregion
 
@@ -44,12 +45,15 @@ namespace jemalloc
 
         #region Properties
         public uint Length { get; protected set; }
+        public int SLength { get; protected set; }
         public ulong SizeInBytes
         {            get
             {
                 return sizeInBytes;
             }
         }
+        public unsafe void* Ptr { get; protected set; }
+
         public AllocationType AllocationType { get; protected set; } = AllocationType.HEAP;
         #endregion
 
@@ -62,9 +66,10 @@ namespace jemalloc
         }
 
        
-        protected virtual IntPtr Allocate()
+        protected unsafe virtual IntPtr Allocate()
         {
             handle = Jem.Calloc(Length, ElementSizeInBytes);
+            Ptr = handle.ToPointer();
             sizeInBytes = Length * ElementSizeInBytes;
             return handle;
         }
@@ -103,22 +108,8 @@ namespace jemalloc
         #region Fields
         protected static readonly Type CLRType = typeof(T);
         protected static readonly T Element = default;
-        protected static readonly uint ElementSizeInBytes = (uint) Marshal.SizeOf<T>();
+        protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
         protected Func<IntPtr> StackAllocate;
-        private static readonly Type Int16CLRType = typeof(Int16);
-        private static readonly Type UInt16CLRType = typeof(UInt16);
-        private static readonly Type Int32CLRType = typeof(Int32);
-        private static readonly Type UInt32CLRType = typeof(UInt32);
-        private static readonly Type Int64CLRType = typeof(Int64);
-        private static readonly Type UInt64CLRType = typeof(UInt64);
-        private static readonly Type SingleCLRType = typeof(Single);
-        private static readonly Type DoubleCLRType = typeof(Double);
-        private static readonly Type StringCLRType = typeof(String);
-        private static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[] 
-        {
-            Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType
-        });
         private ulong sizeInBytes = 0;
         
         #endregion
@@ -135,7 +126,7 @@ namespace jemalloc
                     throw new IndexOutOfRangeException();
                 unsafe
                 {
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(handle.ToPointer()), index);
+                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(Ptr), index);
                 }
             }
         }

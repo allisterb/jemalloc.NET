@@ -46,12 +46,12 @@ namespace jemalloc
             [SuppressUnmanagedCodeSecurity]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_malloc")]
-            internal static extern global::System.IntPtr JeMalloc(ulong size);
+            internal static extern global::System.IntPtr JeMalloc([In] ulong size);
 
             [SuppressUnmanagedCodeSecurity]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_calloc")]
-            internal static extern global::System.IntPtr JeCalloc(ulong num, ulong size);
+            internal static extern global::System.IntPtr JeCalloc([In] ulong num, [In] ulong size);
 
             [SuppressUnmanagedCodeSecurity]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
@@ -109,31 +109,26 @@ namespace jemalloc
             internal static extern ulong JeNallocx(ulong size, int flags);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_mallctl")]
-            internal static extern int JeMallctl([MarshalAs(UnmanagedType.LPStr)] string name, global::System.IntPtr oldp, ulong* oldlenp, global::System.IntPtr newp, ulong newlen);
+            internal static extern int JeMallctl([MarshalAs(UnmanagedType.LPStr)] [In] string name, global::System.IntPtr oldp, ulong* oldlenp, global::System.IntPtr newp, ulong newlen);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_mallctlnametomib")]
             internal static extern int JeMallctlnametomib([MarshalAs(UnmanagedType.LPStr)] string name, ulong* mibp, ulong* miblenp);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_mallctlbymib")]
             internal static extern int JeMallctlbymib(ulong* mib, ulong miblen, global::System.IntPtr oldp, ulong* oldlenp, global::System.IntPtr newp, ulong newlen);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_malloc_stats_print")]
             internal static extern void JeMallocStatsPrint(global::System.IntPtr write_cb, global::System.IntPtr je_cbopaque, [MarshalAs(UnmanagedType.LPStr)] string opts);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl,
                 EntryPoint="je_malloc_usable_size")]
             internal static extern ulong JeMallocUsableSize(global::System.IntPtr ptr);
@@ -147,7 +142,6 @@ namespace jemalloc
             internal static extern void JeSetMallocConf(IntPtr ptr);
 
             [SuppressUnmanagedCodeSecurity]
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [DllImport("jemallocd", CallingConvention = global::System.Runtime.InteropServices.CallingConvention.Cdecl, 
                 EntryPoint = "je_get_malloc_conf", CharSet = CharSet.Ansi)]
             internal static extern IntPtr JeGetMallocConf();

@@ -354,20 +354,13 @@ namespace jemalloc
             {
                 Jem.Free(p);
             }
-           
+            Allocations = new ConcurrentBag<IntPtr>();
             return c;
         }
 
         public static Span<T> Malloc<T>(ulong size, int length, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) where T : struct
         {
             IntPtr ptr = Malloc(size, memberName, fileName, lineNumber);
-            return new Span<T>((void*)ptr, length);
-        }
-        #endregion
-
-            #region Utility Methods
-            public static Span<T> GetSpanFromPtr<T>(IntPtr ptr, int length)
-        {
             return new Span<T>((void*)ptr, length);
         }
         #endregion

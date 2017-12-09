@@ -27,7 +27,7 @@ namespace jemalloc.Cli
         [Option('l', "int64", Required = false, HelpText = "Use Int64 integers as the underlying data type.")]
         public bool Int64 { get; set; }
 
-        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark." )]
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<int> Sizes { get; set; }
 
     }

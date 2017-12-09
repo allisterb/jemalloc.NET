@@ -117,7 +117,6 @@ namespace jemalloc.Cli
                 Benchmark();
             });
 
-
         }
 
         static void Benchmark()
@@ -126,13 +125,14 @@ namespace jemalloc.Cli
             switch ((Operation) BenchmarkOptions["Operation"])
             {
                 case Operation.MALLOC:
-                    MallocVsArrayBenchmarks<int>.BenchmarkParameters = new int[] { 100000 };
+                    MallocVsArrayBenchmarks<int>.BenchmarkParameters = (IEnumerable<int>) BenchmarkOptions["Sizes"];
+                    L.Information("Starting {num} malloc benchmarks with array sizes: {s}", JemBenchmark<int, int>.GetBenchmarkMethodCount<MallocVsArrayBenchmarks<int>>(), MallocVsArrayBenchmarks<int>.BenchmarkParameters);
+                    L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                     Summary summary = BenchmarkRunner.Run<MallocVsArrayBenchmarks<int>>();
                     break;
                 default:
                     throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]}.");
             }
-            
             
         }
 
@@ -162,5 +162,6 @@ namespace jemalloc.Cli
             });
         }
 
+       
     }
 }
