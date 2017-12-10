@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace jemalloc
 {
@@ -9,7 +10,6 @@ namespace jemalloc
         public Buffer(int length)
         {
             _Ptr = IntPtr.Zero;
-            _IsInvalid = true;
             _Length = 0;
             _SizeInBytes = 0;
             _Timestamp = 0;
@@ -22,11 +22,18 @@ namespace jemalloc
         }
         
         #region Properties
+        public bool IsInvalid
+        {
+            get
+            {
+                return _Ptr == IntPtr.Zero;
+            }
+        }
         public int Length
         {
             get
             {
-                if (_IsInvalid)
+                if (IsInvalid)
                 {
                     return 0;
                 }
@@ -42,7 +49,7 @@ namespace jemalloc
         {
             get
             {
-                if (_IsInvalid)
+                if (IsInvalid)
                 {
                     return 0;
                 }
@@ -58,14 +65,8 @@ namespace jemalloc
         {
             get
             {
-                if (_IsInvalid)
-                {
-                    throw new InvalidOperationException("The buffer is invalid.");
-                }
-                else
-                {
-                    return _Ptr;
-                }
+                return _Ptr;
+                
             }
 
         }
@@ -74,7 +75,7 @@ namespace jemalloc
         {
             get
             {
-                if (_IsInvalid)
+                if (IsInvalid)
                 {
                     throw new InvalidOperationException("The buffer is invalid.");
                 }
@@ -94,7 +95,6 @@ namespace jemalloc
             _Ptr = Jem.Calloc((ulong) length, ElementSizeInBytes);
             if (_Ptr != IntPtr.Zero)
             {
-                _IsInvalid = false;
                 _Length = length;
                 _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
                 _Timestamp = DateTime.Now.Ticks;
@@ -105,9 +105,23 @@ namespace jemalloc
             else return false;
         }
 
+        public void Release()
+        {
+            if (IsInvalid)
+            {
+                return;
+            }
+            else if (Interlocked.Exchange(ref _Ptr, IntPtr.Zero) != IntPtr.Zero)
+            {
+                Jem.Free(_Ptr);
+            }
+        }
+
        
         public void Fill(T value)
         {
+            if (IsInvalid)
+                throw new InvalidOperationException("The buffer is invalid.");
             Span.Fill(value);
         }
         #endregion
@@ -117,7 +131,7 @@ namespace jemalloc
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (_IsInvalid)
+                if (IsInvalid)
                     throw new InvalidOperationException("The buffer is invalid.");
                 if (index >= (Length))
                     throw new IndexOutOfRangeException();
@@ -132,7 +146,6 @@ namespace jemalloc
         private static readonly Type ElementType = typeof(T);
         private static readonly ulong ElementSizeInBytes = (ulong) JemUtil.SizeOfStruct<T>();
         private ulong _SizeInBytes;
-        private bool _IsInvalid;
         private int _Length;
         private IntPtr _Ptr;
         private unsafe void* _VoidPointer;

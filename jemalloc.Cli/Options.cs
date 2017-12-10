@@ -43,4 +43,14 @@ namespace jemalloc.Cli
         public bool Fill { get; set; }
     }
 
+    [Verb("buffer", HelpText = "Benchmark buffer structs backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
+    class NativeBufferBenchmarkOptions : Options
+    {
+        [Option("create", Required = false, HelpText = "Benchmark buff creation vs managed arrays.")]
+        public bool Create { get; set; }
+
+        [Option("fill", Required = false, HelpText = "Benchmark buffer creation and fill vs managed arrays.")]
+        public bool Fill { get; set; }
+    }
+
 }

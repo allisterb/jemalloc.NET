@@ -102,7 +102,7 @@ namespace jemalloc
             if (__ret != IntPtr.Zero)
             {
                 
-                    Allocations.Add(__ret);
+                Allocations.Add(__ret);
                     //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
                 
                 return __ret;
@@ -119,11 +119,10 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
-                lock (allocationsLock)
-                {
-                    Allocations.Add(__ret);
+                
+                Allocations.Add(__ret);
                     //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
-                }
+                
                 return __ret;
             }
             else

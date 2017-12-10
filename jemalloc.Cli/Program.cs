@@ -26,7 +26,8 @@ namespace jemalloc.Cli
         public enum Category
         {
             MALLOC,
-            NARRAY
+            NARRAY,
+            BUFFER
         }
 
         public enum Operation
@@ -51,7 +52,7 @@ namespace jemalloc.Cli
                 .WriteTo.Console(outputTemplate: "{Timestamp:HH:mm:ss}<{ThreadId:d2}> [{Level:u3}] {Message}{NewLine}{Exception}");
             L = Log.Logger = LConfig.CreateLogger();
             Type[] BenchmarkOptionTypes = Assembly.GetExecutingAssembly().GetTypes().Where(t => t.IsSubclassOf(typeof(Options))).ToArray();
-            ParserResult<object> result = new Parser().ParseArguments<Options, MallocBenchmarkOptions, NativeArrayBenchmarkOptions>(args);
+            ParserResult<object> result = new Parser().ParseArguments<Options, MallocBenchmarkOptions, NativeArrayBenchmarkOptions, NativeBufferBenchmarkOptions>(args);
             result.WithNotParsed((IEnumerable<Error> errors) =>
             {
                 HelpText help = GetAutoBuiltHelpText(result);
@@ -155,8 +156,30 @@ namespace jemalloc.Cli
                     Benchmark(o);
                 }
                 
+            })
+            .WithParsed<NativeBufferBenchmarkOptions>(o =>
+            {
+                BenchmarkOptions.Add("Category", Category.NARRAY);
+                if (o.Create)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.CREATE);
+                }
+                else if (o.Fill)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.FILL);
+                }
+                if (!BenchmarkOptions.ContainsKey("Operation"))
+                {
+                    Log.Error("You must select an operation to benchmark with --create or --fill.");
+                    Exit(ExitResult.SUCCESS);
+                }
+                else
+                {
+                    Benchmark(o);
+                }
+
             }); 
-        }
+}
 
         static void Benchmark(Options o)
         {
@@ -236,6 +259,31 @@ namespace jemalloc.Cli
                             throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
                     }
                     break;
+                case Category.BUFFER:
+                    switch ((Operation)BenchmarkOptions["Operation"])
+                    {
+                        case Operation.CREATE:
+                            BufferVsManagedArrayCreateBenchmark<int>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                            L.Information("Starting {num} create buffer vs. array benchmarks with array sizes: {s}",
+                                JemBenchmark<int, int>.GetBenchmarkMethodCount<BufferVsManagedArrayCreateBenchmark<int>>(),
+                                BufferVsManagedArrayCreateBenchmark<int>.BenchmarkParameters);
+                            L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                            BenchmarkSummary = BenchmarkRunner.Run<NativeVsManagedArrayCreateBenchmark<int>>();
+                            break;
+
+                        case Operation.FILL:
+                            NativeVsManagedArrayFillBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                            L.Information("Starting {num} fill benchmarks for data type {t} with array sizes: {s}",
+                                JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayFillBenchmark<T>>(),
+                                typeof(T).Name, NativeVsManagedArrayFillBenchmark<T>.BenchmarkParameters);
+                            L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                            BenchmarkSummary = BenchmarkRunner.Run<NativeVsManagedArrayFillBenchmark<T>>();
+                            break;
+                        default:
+                            throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
+                    }
+                    break;
+
                 default:
                     throw new InvalidOperationException($"Unknown category: {(Category)BenchmarkOptions["Category"]}.");
             }
