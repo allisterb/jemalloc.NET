@@ -16,6 +16,7 @@ namespace jemalloc.Benchmarks
         {
             Job job = new Job("JemBenchmark", InfrastructureMode.InProcess, EnvMode.RyuJitX64);
             job.Env.Platform = Platform.X64;
+            job.Env.Runtime = Runtime.Core;
             Config = ManualConfig.CreateEmpty().With(job);
         }
 

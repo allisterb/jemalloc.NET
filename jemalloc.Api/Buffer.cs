@@ -1,135 +1,143 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
-using System.Linq;
-using System.Text;
 
 namespace jemalloc
 {
-    #region Enums
-    public enum AllocationType
+    public ref struct Buffer<T> where T : struct
     {
-        HEAP = 0,
-        STACK = 1
-    }
-    #endregion
-
-    public abstract class Buffer<T> : SafeHandle where T : struct
-    {
-        #region Constructors
-        protected Buffer(uint length) : base(IntPtr.Zero, true)
+        public Buffer(int length)
         {
-            if (BufferHelpers.IsReferenceOrContainsReferences<T>())
+            _Ptr = IntPtr.Zero;
+            _IsInvalid = true;
+            _Length = 0;
+            _SizeInBytes = 0;
+            _Timestamp = 0;
+            _Span = new Span<T>();
+            unsafe
             {
-                throw new ArgumentException("Only structures without reference fields can be used with this class.");
+                _VoidPointer = (void *) _Ptr;
             }
-            this.Length = length;
-            base.SetHandle(Allocate());
+            Allocate(length);
+        }
+        
+        #region Properties
+        public int Length
+        {
+            get
+            {
+                if (_IsInvalid)
+                {
+                    return 0;
+                }
+                else
+                {
+                    return _Length;
+                }
+            }
             
         }
-        #endregion
 
-        #region Overriden members
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        protected override bool ReleaseHandle()
+        public ulong Size
         {
-            return Jem.Free(handle);        
-        }
-
-
-        public override bool IsInvalid => handle == IntPtr.Zero;
-        #endregion
-
-        #region Properties
-        public uint Length { get; protected set; }
-        public int SLength { get; protected set; }
-        public ulong SizeInBytes
-        {            get
+            get
             {
-                return sizeInBytes;
+                if (_IsInvalid)
+                {
+                    return 0;
+                }
+                else
+                {
+                    return _SizeInBytes;
+                }
             }
-        }
-        public unsafe void* Ptr { get; protected set; }
 
-        public AllocationType AllocationType { get; protected set; } = AllocationType.HEAP;
+        }
+
+        public IntPtr Ptr
+        {
+            get
+            {
+                if (_IsInvalid)
+                {
+                    throw new InvalidOperationException("The buffer is invalid.");
+                }
+                else
+                {
+                    return _Ptr;
+                }
+            }
+
+        }
+
+        public Span<T> Span
+        {
+            get
+            {
+                if (_IsInvalid)
+                {
+                    throw new InvalidOperationException("The buffer is invalid.");
+                }
+                else
+                {
+                    return _Span;
+                }
+            }
+
+        }
+
         #endregion
 
         #region Methods
-  
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        private static InvalidOperationException HandleIsInvalid()
+        private unsafe bool Allocate(int length)
         {
-            return new InvalidOperationException("The handle is invalid.");
+            _Ptr = Jem.Calloc((ulong) length, ElementSizeInBytes);
+            if (_Ptr != IntPtr.Zero)
+            {
+                _IsInvalid = false;
+                _Length = length;
+                _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
+                _Timestamp = DateTime.Now.Ticks;
+                _VoidPointer = _Ptr.ToPointer();
+                _Span = new Span<T>(_VoidPointer, _Length);
+                return true;
+            }
+            else return false;
         }
 
        
-        protected unsafe virtual IntPtr Allocate()
+        public void Fill(T value)
         {
-            handle = Jem.Calloc(Length, ElementSizeInBytes);
-            Ptr = handle.ToPointer();
-            sizeInBytes = Length * ElementSizeInBytes;
-            return handle;
-        }
-
-        public unsafe Span<T> Span()
-        {
-            if (IsInvalid)
-                HandleIsInvalid();
-            return new Span<T>((void*)handle, (int) Length);
-        }
-
-        
-        public unsafe void AcquirePointer(ref byte* pointer)
-        {
-            if (IsInvalid)
-            {
-                HandleIsInvalid();
-            }
-            pointer = null;
-            bool result = false;
-            DangerousAddRef(ref result);
-            pointer = (byte*)handle;            
-        }
-
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        public void ReleasePointer()
-        {
-            if (IsInvalid)
-            {
-                HandleIsInvalid();
-            }
-            DangerousRelease();
+            Span.Fill(value);
         }
         #endregion
 
-        #region Fields
-        protected static readonly Type CLRType = typeof(T);
-        protected static readonly T Element = default;
-        protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
-        protected Func<IntPtr> StackAllocate;
-        private ulong sizeInBytes = 0;
-        
-        #endregion
-
-        #region Operators
         public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (IsInvalid)
-                    throw new InvalidOperationException("The handle is invalid.");
-                if ((uint)index >= (Length))
+                if (_IsInvalid)
+                    throw new InvalidOperationException("The buffer is invalid.");
+                if (index >= (Length))
                     throw new IndexOutOfRangeException();
                 unsafe
                 {
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(Ptr), index);
+                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(_VoidPointer), index);
                 }
             }
         }
+
+        #region Fields
+        private static readonly Type ElementType = typeof(T);
+        private static readonly ulong ElementSizeInBytes = (ulong) JemUtil.SizeOfStruct<T>();
+        private ulong _SizeInBytes;
+        private bool _IsInvalid;
+        private int _Length;
+        private IntPtr _Ptr;
+        private unsafe void* _VoidPointer;
+        private long _Timestamp;
+        private Span<T> _Span;
         #endregion
     }
 }

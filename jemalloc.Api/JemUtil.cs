@@ -39,6 +39,12 @@ namespace jemalloc
             return ref Unsafe.AsRef<T>(ptr);
         }
 
+        public unsafe static TReturn ValToGenericStruct<TValue, TReturn>(TValue v) where TValue : struct where TReturn : struct
+        {
+            void* ptr = Unsafe.AsPointer(ref v);
+            return PtrToStruct<TReturn>(ptr);
+        }
+
         public static int SizeOfStruct<T>() where T : struct
         {
             return Unsafe.SizeOf<T>();

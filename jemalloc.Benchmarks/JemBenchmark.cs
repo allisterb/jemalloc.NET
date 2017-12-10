@@ -29,5 +29,73 @@ namespace jemalloc.Benchmarks
             return typeof(TBench).GetMethods(BindingFlags.Public).Where(m => m.GetCustomAttribute(typeof(BenchmarkAttribute)) != null).Count();
         }
 
+        public static unsafe TData GetArrayFillValue()
+        {
+            TData value = default;
+            switch (value)
+            {
+                case Byte v:
+                    return JemUtil.ValToGenericStruct<Byte, TData>(Byte.MaxValue / 2);
+                    
+                case SByte v:
+                    return JemUtil.ValToGenericStruct<SByte, TData>(SByte.MaxValue / 2);
+
+                case UInt16 v:
+                    return JemUtil.ValToGenericStruct<UInt16, TData>(UInt16.MaxValue / 2);
+
+                case Int16 v:
+                    return JemUtil.ValToGenericStruct<Int16, TData>(Int16.MaxValue / 2);
+
+                case UInt32 v:
+                    return JemUtil.ValToGenericStruct<UInt32, TData>(UInt32.MaxValue / 2);
+
+                case Int32 v:
+                    return JemUtil.ValToGenericStruct<Int32, TData>(Int32.MaxValue / 2);
+
+                case UInt64 v:
+                    return JemUtil.ValToGenericStruct<UInt64, TData>(UInt64.MaxValue / 2);
+
+                case Int64 v:
+                    return JemUtil.ValToGenericStruct<Int64, TData>(Int64.MaxValue / 2);
+
+                default:
+                    return value;
+            }
+        }
+
+        public static unsafe TData ComputeOnArrayValue(ref TData value)
+        {
+            switch (value)
+            {
+                case Byte v:
+                    return JemUtil.ValToGenericStruct<Byte, TData>(v);
+
+                case SByte v:
+                    return JemUtil.ValToGenericStruct<SByte, TData>(SByte.MaxValue / 2);
+
+                case UInt16 v:
+                    return JemUtil.ValToGenericStruct<UInt16, TData>(UInt16.MaxValue / 2);
+
+                case Int16 v:
+                    return JemUtil.ValToGenericStruct<Int16, TData>(Int16.MaxValue / 2);
+
+                case UInt32 v:
+                    return JemUtil.ValToGenericStruct<UInt32, TData>(UInt32.MaxValue / 2);
+
+                case Int32 v:
+                    return JemUtil.ValToGenericStruct<Int32, TData>(Int32.MaxValue / 2);
+
+                case UInt64 v:
+                    return JemUtil.ValToGenericStruct<UInt64, TData>(UInt64.MaxValue / 2);
+
+                case Int64 v:
+                    return JemUtil.ValToGenericStruct<Int64, TData>(Int64.MaxValue / 2);
+
+                default:
+                    return value;
+            }
+        }
+
+
     }
 }
