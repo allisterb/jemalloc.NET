@@ -42,6 +42,8 @@ namespace jemalloc
         public unsafe void* VoidPtr { get; protected set; }
 
         public bool IsNotAllocated => SizeInBytes == NotAllocated;
+
+        public bool IsSlice { get; protected set; }
         #endregion
 
         #region Methods
@@ -82,13 +84,20 @@ namespace jemalloc
             s.Fill(value);
         }
 
+        public unsafe ref T DangerousGetRef(int index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(index);
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+        }
+
         protected unsafe virtual IntPtr Allocate(int length)
         {
             if (length < 0)
                 throw new ArgumentOutOfRangeException("length");
             Contract.EndContractBlock();
             ulong s = checked((uint)length * ElementSizeInBytes);
-            handle = Jem.Calloc((uint)length, ElementSizeInBytes);
+            handle = Jem.Calloc((uint) length, ElementSizeInBytes);
             if (handle != IntPtr.Zero)
             {
                 VoidPtr = handle.ToPointer();
@@ -118,13 +127,10 @@ namespace jemalloc
         
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public ref T Read(int index)
+        protected T Read(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
-            if (index < 0 || index > Length)
-            {
-                IndexIsOutOfRange(index);
-            }
+            ThrowIfIndexOutOfRange(index);
 
             // return (T*) (_ptr + byteOffset);
             T value = default;
@@ -136,7 +142,7 @@ namespace jemalloc
                 DangerousAddRef(ref mustCallRelease);
                 unsafe
                 {
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+                    return Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
                 }
             }
             finally
@@ -147,17 +153,10 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public ref T Write(int index, T value)
+        protected T Write(int index, T value)
         {
             ThrowIfNotAllocatedOrInvalid();
-            if (SizeInBytes == NotAllocated)
-            {
-                BufferIsNotAllocated();
-            }
-            if (index < 0 || index > Length)
-            {
-                IndexIsOutOfRange(index);
-            }
+            ThrowIfIndexOutOfRange(index);
 
             // return (T*) (_ptr + byteOffset);
             bool mustCallRelease = false;
@@ -169,7 +168,7 @@ namespace jemalloc
                 {
                     ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
                     v = value;
-                    return ref v;
+                    return v;
                 }
             }
             finally
@@ -206,6 +205,16 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        private void ThrowIfIndexOutOfRange(int index)
+        {
+            if (index < 0 || index >= Length)
+            {
+                IndexIsOutOfRange(index);
+            }
+        }
+
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         private static InvalidOperationException HandleIsInvalid()
         {
             return new InvalidOperationException("The handle is invalid.");
@@ -228,20 +237,19 @@ namespace jemalloc
         #endregion
 
         #region Operators
-        public T this[int index]
+        public unsafe T this[int index]
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             get
             {
                 return Read(index);
             }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 Write(index, value);
             }
-        }
+
+         }
         #endregion
 
         #region Fields

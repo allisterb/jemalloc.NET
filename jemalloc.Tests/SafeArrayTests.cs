@@ -10,6 +10,7 @@ namespace jemalloc.Tests
         {
             SafeArray<int> a = new SafeArray<int>(500);
             a[1] = 1000;
+           
             Assert.Equal(1000, a[1]);
             a.Acquire();
             Assert.Equal(1000, a[1]);
@@ -19,8 +20,11 @@ namespace jemalloc.Tests
             a.Release();
             Assert.Equal(1000, a[1]);
             a.Close();
+            
+            
             Assert.True(a.IsClosed);
             Assert.Throws<ObjectDisposedException>(() => a[1] == 1000);
+            //int r = a[(2,3)]
         }
     }
 }

@@ -55,13 +55,13 @@ namespace jemalloc
         object IEnumerator.Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _buffer.Read(_index);
+            get => _buffer[_index];
         }
 
         public T Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _buffer.Read(_index);
+            get => _buffer[_index];
         }
 
         void IDisposable.Dispose()

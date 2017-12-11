@@ -87,6 +87,14 @@ namespace jemalloc
             last.Fill(value);
         }
 
+        public unsafe ref T DangerousGetRef(ulong index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(index);
+            GetSegment(index, out void* ptr, out int offset);
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
+        }
+
         protected unsafe virtual IntPtr Allocate(ulong length)
         {
             if (length < 0)
@@ -150,7 +158,7 @@ namespace jemalloc
         
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public ref T Read(ulong index)
+        protected T Read(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
@@ -166,7 +174,7 @@ namespace jemalloc
                 unsafe
                 {
                     GetSegment(index, out void* ptr, out int offset);
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
+                    return Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
                 }
             }
             finally
@@ -177,7 +185,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public ref T Write(ulong index, T value)
+        protected T Write(ulong index, T value)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
@@ -192,7 +200,7 @@ namespace jemalloc
                     GetSegment(index, out void* ptr, out int offset);
                     ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
                     v = value;
-                    return ref v;
+                    return v;
                 }
             }
             finally
@@ -209,7 +217,7 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         private void ThrowIfIndexOutOfRange(ulong index)
         {
-            if (index > Length)
+            if (index >= Length)
             {
                 IndexIsOutOfRange(index);
             }
@@ -263,13 +271,13 @@ namespace jemalloc
         #region Operators
         public T this[ulong index]
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             get
             {
                 return Read(index);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             set
             {
                 Write(index, value);
