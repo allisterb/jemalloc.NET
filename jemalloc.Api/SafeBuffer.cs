@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
@@ -9,15 +10,7 @@ using System.Text;
 
 namespace jemalloc
 {
-    #region Enums
-    public enum AllocationType
-    {
-        HEAP = 0,
-        STACK = 1
-    }
-    #endregion
-
-    public abstract class SafeBuffer<T> : SafeHandle where T : struct
+    public abstract class SafeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
     {
         #region Constructors
         protected SafeBuffer(int length) : base(IntPtr.Zero, true)
@@ -186,6 +179,10 @@ namespace jemalloc
             }
         }
 
+        public IEnumerator<T> GetEnumerator() => new SafeBufferEnumerator<T>(this);
+
+        IEnumerator IEnumerable.GetEnumerator() => new SafeBufferEnumerator<T>(this);
+
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         private void ThrowIfNotAllocatedOrInvalid()
         {
@@ -230,13 +227,6 @@ namespace jemalloc
 
         #endregion
 
-        #region Fields
-        protected static readonly Type CLRType = typeof(T);
-        protected static readonly T Element = default;
-        protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
-        protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
-        #endregion
-
         #region Operators
         public T this[int index]
         {
@@ -252,6 +242,15 @@ namespace jemalloc
                 Write(index, value);
             }
         }
+        #endregion
+
+        #region Fields
+        protected static readonly Type CLRType = typeof(T);
+        protected static readonly T Element = default;
+        protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
+        protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
+        //Debugger Display = {T[length]}
+        private string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
         #endregion
     }
 }

@@ -5,7 +5,7 @@ namespace jemalloc.Tests
 {
     public class SafeArrayTests : jemallocTest
     {
-        [Fact(DisplayName = "Can construct SafeArrau and manipulate it.")]
+        [Fact(DisplayName = "Can construct SafeArray")]
         public void CanConstructSafeArray()
         {
             SafeArray<int> a = new SafeArray<int>(500);
