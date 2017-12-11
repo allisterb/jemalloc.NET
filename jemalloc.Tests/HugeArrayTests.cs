@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 
 using Xunit;
@@ -25,17 +26,22 @@ namespace jemalloc.Tests
         {
             ulong arraySize = 2L * Int32.MaxValue;
             HugeArray<int> array = new HugeArray<int>(arraySize);
-            ulong[] indices = new ulong[10000];
+            ulong[] indices = new ulong[100000];
             int scale = 0, value = 0;
             ulong v = 0;
             for (int i = 0; i < indices.Length; i++)
             {
-                scale = rng.Next(1, 2);
-                value = rng.Next(0, Int32.MaxValue - 1);
-                v = (ulong)scale * (ulong)value;
+                v = indices[0];
+                while (indices.Contains(v))
+                {
+                    scale = rng.Next(1, 2);
+                    value = rng.Next(0, Int32.MaxValue - 1);
+                    v = (ulong)scale * (ulong)value;
+                }
                 array[v] = i;
                 indices[i] = v;
             }
+            //Assert.Contains(indices, (i) => i > Int32.MaxValue);
             for (int i = 0; i < indices.Length; i++)
             {
                 Assert.Equal(i, array[indices[i]]);

@@ -185,7 +185,7 @@ namespace jemalloc
 
         protected unsafe void InitSegments()
         {
-            int n = (int) (Length / Int32.MaxValue) + 1;
+            int n = (int) ((Length - 1) / Int32.MaxValue) + 1;
             segments = new void*[n];
             for (int i = 0; i < n; i++)
             {
