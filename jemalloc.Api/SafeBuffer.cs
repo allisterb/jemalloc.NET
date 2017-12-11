@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Numerics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
@@ -22,13 +24,22 @@ namespace jemalloc
             SizeInBytes = NotAllocated;
             base.SetHandle(Allocate(length));
         }
+
+        protected SafeBuffer(params T[] values) : this(values.Length)
+        {
+            for (int i = 0; i < values.Length; i++)
+            {
+                this[i] = values[i];
+            }
+
+        }
         #endregion
 
         #region Overriden members
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected override bool ReleaseHandle()
         {
-            return Jem.Free(handle);        
+            return Jem.Free(handle);
         }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
@@ -58,7 +69,7 @@ namespace jemalloc
             }
             finally
             {
-                
+
                 DangerousAddRef(ref result);
             }
             return result;
@@ -84,11 +95,67 @@ namespace jemalloc
             s.Fill(value);
         }
 
-        public unsafe ref T DangerousGetRef(int index)
+
+        public unsafe ref T DangerousAsRef(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             return ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+        }
+
+        public T[] CopyToArray()
+        {
+            T[] a = new T[this.Length];
+            for(int i = 0; i < this.Length; i++)
+            {
+                a[i] = this[i];
+            }
+            return a;
+        }
+
+        public Vector<T> CopyToVector()
+        {
+            if (!JemUtil.IsNumericType<T>())
+            {
+                throw new Exception("Only numeric types can be read as vectors.");
+            }
+            else if (this.Length != Vector<T>.Count)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            T[] values = this.CopyToArray();
+            return new Vector<T>(values);
+        }
+
+        public Vector<T> ToVector()
+        {
+            if (!JemUtil.IsNumericType<T>())
+            {
+                throw new Exception("Only numeric types can be read as vectors.");
+            }
+            else if (this.Length != Vector<T>.Count)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            object[] args = new object[2] { handle, 0 };
+            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
+            return v;
+        }
+
+        public unsafe Vector<T> ToVector(int index)
+        {
+            if (!JemUtil.IsNumericType<T>())
+            {
+                throw new Exception("Only numeric types can be read as vectors.");
+            }
+            if (Length - index < Vector<T>.Count)
+            {
+                IndexIsOutOfRange(index);
+            }
+            ref T start = ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+            object[] args = new object[2] { new IntPtr(Unsafe.AsPointer(ref start)), 0 };
+            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
+            return v;
         }
 
         protected unsafe virtual IntPtr Allocate(int length)
@@ -124,8 +191,6 @@ namespace jemalloc
             }
         }
 
-        
-
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         protected T Read(int index)
         {
@@ -157,7 +222,7 @@ namespace jemalloc
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-
+           
             // return (T*) (_ptr + byteOffset);
             bool mustCallRelease = false;
             RuntimeHelpers.PrepareConstrainedRegions();
@@ -233,6 +298,9 @@ namespace jemalloc
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
             return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
         }
+
+        private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null,
+            new Type[] { typeof(void*), typeof(int) }, null);
 
         #endregion
 
