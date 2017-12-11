@@ -16,6 +16,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{42D17CA7-794A-4D51-A144-6039B9571E75}"
 	ProjectSection(SolutionItems) = preProject
 		jembench.cmd = jembench.cmd
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jemalloc.Buffers", "jemalloc.Buffers\jemalloc.Buffers.csproj", "{C4032FF9-E677-4ABD-9150-F292971959E9}"

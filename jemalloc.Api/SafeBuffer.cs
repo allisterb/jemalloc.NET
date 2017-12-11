@@ -50,11 +50,7 @@ namespace jemalloc
 
         public ulong SizeInBytes { get; protected set; }
 
-        public unsafe void* VoidPtr { get; protected set; }
-
         public bool IsNotAllocated => SizeInBytes == NotAllocated;
-
-        public bool IsSlice { get; protected set; }
         #endregion
 
         #region Methods
@@ -95,12 +91,11 @@ namespace jemalloc
             s.Fill(value);
         }
 
-
         public unsafe ref T DangerousAsRef(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            return ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
         }
 
         public T[] CopyToArray()
@@ -152,7 +147,7 @@ namespace jemalloc
             {
                 IndexIsOutOfRange(index);
             }
-            ref T start = ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+            ref T start = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
             object[] args = new object[2] { new IntPtr(Unsafe.AsPointer(ref start)), 0 };
             Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
             return v;
@@ -167,7 +162,7 @@ namespace jemalloc
             handle = Jem.Calloc((uint) length, ElementSizeInBytes);
             if (handle != IntPtr.Zero)
             {
-                VoidPtr = handle.ToPointer();
+                voidPtr = handle.ToPointer();
                 Length = length;
                 SizeInBytes = s;
             }
@@ -207,7 +202,7 @@ namespace jemalloc
                 DangerousAddRef(ref mustCallRelease);
                 unsafe
                 {
-                    return Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+                    return Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
                 }
             }
             finally
@@ -231,7 +226,7 @@ namespace jemalloc
                 DangerousAddRef(ref mustCallRelease);
                 unsafe
                 {
-                    ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(VoidPtr), index);
+                    ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
                     v = value;
                     return v;
                 }
@@ -325,8 +320,10 @@ namespace jemalloc
         protected static readonly T Element = default;
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
         protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
+
+        protected internal unsafe void* voidPtr;
         //Debugger Display = {T[length]}
-        private string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
+        protected string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
         #endregion
     }
 }

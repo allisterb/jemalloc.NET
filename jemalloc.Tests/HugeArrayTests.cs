@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Numerics;
 
 using Xunit;
 
@@ -40,6 +40,19 @@ namespace jemalloc.Tests
             {
                 Assert.Equal(i, array[indices[i]]);
             }
+        }
+
+        [Fact(DisplayName = "Can convert to Vector")]
+        public void CanConvertToVector()
+        {
+            HugeArray<uint> a = new HugeArray<uint>(1, 11, 94, 5, 0, 0, 0, 8);
+            Vector<uint> v = a.ToVector();
+            Assert.Equal(a[0], v[0]);
+            Assert.Equal(a[3], v[3]);
+            Assert.Equal(a[7], v[7]);
+            HugeArray<uint> a2 = new HugeArray<uint>(11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
+            Vector<uint> v2 = a2.ToVector(2);
+            Assert.Equal(594u, v2[0]);
         }
     }
 }

@@ -12,6 +12,5 @@ namespace jemalloc
         public SafeArray(int length) : base(length) {}
 
         public SafeArray(params T[] values) : base(values) {}
-
     }
 }
