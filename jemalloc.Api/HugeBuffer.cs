@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
@@ -8,7 +9,7 @@ using System.Threading;
 
 namespace jemalloc
 {
-    public abstract class HugeBuffer<T> : SafeHandle where T : struct
+    public abstract class HugeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
     {
         #region Constructors
         protected HugeBuffer(ulong length) : base(IntPtr.Zero, true)
@@ -201,6 +202,10 @@ namespace jemalloc
             }
         }
 
+        public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
+
+        IEnumerator IEnumerable.GetEnumerator() => new HugeBufferEnumerator<T>(this);
+
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         private void ThrowIfIndexOutOfRange(ulong index)
         {
@@ -278,6 +283,9 @@ namespace jemalloc
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
         protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
         protected unsafe void*[] segments;
+        //Debugger Display = {T[length]}
+        private string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
         #endregion
+
     }
 }

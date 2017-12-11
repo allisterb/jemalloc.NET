@@ -18,8 +18,6 @@ namespace jemalloc.Tests
             HugeArray<int> array = new HugeArray<int>(arraySize);
             array[point] = 1;
             Assert.Equal(1, array[point]);
-            
-
         }
 
         [Fact(DisplayName = "Can correctly assign to HugeArray elements")]
