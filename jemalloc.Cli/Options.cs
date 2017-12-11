@@ -21,9 +21,6 @@ namespace jemalloc.Cli
         [Option('l', "int64", Required = false, HelpText = "Use Int64 integers as the underlying data type.", SetName = "type")]
         public bool Int64 { get; set; }
 
-        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
-        public IEnumerable<int> Sizes { get; set; }
-
     }
 
     [Verb("malloc", HelpText = "Benchmark data structures backed by native memory allocated using jemalloc vs. .NET managed arrays, vectors, and tensors.")]
@@ -31,6 +28,9 @@ namespace jemalloc.Cli
     {
         [Option("fill", Required = false, HelpText = "Benchmark malloc allocate on unmanaged heap and Span<T> fill, vs managed arrays.")]
         public bool Fill { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<int> Sizes { get; set; }
     }
 
     [Verb("array", HelpText = "Benchmark arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
@@ -41,6 +41,19 @@ namespace jemalloc.Cli
 
         [Option("fill", Required = false, HelpText = "Benchmark native array creation and fill vs managed arrays.")]
         public bool Fill { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<int> Sizes { get; set; }
+    }
+
+    [Verb("hugearray", HelpText = "Benchmark huge arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
+    class HugeNativeArrayBenchmarkOptions : Options
+    {
+        [Option("fill", Required = false, HelpText = "Benchmark huge native array creation and fill vs managed arrays.")]
+        public bool Fill { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<ulong> Sizes { get; set; }
     }
 
     [Verb("buffer", HelpText = "Benchmark buffer structs backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
@@ -51,6 +64,9 @@ namespace jemalloc.Cli
 
         [Option("fill", Required = false, HelpText = "Benchmark buffer creation and fill vs managed arrays.")]
         public bool Fill { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<int> Sizes { get; set; }
     }
 
 }

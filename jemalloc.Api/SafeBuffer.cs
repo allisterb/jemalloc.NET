@@ -15,23 +15,25 @@ namespace jemalloc
     public abstract class SafeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
     {
         #region Constructors
-        protected SafeBuffer(int length) : base(IntPtr.Zero, true)
+        protected SafeBuffer(int length, params T[] values) : base(IntPtr.Zero, true)
         {
             if (BufferHelpers.IsReferenceOrContainsReferences<T>())
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
             }
+            if (values.Length > length)
+            {
+                throw new ArgumentException("The length of the list of values must be smaller or equal to the length of the buffer");
+            }
             SizeInBytes = NotAllocated;
             base.SetHandle(Allocate(length));
-        }
-
-        protected SafeBuffer(params T[] values) : this(values.Length)
-        {
-            for (int i = 0; i < values.Length; i++)
+            if (!IsNotAllocated)
             {
-                this[i] = values[i];
+                for (int i = 0; i < values.Length; i++)
+                {
+                    this[i] = values[i];
+                }
             }
-
         }
         #endregion
 

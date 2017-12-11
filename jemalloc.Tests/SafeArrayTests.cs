@@ -30,12 +30,12 @@ namespace jemalloc.Tests
         [Fact(DisplayName = "Can convert to Vector")]
         public void CanConvertToVector()
         {
-            SafeArray<uint> a = new SafeArray<uint>(1, 11, 94, 5, 0, 0, 0, 8);
+            SafeArray<uint> a = new SafeArray<uint>(8, 1, 11, 94, 5, 0, 0, 0, 8);
             Vector<uint> v = a.ToVector();
             Assert.Equal(a[0], v[0]);
             Assert.Equal(a[3], v[3]);
             Assert.Equal(a[7], v[7]);
-            SafeArray<uint> a2 = new SafeArray<uint>(11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
+            SafeArray<uint> a2 = new SafeArray<uint>(12, 11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
             Vector<uint> v2 = a2.ToVector(2);
             Assert.Equal(594u, v2[0]);
         }

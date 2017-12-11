@@ -6,8 +6,6 @@ namespace jemalloc
 {
     public class HugeArray<T> : HugeBuffer<T> where T : struct
     {
-        public HugeArray(ulong length) : base(length) { }
-
-        public HugeArray(params T[] values) : base(values) { }
+        public HugeArray(ulong length, params T[] values) : base(length, values) { }
     }
 }

@@ -9,8 +9,6 @@ namespace jemalloc
 {
     public class SafeArray<T> : SafeBuffer<T> where T : struct
     {
-        public SafeArray(int length) : base(length) {}
-
-        public SafeArray(params T[] values) : base(values) {}
+        public SafeArray(int length, params T[] values) : base(length, values) {}
     }
 }

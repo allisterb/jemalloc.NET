@@ -14,23 +14,27 @@ namespace jemalloc
     public abstract class HugeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
     {
         #region Constructors
-        protected HugeBuffer(ulong length) : base(IntPtr.Zero, true)
+        protected HugeBuffer(ulong length, params T[] values) : base(IntPtr.Zero, true)
         {
+            ulong l = (ulong)values.Length;
             if (BufferHelpers.IsReferenceOrContainsReferences<T>())
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
             }
+            if ((ulong) values.Length > length)
+            {
+                throw new ArgumentException("The length of the list of values must be smaller or equal to the length of the buffer");
+            }
             SizeInBytes = NotAllocated;
             base.SetHandle(Allocate(length));
-        }
-
-        protected HugeBuffer(params T[] values) : this((ulong) values.Length)
-        {
-            ulong l = (ulong)values.Length;
-            for (ulong i = 0; i < l; i++)
+            if (!IsNotAllocated)
             {
-                this[i] = values[i];
+                for (ulong i = 0; i < l; i++)
+                {
+                    this[i] = values[i];
+                }
             }
+
         }
         #endregion
 
@@ -81,7 +85,7 @@ namespace jemalloc
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             GetSegment(index, out void* ptr, out int offset);
-            return new Span<T>(ptr, offset);
+            return new Span<T>(ptr, offset + 1);
         }
 
         public unsafe void Fill(T value)
@@ -92,7 +96,7 @@ namespace jemalloc
                 Span<T> s = new Span<T>(segments[i], Int32.MaxValue);
                 s.Fill(value);
             }
-            Span<T> last = Span(Length);
+            Span<T> last = Span(Length - 1);
             last.Fill(value);
         }
 

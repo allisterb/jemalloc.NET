@@ -19,6 +19,7 @@ namespace jemalloc.Tests
             HugeArray<int> array = new HugeArray<int>(arraySize);
             array[point] = 1;
             Assert.Equal(1, array[point]);
+            array.Close();
         }
 
         [Fact(DisplayName = "Can correctly assign to HugeArray elements")]
@@ -41,24 +42,35 @@ namespace jemalloc.Tests
                 array[v] = i;
                 indices[i] = v;
             }
-            //Assert.Contains(indices, (i) => i > Int32.MaxValue);
             for (int i = 0; i < indices.Length; i++)
             {
                 Assert.Equal(i, array[indices[i]]);
             }
+            array.Close();
         }
 
         [Fact(DisplayName = "Can convert to Vector")]
         public void CanConvertToVector()
         {
-            HugeArray<uint> a = new HugeArray<uint>(1, 11, 94, 5, 0, 0, 0, 8);
+            HugeArray<uint> a = new HugeArray<uint>(8, 1, 11, 94, 5, 0, 0, 0, 8);
             Vector<uint> v = a.ToVector();
             Assert.Equal(a[0], v[0]);
             Assert.Equal(a[3], v[3]);
             Assert.Equal(a[7], v[7]);
-            HugeArray<uint> a2 = new HugeArray<uint>(11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
+            HugeArray<uint> a2 = new HugeArray<uint>(12, 11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
             Vector<uint> v2 = a2.ToVector(2);
             Assert.Equal(594u, v2[0]);
+            a.Close();
+            a2.Close();
         }
+
+        [Fact(DisplayName = "Can correctly fill")]
+        public void CanFill()
+        {
+            HugeArray<int> array = new HugeArray<int>(1000);
+            array.Fill(33);
+            Assert.Equal(33, array[999]);
+        }
+
     }
 }

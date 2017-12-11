@@ -4,12 +4,23 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <RootNamespace>jemalloc</RootNamespace>
-    <LangVersion>7.1</LangVersion>
+    <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>jemalloc.NET</PackageId>
+    <Version>0.1.0-alpha.1</Version>
+    <Authors>Allister Beharry</Authors>
+    <Company />
+    <Product>jemalloc.NET</Product>
+    <AssemblyVersion>0.1.0.1</AssemblyVersion>
+    <FileVersion>0.1.0.1</FileVersion>
+    <PackageProjectUrl>https://github.com/allisterb/jemalloc.NET</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/allisterb/jemalloc.NET/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/allisterb/jemalloc.NET</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <LangVersion>7.1</LangVersion>
+    <LangVersion>latest</LangVersion>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>..\x64\Debug\</OutputPath>
