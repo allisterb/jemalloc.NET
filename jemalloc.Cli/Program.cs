@@ -212,6 +212,7 @@ namespace jemalloc.Cli
         {
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Category"));
+            Contract.Requires(BenchmarkOptions.ContainsKey("Sizes"));
             if (o.Int16 && o.Unsigned)
             {
                 Benchmark<UInt16>();
@@ -246,6 +247,7 @@ namespace jemalloc.Cli
         {
             Contract.Requires(BenchmarkOptions.ContainsKey("Category"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
+            Contract.Requires(BenchmarkOptions.ContainsKey("Sizes"));
             IConfig config = ManualConfig
                          .Create(DefaultConfig.Instance);
             try
@@ -277,12 +279,14 @@ namespace jemalloc.Cli
                         break;
 
                     case Category.NARRAY:
-                        NativeVsManagedArrayBenchmark<int>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        NativeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:
-                                L.Information("Starting {num} create array benchmarks with array sizes: {s}",
-                                    NativeVsManagedArrayBenchmark<int>.BenchmarkParameters);
+                                L.Information("Starting {num} create array benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name,
+                                    NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
                                     .With(new NameFilter(name => name.Contains("Create")));
@@ -300,7 +304,7 @@ namespace jemalloc.Cli
                             default:
                                 throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
                         }
-                        BenchmarkSummary = BenchmarkRunner.Run<NativeVsManagedArrayBenchmark<int>>(config);
+                        BenchmarkSummary = BenchmarkRunner.Run<NativeVsManagedArrayBenchmark<T>>(config);
                         break;
 
                     case Category.HUGEARRAY:

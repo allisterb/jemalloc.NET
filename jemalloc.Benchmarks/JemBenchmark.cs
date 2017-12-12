@@ -30,7 +30,7 @@ namespace jemalloc.Benchmarks
 
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
         {
-            return typeof(TBench).GetMethods(BindingFlags.Public).Where(m => m.GetCustomAttribute(typeof(BenchmarkAttribute)) != null).Count();
+            return typeof(TBench).GenericTypeArguments.First().GetMethods(BindingFlags.Public).Count();
         }
 
         public static void SetColdStartOverride(bool value)
@@ -61,10 +61,10 @@ namespace jemalloc.Benchmarks
                     return JemUtil.ValToGenericStruct<Int32, TData>(Int32.MaxValue / 2);
 
                 case UInt64 v:
-                    return JemUtil.ValToGenericStruct<UInt64, TData>(Int32.MaxValue / 2);
+                    return JemUtil.ValToGenericStruct<UInt64, TData>(UInt64.MaxValue / 2);
 
                 case Int64 v:
-                    return JemUtil.ValToGenericStruct<Int64, TData>(Int32.MaxValue / 2);
+                    return JemUtil.ValToGenericStruct<Int64, TData>(Int64.MaxValue / 2);
 
                 default:
                     return value;
