@@ -19,7 +19,6 @@ namespace jemalloc.Tests
             HugeArray<int> array = new HugeArray<int>(arraySize);
             array[point] = 1;
             Assert.Equal(1, array[point]);
-            array.Close();
         }
 
         [Fact(DisplayName = "Can correctly assign to HugeArray elements")]
@@ -27,7 +26,7 @@ namespace jemalloc.Tests
         {
             ulong arraySize = 2L * Int32.MaxValue;
             HugeArray<int> array = new HugeArray<int>(arraySize);
-            ulong[] indices = new ulong[100000];
+            ulong[] indices = new ulong[10000];
             int scale = 0, value = 0;
             ulong v = 0;
             for (int i = 0; i < indices.Length; i++)
@@ -46,22 +45,25 @@ namespace jemalloc.Tests
             {
                 Assert.Equal(i, array[indices[i]]);
             }
-            array.Close();
         }
 
         [Fact(DisplayName = "Can convert to Vector")]
         public void CanConvertToVector()
         {
             HugeArray<uint> a = new HugeArray<uint>(8, 1, 11, 94, 5, 0, 0, 0, 8);
-            Vector<uint> v = a.ToVector();
+            Vector<uint> v = a.ToSingleVector();
             Assert.Equal(a[0], v[0]);
             Assert.Equal(a[3], v[3]);
             Assert.Equal(a[7], v[7]);
             HugeArray<uint> a2 = new HugeArray<uint>(12, 11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
-            Vector<uint> v2 = a2.ToVector(2);
-            Assert.Equal(594u, v2[0]);
-            a.Close();
-            a2.Close();
+            Vector<uint> v2 = a2.SliceToVector(0);
+            Assert.Equal(11u, v2[0]);
+            Assert.Equal(8u, v2[7]);
+            HugeArray<uint> a3 = new HugeArray<uint>((ulong)Int32.MaxValue + 10000);
+            a3.Fill(7u);
+            a3[(ulong)Int32.MaxValue + 100] = 9;
+            a3[(ulong)Int32.MaxValue + 101] = 4;
+            Vector<uint> v3 = a3.SliceToVector((ulong)Int32.MaxValue + 99);
         }
 
         [Fact(DisplayName = "Can correctly fill")]

@@ -54,6 +54,10 @@ namespace jemalloc
         public ulong SizeInBytes { get; protected set; }
 
         public bool IsNotAllocated => SizeInBytes == NotAllocated;
+
+        public bool IsAllocated => !IsNotAllocated;
+
+        public bool IsVectorizable { get; protected set; }
         #endregion
 
         #region Methods
@@ -123,32 +127,16 @@ namespace jemalloc
             return a;
         }
 
-        public Vector<T> CopyToVector()
-        {
-            if (!JemUtil.IsNumericType<T>())
-            {
-                throw new Exception("Only numeric types can be read as vectors.");
-            }
-            else if (this.Length != Vector<T>.Count)
-            {
-                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
-            }
-            T[] values = this.UncheckedCopyToArray();
-            return new Vector<T>(values);
-        }
-
-        public unsafe Vector<T> UncheckedCopyToVector(int index)
-        {
-            return new Vector<T>(this.UncheckedCopyToArray(index, VectorLength));
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector<T> ToVector()
+        public Vector<T> ToSingleVector()
         {
-            if (!JemUtil.IsNumericType<T>())
+            ThrowIfNotAllocatedOrInvalid();
+            if (!IsNumeric)
             {
                 throw new Exception("Only numeric types can be read as vectors.");
             }
+
             else if (this.Length != Vector<T>.Count)
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
@@ -159,23 +147,22 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector<T> ToVector(int index)
+        public Vector<T> SliceToVector(int index)
         {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotNumeric();
+            if ((index + VectorLength) > Length)
+            {
+                BufferIndexIsOutOfRange(index);
+            }
             Span<T> span = Span().Slice(index, VectorLength);
             return span.NonPortableCast<T, Vector<T>>()[0];
         }
 
-
         public void VectorMultiply(T value)
         {
-            if (!Vector.IsHardwareAccelerated)
-            {
-                throw new Exception();
-            }
-            if (this.Length % VectorLength != 0)
-            {
-                throw new ArithmeticException($"The length of the buffer {Length} is not a multiple of the VectorLength {VectorLength}.");
-            }
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotVectorisable();
             T[] fill = new T[VectorLength];
             for (int f = 0; f < VectorLength; f++)
             {
@@ -184,8 +171,7 @@ namespace jemalloc
             Vector<T> fillVector = new Vector<T>(fill);
             Span <T> span = Span();
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            int i = 0;
-            for (i = 0; i < vector.Length; i ++)
+            for (int i = 0; i < vector.Length; i ++)
             {
                 Vector<T> v = vector[i];
                 vector[i] = Vector.Multiply(v, fillVector);
@@ -194,18 +180,11 @@ namespace jemalloc
 
         public void VectorSqrt()
         {
-            if (!Vector.IsHardwareAccelerated)
-            {
-                throw new Exception();
-            }
-            if (this.Length % VectorLength != 0)
-            {
-                throw new ArithmeticException($"The length of the buffer {Length} is not a multiple of the VectorLength {VectorLength}.");
-            }
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotVectorisable();
             Span<T> span = Span();
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            int i = 0;
-            for (i = 0; i < vector.Length; i++)
+            for (int i = 0; i < vector.Length; i++)
             {
                 Vector<T> v = vector[i];
                 vector[i] = Vector.SquareRoot(v);
@@ -224,8 +203,21 @@ namespace jemalloc
                 voidPtr = handle.ToPointer();
                 Length = length;
                 SizeInBytes = s;
+                InitVector();
             }
             return handle;
+        }
+
+        protected unsafe void InitVector()
+        {
+            if (Length % VectorLength == 0 && SIMD && IsNumeric)
+            {
+                IsVectorizable = true;
+            }
+            else
+            {
+                IsVectorizable = false;
+            }
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
@@ -327,11 +319,32 @@ namespace jemalloc
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [DebuggerStepThrough]
+        private void ThrowIfNotVectorisable()
+        {
+            if (!IsVectorizable)
+            {
+                BufferIsNotVectorisable();
+            }
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
+        private void ThrowIfNotNumeric()
+        {
+            if (!IsNumeric)
+            {
+                BufferIsNotNumeric();
+            }
+        }
+
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private void ThrowIfIndexOutOfRange(int index)
         {
             if (index < 0 || index >= Length)
             {
-                IndexIsOutOfRange(index);
+                BufferIndexIsOutOfRange(index);
             }
         }
 
@@ -353,7 +366,23 @@ namespace jemalloc
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [DebuggerStepThrough]
-        private static IndexOutOfRangeException IndexIsOutOfRange(int index)
+        private static InvalidOperationException BufferIsNotVectorisable()
+        {
+            Contract.Assert(false, "Buffer is not vectorisable.");
+            return new InvalidOperationException("Buffer is not vectorisable.");
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
+        private static InvalidOperationException BufferIsNotNumeric()
+        {
+            Contract.Assert(false, "Buffer is not numeric.");
+            return new InvalidOperationException("Buffer is not numeric.");
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
+        private static IndexOutOfRangeException BufferIndexIsOutOfRange(int index)
         {
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
             return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
@@ -382,6 +411,8 @@ namespace jemalloc
         protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
         protected static bool IsNumeric = JemUtil.IsNumericType<T>();
         protected static int VectorLength = Vector<T>.Count;
+        protected static bool SIMD = Vector.IsHardwareAccelerated;
+
         protected internal unsafe void* voidPtr;
         //Debugger Display = {T[length]}
         protected string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
