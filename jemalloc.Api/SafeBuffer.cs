@@ -28,7 +28,7 @@ namespace jemalloc
             }
             SizeInBytes = NotAllocated;
             base.SetHandle(Allocate(length));
-            if (!IsNotAllocated)
+            if (IsAllocated)
             {
                 for (int i = 0; i < values.Length; i++)
                 {
@@ -64,7 +64,8 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         public unsafe bool Acquire()
         {
-            ThrowIfNotAllocated();
+            if (IsNotAllocated)
+                return false;
             bool result = false;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
@@ -81,24 +82,28 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         public void Release()
         {
-            ThrowIfNotAllocated();
+            if (IsNotAllocated)
+                return;
             DangerousRelease();
         }
 
-        public unsafe Span<T> Span()
+        public unsafe Span<T> AcquireSpan()
         {
             ThrowIfNotAllocatedOrInvalid();
+            ThrowIfCannotAcquire();
             return new Span<T>((void*)handle, (int)Length);
         }
 
         public void Fill(T value)
         {
             ThrowIfNotAllocatedOrInvalid();
-            Span<T> s = Span();
+            ThrowIfCannotAcquire();
+            Span<T> s = AcquireSpan();
             s.Fill(value);
+            Release();
         }
 
-        public unsafe ref T DangerousAsRef(int index)
+        protected unsafe ref T DangerousAsRef(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
@@ -109,10 +114,12 @@ namespace jemalloc
         protected T[] UncheckedCopyToArray()
         {
             T[] a = new T[this.Length];
-            for(int i = 0; i < this.Length; i++)
+            ThrowIfCannotAcquire();
+            for (int i = 0; i < this.Length; i++)
             {
                 a[i] = this[i];
             }
+            Release();
             return a;
         }
 
@@ -120,34 +127,31 @@ namespace jemalloc
         protected T[] UncheckedCopyToArray(int index, int length)
         {
             T[] a = new T[length];
+            ThrowIfCannotAcquire();
             for (int i = 0; i < length; i++)
             {
                 a[i] = this[index + i];
             }
+            Release();
             return a;
         }
 
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector<T> ToSingleVector()
+        public Vector<T> AcquireAsSingleVector()
         {
             ThrowIfNotAllocatedOrInvalid();
-            if (!IsNumeric)
-            {
-                throw new Exception("Only numeric types can be read as vectors.");
-            }
-
-            else if (this.Length != Vector<T>.Count)
+            ThrowIfNotNumeric();
+            if (this.Length != Vector<T>.Count)
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
             }
-            Span<T> span = Span();
+            Span<T> span = AcquireSpan();
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
             return vector[0];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector<T> SliceToVector(int index)
+        public Vector<T> AcquireSliceAsVector(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotNumeric();
@@ -155,7 +159,7 @@ namespace jemalloc
             {
                 BufferIndexIsOutOfRange(index);
             }
-            Span<T> span = Span().Slice(index, VectorLength);
+            Span<T> span = AcquireSpan().Slice(index, VectorLength);
             return span.NonPortableCast<T, Vector<T>>()[0];
         }
 
@@ -169,26 +173,28 @@ namespace jemalloc
                 fill[f] = value;
             }
             Vector<T> fillVector = new Vector<T>(fill);
-            Span <T> span = Span();
+            Span <T> span = AcquireSpan();
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
             for (int i = 0; i < vector.Length; i ++)
             {
                 Vector<T> v = vector[i];
                 vector[i] = Vector.Multiply(v, fillVector);
             }
+            Release();
         }
 
         public void VectorSqrt()
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
-            Span<T> span = Span();
+            Span<T> span = AcquireSpan();
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
             for (int i = 0; i < vector.Length; i++)
             {
                 Vector<T> v = vector[i];
                 vector[i] = Vector.SquareRoot(v);
             }
+            Release();
         }
 
         protected unsafe virtual IntPtr Allocate(int length)
@@ -223,7 +229,8 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         protected unsafe void AcquirePointer(ref byte* pointer)
         {
-            ThrowIfNotAllocated();
+            if (IsNotAllocated)
+                return;
             pointer = null;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
@@ -237,57 +244,29 @@ namespace jemalloc
             }
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected T Read(int index)
+        protected unsafe T Read(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-
+            ThrowIfCannotAcquire();
+            
             // return (T*) (_ptr + byteOffset);
-            T value = default;
-            ref T ret = ref value;
-            bool mustCallRelease = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-                DangerousAddRef(ref mustCallRelease);
-                unsafe
-                {
-                    return Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-                }
-            }
-            finally
-            {
-                if (mustCallRelease)
-                    DangerousRelease();
-            }
+            T ret =  Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+            Release();
+            return ret;
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected T Write(int index, T value)
+        
+        protected unsafe T Write(int index, T value)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-           
-            // return (T*) (_ptr + byteOffset);
-            bool mustCallRelease = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-                DangerousAddRef(ref mustCallRelease);
-                unsafe
-                {
-                    ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-                    v = value;
-                    return v;
-                }
-            }
-            finally
-            {
-                if (mustCallRelease)
-                    DangerousRelease();
-            }
-        }
+            ThrowIfCannotAcquire();
+            ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+            v = value;
+            Release();
+            return value ;
+         }
 
         public IEnumerator<T> GetEnumerator() => new SafeBufferEnumerator<T>(this);
 
@@ -314,6 +293,16 @@ namespace jemalloc
             if (IsNotAllocated)
             {
                 BufferIsNotAllocated();
+            }
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
+        private void ThrowIfCannotAcquire()
+        {
+            if (!Acquire())
+            {
+                throw new InvalidOperationException("Could not acquire handle.");
             }
         }
 
@@ -396,10 +385,8 @@ namespace jemalloc
         #region Operators
         public unsafe T this[int index]
         {
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             get => this.Read(index);
 
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             set => this.Write(index, value);
          }
         #endregion

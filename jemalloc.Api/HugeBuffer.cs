@@ -301,7 +301,7 @@ namespace jemalloc
             ThrowIfCannotAcquire();                
             GetSegment(index, out void* ptr, out int offset);
             ret = Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-            DangerousRelease();
+            Release();
             return ret;
         }
 
@@ -315,7 +315,8 @@ namespace jemalloc
             GetSegment(index, out void* ptr, out int offset);
             ref T v = ref Unsafe.AsRef<T>(BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer());
             v = value;
-            return v; 
+            Release();
+            return value; 
         }
 
         public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
@@ -433,10 +434,8 @@ namespace jemalloc
         #region Operators
         public T this[ulong index]
         {
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             get => Read(index);
             
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
             set => Write(index, value);
         }
         #endregion
