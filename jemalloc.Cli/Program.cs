@@ -136,6 +136,10 @@ namespace jemalloc.Cli
                 {
                     JemBenchmarkJobAttribute.ColdStartOverride = true;
                 }
+                if (o.TargetCount > 0)
+                {
+                    JemBenchmarkJobAttribute.TargetCountOverride = o.TargetCount;
+                }
             })
             .WithParsed<MallocBenchmarkOptions>(o =>
             {
@@ -199,10 +203,14 @@ namespace jemalloc.Cli
                 {
                     BenchmarkOptions.Add("Operation", Operation.FILL);
                 }
+                else if (o.Math)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.MATH);
+                }
 
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
-                    Log.Error("You must select an operation to benchmark with --create or --fill.");
+                    Log.Error("You must select an operation to benchmark with --create or --fill or --math.");
                     Exit(ExitResult.SUCCESS);
                 }
                 else
@@ -223,6 +231,14 @@ namespace jemalloc.Cli
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Category"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Sizes"));
+            if (o.Int8 && o.Unsigned)
+            {
+                Benchmark<Byte>();
+            }
+            else if (o.Int8)
+            {
+                Benchmark<SByte>();
+            }
             if (o.Int16 && o.Unsigned)
             {
                 Benchmark<UInt16>();
@@ -247,9 +263,13 @@ namespace jemalloc.Cli
             {
                 Benchmark<Int64>();
             }
+            else if (o.Double)
+            {
+                Benchmark<Double>();
+            }
             else
             {
-                L.Error("You must select a data type to benchmark with -i, -s, or -l.");
+                L.Error("You must select a data type to benchmark with: -b, -i, -s, -l, -d and -u.");
                 Exit(ExitResult.INVALID_OPTIONS);
             }
         }
@@ -335,8 +355,7 @@ namespace jemalloc.Cli
                                 L.Information("Starting {num} huge array create benchmarks for data type {t} with array sizes: {s}",
                                     JemBenchmark<T, ulong>.GetBenchmarkMethodCount<HugeNativeVsManagedArrayBenchmark<T>>(),
                                     typeof(T).Name, HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
-                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
-                                L.Warning("This benchmark can take a long time (up to 15 mins).");
+                                L.Information("This benchmark does not have a warmup phase but can still take a while (10-15 minutes.)");
                                 break;
 
                             case Operation.FILL:
@@ -344,7 +363,15 @@ namespace jemalloc.Cli
                                 L.Information("Starting {num} huge array fill benchmarks for data type {t} with array sizes: {s}",
                                     JemBenchmark<T, ulong>.GetBenchmarkMethodCount<HugeNativeVsManagedArrayBenchmark<T>>(),
                                     typeof(T).Name, HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
-                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                L.Information("This benchmark does not have a warmup phase but can still take a while (10-15 minutes.)");
+                                break;
+
+                            case Operation.MATH:
+                                config = config.With(new NameFilter(name => name.Contains("Arithmetic")));
+                                L.Information("Starting {num} huge array math benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, ulong>.GetBenchmarkMethodCount<HugeNativeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("This benchmark does not have a warmup phase but can still take a while (10-15 minutes.)");
                                 break;
 
                             default:

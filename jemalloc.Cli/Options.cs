@@ -12,17 +12,26 @@ namespace jemalloc.Cli
         [Option('u', "unsigned", Required = false, HelpText = "Use the unsigned version of the underlying data type.")]
         public bool Unsigned { get; set; }
 
-        [Option('s', "int16", Required = false, HelpText = "Use Int16 integers as the underlying data type.", SetName = "type")]
+        [Option('b', "int8", Required = false, HelpText = "Use byte as the underlying data type.", SetName = "type")]
+        public bool Int8 { get; set; }
+
+        [Option('s', "int16", Required = false, HelpText = "Use Int16 short integer as the underlying data type.", SetName = "type")]
         public bool Int16 { get; set; }
 
-        [Option('i', "int32", Required = false, HelpText = "Use Int32 integers as the underlying data type.", SetName = "type")]
+        [Option('i', "int32", Required = false, HelpText = "Use Int32 integer as the underlying data type.", SetName = "type")]
         public bool Int32 { get; set; }
 
-        [Option('l', "int64", Required = false, HelpText = "Use Int64 integers as the underlying data type.", SetName = "type")]
+        [Option('l', "int64", Required = false, HelpText = "Use Int64 long integer as the underlying data type.", SetName = "type")]
         public bool Int64 { get; set; }
 
-        [Option('c', "cold-start", Required = false, HelpText = "Don't run warmup phase of benchmarks.", SetName = "type")]
+        [Option('d', "double", Required = false, HelpText = "Use double-precision floating point as the underlying data type.", SetName = "type")]
+        public bool Double { get; set; }
+
+        [Option('c', "cold-start", Required = false, HelpText = "Don't run warmup phase of benchmarks.")]
         public bool ColdStart { get; set; }
+
+        [Option('t', "target-count", Required = false, HelpText = "Set the target count of benchmark runs.", Default = 0)]
+        public int TargetCount { get; set; }
 
     }
 
@@ -63,6 +72,9 @@ namespace jemalloc.Cli
 
         [Option("fill", Required = false, HelpText = "Benchmark huge native array fill vs managed arrays.")]
         public bool Fill { get; set; }
+
+        [Option("math", Required = false, HelpText = "Benchmark arithmetic and other math operations on native array vs managed arrays.")]
+        public bool Math { get; set; }
 
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<ulong> Sizes { get; set; }

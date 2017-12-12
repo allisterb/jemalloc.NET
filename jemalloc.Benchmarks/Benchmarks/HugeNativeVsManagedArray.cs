@@ -11,12 +11,22 @@ namespace jemalloc.Benchmarks
     {
         public ulong ArraySize => Parameter;
 
+        [GlobalSetup]
+        public void GlobalSetup()
+        {
+            managedArray = new T[2146435071];
+            nativeArray = new HugeArray<T>(ArraySize);
+            fill = GetArrayFillValue();
+            mul = GetArrayMulValue();
+            Console.WriteLine("Managed array fill value is {0}.", fill);
+            Console.WriteLine("Multiply factor is {0}", mul);
+        }
+
         [BenchmarkCategory("Create")]
         [Benchmark(Description = "Create an array with the maximum size [2146435071] on the .NET managed heap")]
         public void CreateManagedArray()
         {
             T[] someData = new T[2146435071];
-            someData = null;
         }
 
         [BenchmarkCategory("Create")]
@@ -24,10 +34,11 @@ namespace jemalloc.Benchmarks
         public void CreateHugeNativeArray()
         {
             HugeArray<T> array = new HugeArray<T>(ArraySize);
+            array.Close();
         }
 
         [Benchmark(Description = "Fill a managed array with the maximum size [2146435071] with a single value.")]
-        [BenchmarkCategory("Native vs managed array")]
+        [BenchmarkCategory("Fiill")]
         public void FillManagedArray()
         {
             T fill = GetArrayFillValue();
@@ -42,7 +53,7 @@ namespace jemalloc.Benchmarks
         }
 
         [Benchmark(Description = "Fill a HugeArray on the system unmanaged heap with a single value.")]
-        [BenchmarkCategory("Native vs managed array")]
+        [BenchmarkCategory("Fill")]
         public void FillHugeNativeArray()
         {
             T fill = GetArrayFillValue();
@@ -50,6 +61,32 @@ namespace jemalloc.Benchmarks
             array.Fill(fill);
             T r = array[ArraySize / 2];
         }
-        
+
+        [Benchmark(Description = "Multiply all values of a managed array with the maximum size [2146435071] with a single value.")]
+        [BenchmarkCategory("Arithmetic")]
+        public void ArithmeticMutiplyManagedArray()
+        {
+            for (int i = 0; i < managedArray.Length; i++)
+            {
+                managedArray[i] = JemUtil.GenericMultiply(managedArray[i], mul);
+            }
+            T r = managedArray[ArraySize / 2];
+        }
+
+        [Benchmark(Description = "Vector multiply all values of a native array with a single value.")]
+        [BenchmarkCategory("Arithmetic")]
+        public void ArithmeticMultiplyNativeArray()
+        {
+            nativeArray.VectorMultiply(mul);
+            T r = nativeArray[ArraySize / 2];
+        }
+
+        #region Fields
+        protected T[] managedArray;
+        protected HugeArray<T> nativeArray;
+        protected T fill;
+        protected T mul;
+        #endregion
+
     }
 }
