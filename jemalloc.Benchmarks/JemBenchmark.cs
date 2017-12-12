@@ -26,8 +26,6 @@ namespace jemalloc.Benchmarks
 
         public static IEnumerable<TParam> BenchmarkParameters { get; set; }
 
-        public static string BenchmarkFilter;
-
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
         {
             return typeof(TBench).GenericTypeArguments.First().GetMethods(BindingFlags.Public).Count();

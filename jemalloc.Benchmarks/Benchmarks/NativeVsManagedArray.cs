@@ -48,7 +48,6 @@ namespace jemalloc.Benchmarks
             SafeArray<T> array = new SafeArray<T>(ArraySize);
             array.Fill(fill);
             T r = array[ArraySize / 2];
-            array.Close();
         }
     }
 }

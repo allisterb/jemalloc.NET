@@ -1,14 +1,14 @@
 # jemalloc.NET: A native memory manager for .NET
 
 ![jembench](https://lh3.googleusercontent.com/9zFHRdddwBezYJGb2jgMGHT3lgDTFmBAcJ_s8NgOdmAF1nz1-sF-0p9ZMOjeFVc-HAJHMRyLNmO02aHjWL8F9JWlqPHmiypdcmDhSx8SK8unzENOE7sG7ZCEOZLvI5nSTk_H8DpKoQ=w958-h521-no)
-jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memory allocator and provides .NET applications with efficient data structures backed by native memory for large scale in-memory computation scenarios. jemalloc is "a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support" that is [widely used](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) in the industry, particularly in [applications](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) that must scale and utilize large amounts of memory. In addition to its fragmentation and concurrency optimizations, jemalloc provides an array of developer options for debugging, monitoring and tuning allocations that make it a great choice for use in developing memory-intensive applications.
+jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memory allocator and provides .NET applications with efficient data structures backed by native memory for large scale in-memory computation scenarios. jemalloc is "a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support" that is [widely used](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) in the industry, particularly in applications that must [scale and utilize](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) large amounts of memory. In addition to its fragmentation and concurrency optimizations, jemalloc provides an array of developer options for debugging, monitoring and tuning allocations that make it a great choice for use in developing memory-intensive applications.
 
 The jemalloc.NET project provides:
 * A low-level .NET API over the native jemalloc API functions like je_malloc, je_calloc, je_free, je_mallctl...
 * A safety-focused high-level .NET API providing data structures like arrays backed by native memory allocated using jemalloc.
-* A benchmark CLI program: `jembench` for easily benchmarking operations on native data structures vs managed objects using different parameters.
+* A benchmark CLI program: `jembench` which uses the excellent [BenchmarkDotNet](http://benchmarkdotnet.org/index.htm) library for easy and accurate benchmarking operations on native data structures vs managed objects using different parameters.
 
-Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements and memory allocation is more resistant to fragmentation. Large .NET arrays must be allocated on the Large Object Heap which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, filling a managed array of type UInt64 of size 100 million is 2.6x slower than using an equivalent native array provided by jemalloc.NET:
+Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements, and memory allocation is much more resistant to fragmentation. Large .NET arrays must be allocated on the Large Object Heap which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, filling a managed array of type UInt64[] of size 100 million is 2.6x slower than using an equivalent native array provided by jemalloc.NET:
 
 ``` ini
 
@@ -29,7 +29,28 @@ Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain
 
 You can run this benchmark with the command `jembench array --fill -l -u 100000000`. In this case we see that using the managed array allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computations.
 
-Managed .NET arays are also limited to Int32 indexing which puts a maximum size on arrays at about 2.5 billion elements. jemalloc provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics.
+Managed .NET arays are also limited to Int32 indexing and a maximum size of about 2.15 billion elements. jemalloc.NET provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics. In the next benchmark `jembench hugearray --fill -i 4200000000`:
+
+``` ini
+
+BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
+Processor=Intel Core i7-6700HQ CPU 2.60GHz (Skylake), ProcessorCount=8
+Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
+.NET Core SDK=2.1.2
+  [Host] : .NET Core 2.0.3 (Framework 4.6.25815.02), 64bit RyuJIT
+
+Job=JemBenchmark  Jit=RyuJit  Platform=X64  
+Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
+RunStrategy=ColdStart  TargetCount=7  WarmupCount=-1  
+
+```
+|                                                                         Method |  Parameter |    Mean |    Error |   StdDev |    Allocated |
+|------------------------------------------------------------------------------- |----------- |--------:|---------:|---------:|-------------:|
+| 'Fill a managed array with the maximum size [2146435071] with a single value.' | 4200000000 | 3.177 s | 0.1390 s | 0.0617 s | 8585740456 B |
+|           'Fill a HugeArray on the system unmanaged heap with a single value.' | 4200000000 | 4.029 s | 3.2233 s | 1.4312 s |          0 B |
+
+
+an Int32[] array of maximum size can be allocated and filled in 3.2s. This array consumes 8.6GB on the managed heap. But a jemalloc.NET `HugeArray<Int32>` of nearly double the size at 4.2 billion elements can be allocated in only 4 s and again consumes no memory on the managed heap. The only limit on the size of a `HugeArray<T>` is the available system memory.
 
 In a .NET application jemalloc.NET native arrays and data structures can be straightforwardly accessed by native libraries without the need to make additional copies. Buffer operations can be SIMD-vectorized which can make a significant performance difference for huge buffers with 10s of billions of values. 
 
@@ -59,6 +80,6 @@ with at least the following components:
 
 ### Steps
 1. Clone the project: `git clone https://github.com/alllisterb/jemalloc.NET`
-2. From a Visual Studion 2017 Developer Command prompt run `build.cmd`. 
+2. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. 
 3. The solution should build without errors.
 4. Run `jembench` from the solution folder to see the project version and help.
