@@ -29,6 +29,29 @@ Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain
 
 You can run this benchmark with the command `jembench array --fill -l -u 100000000`. In this case we see that using the managed array allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computations.
 
+Perhaps the killer feature of the recently introduced `Span<T>` class in .NET is its ability to efficently re-interpret numeric data structures (`Int32, Int64` and their siblings) into other strucutres like the `Vector<T>` SIMD-enabled data types introduced in 2016. `Vector<T>` types are special in that the .NET RyuJIT JIT compiler can compile operations on Vectors to use SIMD instructions like SSE, SSE2, and AVX for parallelizing operations on data on a single CPU core.
+
+Using the SIMD-enabled `SafeBuffer<T>.VectoryMultiply(n)` method provided by the jemalloc.NET API yields a 4.5x speedup for a simple in-place multiplication of a `Uint16[]` array of 1 million elements compared to the unoptimized linear approach, allowing the operation to complete in 3.3 ms:
+
+``` ini
+
+BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
+Processor=Intel Core i7-6700HQ CPU 2.60GHz (Skylake), ProcessorCount=8
+Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
+.NET Core SDK=2.1.2
+  [Host] : .NET Core 2.0.3 (Framework 4.6.25815.02), 64bit RyuJIT
+
+Job=JemBenchmark  Jit=RyuJit  Platform=X64  
+Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
+RunStrategy=Throughput  
+
+```
+|                                                              Method | Parameter |      Mean |     Error |    StdDev |     Gen 0 |  Allocated |
+|-------------------------------------------------------------------- |---------- |----------:|----------:|----------:|----------:|-----------:|
+|       'Multiply all values of a managed array with a single value.' |   1024000 | 15.861 ms | 0.3169 ms | 0.4231 ms | 7781.2500 | 24576000 B |
+| 'Vector multiply all values of a native array with a single value.' |   1024000 |  3.299 ms | 0.0344 ms | 0.0287 ms |         - |       56 B |
+
+
 Managed .NET arays are also limited to Int32 indexing and a maximum size of about 2.15 billion elements. jemalloc.NET provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics. In the next benchmark `jembench hugearray --fill -i 4200000000`:
 
 ``` ini
