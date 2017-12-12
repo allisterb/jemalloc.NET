@@ -36,7 +36,8 @@ namespace jemalloc.Cli
         public enum Operation
         {
             CREATE,
-            FILL
+            FILL,
+            MATH
         }
 
         static Version Version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -131,6 +132,10 @@ namespace jemalloc.Cli
                 {
                     BenchmarkOptions.Add(prop.Name, prop.GetValue(o));
                 }
+                if (o.ColdStart)
+                {
+                    JemBenchmarkJobAttribute.ColdStartOverride = true;
+                }
             })
             .WithParsed<MallocBenchmarkOptions>(o =>
             {
@@ -166,6 +171,11 @@ namespace jemalloc.Cli
                 {
                     BenchmarkOptions.Add("Operation", Operation.FILL);
                 }
+                else if (o.Math)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.MATH);
+                }
+
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
                     Log.Error("You must select an operation to benchmark with --create or --fill.");
@@ -289,7 +299,7 @@ namespace jemalloc.Cli
                                     NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
-                                    .With(new NameFilter(name => name.Contains("Create")));
+                                    .With(new NameFilter(name => name.StartsWith("Create")));
                                 break;
 
                             case Operation.FILL:
@@ -298,7 +308,16 @@ namespace jemalloc.Cli
                                     typeof(T).Name, NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
-                                    .With(new NameFilter(name => name.Contains("Fill")));
+                                    .With(new NameFilter(name => name.StartsWith("Fill")));
+                                break;
+
+                            case Operation.MATH:
+                                L.Information("Starting {num} array math benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                config = config
+                                    .With(new NameFilter(name => name.StartsWith("Arith")));
                                 break;
 
                             default:

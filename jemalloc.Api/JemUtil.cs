@@ -45,6 +45,70 @@ namespace jemalloc
             return PtrToStruct<TReturn>(ptr);
         }
 
+        public unsafe static TReturn GenericMultiply<TReturn>(TReturn l, TReturn r) where TReturn : struct
+        {
+            Tuple<TReturn, TReturn> value = new Tuple<TReturn, TReturn>(l, r);
+            switch (value)
+            {
+                case Tuple<Byte, Byte> v:
+                    return JemUtil.ValToGenericStruct<Byte, TReturn>((byte) (v.Item1 * v.Item2));
+
+                case Tuple<SByte, SByte> v:
+                    return JemUtil.ValToGenericStruct<SByte, TReturn>((SByte) (v.Item1 * v.Item2));
+
+                case Tuple<UInt16, UInt16> v:
+                    return JemUtil.ValToGenericStruct<UInt16, TReturn>((UInt16) (v.Item1 * v.Item2));
+
+                case Tuple<Int16, Int16> v:
+                    return JemUtil.ValToGenericStruct<Int16, TReturn>((Int16) (v.Item1 * v.Item2));
+
+                case Tuple<UInt32, UInt32> v:
+                    return JemUtil.ValToGenericStruct<UInt32, TReturn>((UInt32) (v.Item1 * v.Item2));
+
+                case Tuple<Int32, Int32> v:
+                    return JemUtil.ValToGenericStruct<Int32, TReturn>((Int32)(v.Item1 * v.Item2));
+
+                case Tuple<UInt64, UInt64> v:
+                    return JemUtil.ValToGenericStruct<UInt64, TReturn>((UInt64)(v.Item1 * v.Item2));
+
+                case Tuple<Int64, Int64> v:
+                    return JemUtil.ValToGenericStruct<Int64, TReturn>((Int64)(v.Item1 * v.Item2));
+
+                default:
+                    return default;
+            }
+        }
+
+        public unsafe static double GenericSqrt<TReturn>(TReturn l) where TReturn : struct
+        {
+            if (!JemUtil.IsNumericType<TReturn>())
+            {
+                throw new ArithmeticException();
+            }
+            switch (l)
+            {
+                case SByte v:
+                    return Math.Sqrt(v);
+                case Byte v:
+                    return Math.Sqrt(v);
+                case Int32 v:
+                    return Math.Sqrt(v);
+                case UInt32 v:
+                    return Math.Sqrt(v);
+                case Int16 v:
+                    return Math.Sqrt(v);
+                case UInt16 v:
+                    return Math.Sqrt(v);
+                case Int64 v:
+                    return Math.Sqrt(v);
+                case UInt64 v:
+                    return Math.Sqrt(v);
+                default:
+                    throw new ArithmeticException();
+            }
+         }
+
+
         public static int SizeOfStruct<T>() where T : struct
         {
             return Unsafe.SizeOf<T>();

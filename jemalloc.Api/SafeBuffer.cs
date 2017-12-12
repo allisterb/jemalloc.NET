@@ -101,12 +101,24 @@ namespace jemalloc
             return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
         }
 
-        public T[] CopyToArray()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected T[] UncheckedCopyToArray()
         {
             T[] a = new T[this.Length];
             for(int i = 0; i < this.Length; i++)
             {
                 a[i] = this[i];
+            }
+            return a;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected T[] UncheckedCopyToArray(int index, int length)
+        {
+            T[] a = new T[length];
+            for (int i = 0; i < length; i++)
+            {
+                a[i] = this[index + i];
             }
             return a;
         }
@@ -121,10 +133,16 @@ namespace jemalloc
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
             }
-            T[] values = this.CopyToArray();
+            T[] values = this.UncheckedCopyToArray();
             return new Vector<T>(values);
         }
 
+        public unsafe Vector<T> UncheckedCopyToVector(int index)
+        {
+            return new Vector<T>(this.UncheckedCopyToArray(index, VectorLength));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector<T> ToVector()
         {
             if (!JemUtil.IsNumericType<T>())
@@ -135,25 +153,63 @@ namespace jemalloc
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
             }
-            object[] args = new object[2] { handle, 0 };
-            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
-            return v;
+            Span<T> span = Span();
+            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            return vector[0];
         }
 
-        public unsafe Vector<T> ToVector(int index)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Vector<T> ToVector(int index)
         {
-            if (!JemUtil.IsNumericType<T>())
+            Span<T> span = Span().Slice(index, VectorLength);
+            return span.NonPortableCast<T, Vector<T>>()[0];
+        }
+
+
+        public void VectorMultiply(T value)
+        {
+            if (!Vector.IsHardwareAccelerated)
             {
-                throw new Exception("Only numeric types can be read as vectors.");
+                throw new Exception();
             }
-            if (Length - index < Vector<T>.Count)
+            if (this.Length % VectorLength != 0)
             {
-                IndexIsOutOfRange(index);
+                throw new ArithmeticException($"The length of the buffer {Length} is not a multiple of the VectorLength {VectorLength}.");
             }
-            ref T start = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-            object[] args = new object[2] { new IntPtr(Unsafe.AsPointer(ref start)), 0 };
-            Vector<T> v = (Vector<T>)VectorInternalConstructorUsingPointer.Invoke(args);
-            return v;
+            T[] fill = new T[VectorLength];
+            for (int f = 0; f < VectorLength; f++)
+            {
+                fill[f] = value;
+            }
+            Vector<T> fillVector = new Vector<T>(fill);
+            Span <T> span = Span();
+            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            int i = 0;
+            for (i = 0; i < vector.Length; i ++)
+            {
+                Vector<T> v = vector[i];
+                vector[i] = Vector.Multiply(v, fillVector);
+            }
+        }
+
+        public void VectorSqrt()
+        {
+            if (!Vector.IsHardwareAccelerated)
+            {
+                throw new Exception();
+            }
+            if (this.Length % VectorLength != 0)
+            {
+                throw new ArithmeticException($"The length of the buffer {Length} is not a multiple of the VectorLength {VectorLength}.");
+            }
+            Span<T> span = Span();
+            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            int i = 0;
+            for (i = 0; i < vector.Length; i++)
+            {
+                Vector<T> v = vector[i];
+                vector[i] = Vector.SquareRoot(v);
+            }
         }
 
         protected unsafe virtual IntPtr Allocate(int length)
@@ -324,7 +380,8 @@ namespace jemalloc
         protected static readonly T Element = default;
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
         protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
-
+        protected static bool IsNumeric = JemUtil.IsNumericType<T>();
+        protected static int VectorLength = Vector<T>.Count;
         protected internal unsafe void* voidPtr;
         //Debugger Display = {T[length]}
         protected string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);

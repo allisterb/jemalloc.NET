@@ -39,5 +39,19 @@ namespace jemalloc.Tests
             Vector<uint> v2 = a2.ToVector(2);
             Assert.Equal(594u, v2[0]);
         }
+
+        [Fact]
+        public void CanVectorizedMultiply()
+        {
+            SafeArray<uint> a = new SafeArray<uint>(8, 1, 2, 3, 4, 5, 6, 7, 8);
+            SafeArray<int> b = new SafeArray<int>(8, 111, 22, 345, 40888, 3 , 777, 99, 6);
+            a.VectorMultiply(2);
+            Assert.Equal(2u, a[0]);
+            Assert.Equal(8u, a[3]);
+            Assert.Equal(16u, a[7]);
+            b.VectorMultiply(6);
+            Assert.Equal(666, b[0]);
+
+        }
     }
 }
