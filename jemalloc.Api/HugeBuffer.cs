@@ -66,7 +66,8 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         public unsafe bool Acquire()
         {
-            ThrowIfNotAllocated();
+            if (IsNotAllocated || IsInvalid)
+                return false;
             bool result = false;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
@@ -82,14 +83,16 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         public void Release()
         {
-            ThrowIfNotAllocated();
+            if (IsNotAllocated || IsInvalid)
+                return;
             DangerousRelease();
         }
 
-        public unsafe Span<T> Span(ulong index)
+        public unsafe Span<T> AcquireSpan(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
+            ThrowIfCannotAcquire();
             GetSegment(index, out void* ptr, out int offset);
             return new Span<T>(ptr, offset + 1);
         }
@@ -97,13 +100,15 @@ namespace jemalloc
         public unsafe void Fill(T value)
         {
             ThrowIfNotAllocatedOrInvalid();
+            ThrowIfCannotAcquire();
             for (int i = 0; i < segments.Length - 1; i++)
-            {
-                Span<T> s = new Span<T>(segments[i], Int32.MaxValue);
+            {                
+                Span<T> s = new Span<T>(segments[i].ToPointer(), Int32.MaxValue);
                 s.Fill(value);
             }
-            Span<T> last = Span(Length - 1);
+            Span<T> last = AcquireSpan(Length - 1);
             last.Fill(value);
+            Release();
         }
 
         public T[] CopyToArray()
@@ -114,15 +119,16 @@ namespace jemalloc
                 throw new ArgumentOutOfRangeException("This length of this array exceeds the max length of a managed array.");
             }
             T[] a = new T[this.Length];
+            ThrowIfCannotAcquire();
             for (ulong i = 0; i < this.Length; i++)
             {
                 a[i] = this[i];
             }
+            Release();
             return a;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Vector<T> ToSingleVector()
+        public unsafe Vector<T> AcquireAsSingleVector()
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
@@ -130,13 +136,13 @@ namespace jemalloc
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
             }
-            Span<T> span = new Span<T>(segments[0], VectorLength);
+            ThrowIfCannotAcquire();
+            Span<T> span = new Span<T>(segments[0].ToPointer(), VectorLength);
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
             return vector[0];
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Vector<T> SliceToVector(ulong index)
+        public unsafe Vector<T> AcquireSliceToVector(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotNumeric();
@@ -144,8 +150,8 @@ namespace jemalloc
             {
                 ThrowIfIndexOutOfRange(index);
             }
+            ThrowIfCannotAcquire();
             T v = this[index];
-            
             GetSegment(index, out void* ptr, out int offset);
             IntPtr p = new IntPtr(ptr);
             Span<T> span = new Span<T>(BufferHelpers.Add<T>(p, offset).ToPointer(), VectorLength);
@@ -164,9 +170,10 @@ namespace jemalloc
                 factor[f] = value;
             }
             Vector<T> factorVector = new Vector<T>(factor);
+            ThrowIfCannotAcquire();
             for (int h = 0; h < segments2.Length; h++)
             {
-                Span<T> span = new Span<T>(segments[h], segments2[h].Item2);
+                Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
                 Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
                 int i = 0;
                 for (i = 0; i < vector.Length; i++)
@@ -174,24 +181,27 @@ namespace jemalloc
                     vector[i] = Vector.Multiply(vector[i], factorVector);
                 }
             }
+            Release();
         }
 
         public unsafe void VectorSqrt()
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
+            ThrowIfCannotAcquire();
             for (int h = 0; h < segments2.Length; h++)
             {
-                Span<T> span = new Span<T>(segments[h], segments2[h].Item2);
+                Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
                 Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
                 for (int i = 0; i < vector.Length; i++)
                 {
                     vector[i] = Vector.SquareRoot(vector[i]);
                 }
             }
+            Release();
         }
 
-        public unsafe ref T DangerousGetRef(ulong index)
+        protected unsafe ref T DangerousGetRef(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
@@ -220,17 +230,19 @@ namespace jemalloc
         protected unsafe void InitSegments()
         {
             int n = (int) ((Length - 1) / Int32.MaxValue) + 1;
-            segments = new void*[n];
+            segments = new IntPtr[n];
             segments2 = new Tuple<IntPtr, int>[segments.Length];
-            for (int i = 0; i < n; i++)
+            segments[0] = handle;
+            segments2[0] = new Tuple<IntPtr, int>(handle, n == 1 ? (int)Length : Int32.MaxValue);
+            for (int i = 1; i < n; i++)
             {
-                segments[i] = (handle + i * Int32.MaxValue).ToPointer();
+                segments[i] = BufferHelpers.Add<T>(segments[i - 1], Int32.MaxValue);
                 if (i < n - 1)
                 {
-                    segments2[i] = new Tuple<IntPtr, int>(new IntPtr(segments[i]), (i + 1) * Int32.MaxValue);
+                    segments2[i] = new Tuple<IntPtr, int>(segments[i], Int32.MaxValue);
                 }
             }
-            segments2[n - 1] = new Tuple<IntPtr, int>(new IntPtr(segments[n - 1]), (int)(Length - (ulong)((n - 1) * Int32.MaxValue)));
+            segments2[n - 1] = new Tuple<IntPtr, int>(segments[n - 1], (int)(Length - (ulong)((n - 1) * Int32.MaxValue)));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -245,8 +257,8 @@ namespace jemalloc
         {
             int s = GetSegmentIndex(index);
             int l = segments.Length;
-            ptr = segments[s];
-            offset = (int) (index - ((ulong)(l-1) * (ulong) Int32.MaxValue));
+            ptr = segments[s].ToPointer();
+            offset = (int) (index - ((ulong)(s) * (ulong) Int32.MaxValue));
         }
 
         protected unsafe void InitVectors()
@@ -265,8 +277,8 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         protected unsafe void AcquirePointer(ref byte* pointer)
         {
-            ThrowIfNotAllocated();
             pointer = null;
+            if (IsNotAllocated || IsInvalid) return;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
             {
@@ -279,62 +291,46 @@ namespace jemalloc
             }
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected T Read(ulong index)
+        
+        protected unsafe T Read(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-
             // return (T*) (seg_ptr + byteOffset);
-            T value = default;
-            ref T ret = ref value;
-            bool mustCallRelease = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-                DangerousAddRef(ref mustCallRelease);
-                unsafe
-                {
-                    GetSegment(index, out void* ptr, out int offset);
-                    return Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-                }
-            }
-            finally
-            {
-                if (mustCallRelease)
-                    DangerousRelease();
-            }
+            T ret;
+            ThrowIfCannotAcquire();                
+            GetSegment(index, out void* ptr, out int offset);
+            ret = Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
+            DangerousRelease();
+            return ret;
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected T Write(ulong index, T value)
+       
+        protected unsafe T Write(ulong index, T value)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            // return (T*) (_ptr + byteOffset);
-            bool mustCallRelease = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-                DangerousAddRef(ref mustCallRelease);
-                unsafe
-                {
-                    GetSegment(index, out void* ptr, out int offset);
-                    ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-                    v = value;
-                    return v;
-                }
-            }
-            finally
-            {
-                if (mustCallRelease)
-                    DangerousRelease();
-            }
+            // return (T*) (seg_ptr + byteOffset);
+            ThrowIfCannotAcquire();
+            GetSegment(index, out void* ptr, out int offset);
+            ref T v = ref Unsafe.AsRef<T>(BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer());
+            v = value;
+            return v; 
         }
 
         public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
 
         IEnumerator IEnumerable.GetEnumerator() => new HugeBufferEnumerator<T>(this);
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
+        private void ThrowIfCannotAcquire()
+        {
+            if (!Acquire())
+            {
+                throw new InvalidOperationException("Could not acquire handle.");
+            }
+        }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [DebuggerStepThrough]
@@ -454,7 +450,7 @@ namespace jemalloc
         protected static readonly int VectorLength = Vector<T>.Count;
         protected static bool SIMD = Vector.IsHardwareAccelerated;
         protected internal unsafe void* voidPtr;
-        protected unsafe void*[] segments;
+        protected unsafe IntPtr[] segments;
         protected unsafe Tuple<IntPtr, int>[] segments2;
         //Debugger Display = {T[length]}
         private string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
