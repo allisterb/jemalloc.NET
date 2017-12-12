@@ -11,7 +11,7 @@ namespace jemalloc
             //data[3L]
         }
 
-        HugeArray<T>[] data;
+        //HugeArray<T>[] data;
         
     }
 }

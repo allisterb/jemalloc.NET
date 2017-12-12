@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Reflection;
@@ -157,7 +158,7 @@ namespace jemalloc
 
         protected unsafe virtual IntPtr Allocate(int length)
         {
-            if (length < 0)
+            if (length <= 0)
                 throw new ArgumentOutOfRangeException("length");
             Contract.EndContractBlock();
             ulong s = checked((uint)length * ElementSizeInBytes);
@@ -245,6 +246,7 @@ namespace jemalloc
         IEnumerator IEnumerable.GetEnumerator() => new SafeBufferEnumerator<T>(this);
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private void ThrowIfNotAllocatedOrInvalid()
         {
             if (IsNotAllocated)
@@ -258,6 +260,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private void ThrowIfNotAllocated()
         {
             if (IsNotAllocated)
@@ -267,6 +270,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private void ThrowIfIndexOutOfRange(int index)
         {
             if (index < 0 || index >= Length)
@@ -277,12 +281,14 @@ namespace jemalloc
 
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private static InvalidOperationException HandleIsInvalid()
         {
             return new InvalidOperationException("The handle is invalid.");
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private static InvalidOperationException BufferIsNotAllocated()
         {
             Contract.Assert(false, "Unallocated safe buffer used.");
@@ -290,6 +296,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [DebuggerStepThrough]
         private static IndexOutOfRangeException IndexIsOutOfRange(int index)
         {
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
@@ -304,16 +311,11 @@ namespace jemalloc
         #region Operators
         public unsafe T this[int index]
         {
-            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-            get
-            {
-                return Read(index);
-            }
-            set
-            {
-                Write(index, value);
-            }
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+            get => this.Read(index);
 
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+            set => this.Write(index, value);
          }
         #endregion
 

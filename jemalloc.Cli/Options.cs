@@ -26,7 +26,10 @@ namespace jemalloc.Cli
     [Verb("malloc", HelpText = "Benchmark data structures backed by native memory allocated using jemalloc vs. .NET managed arrays, vectors, and tensors.")]
     class MallocBenchmarkOptions : Options
     {
-        [Option("fill", Required = false, HelpText = "Benchmark malloc allocate on unmanaged heap and Span<T> fill, vs managed arrays.")]
+        [Option("create", Required = false, HelpText = "Benchmark malloc and Span<T> creation vs managed array creation.")]
+        public bool Create { get; set; }
+
+        [Option("fill", Required = false, HelpText = "Benchmark fill Span<T> on system unmanaged heap vs fill managed arrays.")]
         public bool Fill { get; set; }
 
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
@@ -49,24 +52,13 @@ namespace jemalloc.Cli
     [Verb("hugearray", HelpText = "Benchmark huge arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
     class HugeNativeArrayBenchmarkOptions : Options
     {
-        [Option("fill", Required = false, HelpText = "Benchmark huge native array creation and fill vs managed arrays.")]
+        [Option("create", Required = false, HelpText = "Benchmark huge native array creation vs managed arrays.")]
+        public bool Create { get; set; }
+
+        [Option("fill", Required = false, HelpText = "Benchmark huge native array fill vs managed arrays.")]
         public bool Fill { get; set; }
 
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<ulong> Sizes { get; set; }
     }
-
-    [Verb("buffer", HelpText = "Benchmark buffer structs backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
-    class NativeBufferBenchmarkOptions : Options
-    {
-        [Option("create", Required = false, HelpText = "Benchmark buff creation vs managed arrays.")]
-        public bool Create { get; set; }
-
-        [Option("fill", Required = false, HelpText = "Benchmark buffer creation and fill vs managed arrays.")]
-        public bool Fill { get; set; }
-
-        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
-        public IEnumerable<int> Sizes { get; set; }
-    }
-
 }
