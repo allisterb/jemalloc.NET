@@ -1,6 +1,6 @@
 # jemalloc.NET: A native memory manager for .NET
 
-## About
+![jembench](https://lh3.googleusercontent.com/9zFHRdddwBezYJGb2jgMGHT3lgDTFmBAcJ_s8NgOdmAF1nz1-sF-0p9ZMOjeFVc-HAJHMRyLNmO02aHjWL8F9JWlqPHmiypdcmDhSx8SK8unzENOE7sG7ZCEOZLvI5nSTk_H8DpKoQ=w958-h521-no)
 jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memory allocator which provides .NET applications with efficient data structures backed by native memory for large scale in-memory computation scenarios. jemalloc is "a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support" that is [widely used](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) in the industry, particularly in [applications](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) that must scale and utilize large amounts of memory. In addition to its fragmentation and concurrency optimizations, jemalloc provides an array of developer options for debugging, monitoring and tuning allocations that make it a great choice for use in developing memory-intensive applications. 
 
 The jemalloc.NET project provides:
