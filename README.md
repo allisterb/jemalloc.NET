@@ -100,8 +100,6 @@ For a huge array with 4.1 billion `UInt16` values it takes 12 seconds to do a SI
 
 Inside a .NET application, jemalloc.NET native arrays and data structures can be straightforwardly accessed by native libraries without the need to make additional copies or allocations. The goal of the jemalloc.NET project is to make accessible to .NET the kind of big-data in-memory numeric, scientific and other computing that typically would require coding in a low=level language like C/C++ or assembler.
 
-
-
 ## Installation
 ### Requirements
 Currently only runs on 64bit Windows; support for Linux 64bit and other platforms supported by .NET Core will be added
@@ -111,6 +109,10 @@ soon.
 * The latest [.NET Core 2.0 x64 runtime](https://www.microsoft.com/net/download/thank-you/dotnet-runtime-2.0.3-windows-x64-installer)
 * The latest version of the [Microsoft Visual C++ Redistributable for Visual Studio 2017](https://go.microsoft.com/fwlink/?LinkId=746572) 
 
+###Steps
+Grab the latest release from the [releases](https://github.com/allisterb/jemalloc.NET/releases) page and unzip to a folder. Type `jembench` to run the benchmark CLI program and you should see the program version and options printed. NuGet packagees can be found in x64\Release. The API library assembly files themselves are in x64\Release\netstandard2.0
+
+Note that if using jemalloc.NET in your own projects you must put the native jemallocd.dll library somewhere where it can be  located by the .NET runtime. You can create a post-build step to copy it to the output folder pf your project or put in somewhere on your %PATH%. 
 
 ## Building from source
 Currently build instuctions are only provided for Visual Studio 2017 on Windows but instructions for building on Linux will also be provided. jemalloc.NET is a 64-bit library only.
