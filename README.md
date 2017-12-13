@@ -108,23 +108,30 @@ The goal of the jemalloc.NET project is to make accessible to .NET the kind of b
 
 ## Usage
 
-Currently build instuctions are only provided for Windows x64
 
 
 ## Building from source
-
+Currently build instuctions are only provided for Visual Studio 2017 on Windows x64.
 ### Requirements
-
-[Visual Studio 2017 15.5](https://www.visualstudio.com/en-us/news/releasenotes/vs2017-relnotes#15.5.1)
-with at least the following components:
+[Visual Studio 2017 15.5](https://www.visualstudio.com/en-us/news/releasenotes/vs2017-relnotes#15.5.1) with at least the following components:
 * C# 7.2 compiler
 * .NET Core 2.0 SDK
-* VC++ 2017 compiler toolset v141 or higher
+* MSVC 2017 compiler toolset v141 or higher
 * Windows 10 SDK for Desktop C++ version 10.0.10.15603 or higher
 
+Per the instructions for building the native jemalloc library for Windows, you will also need Cygwin (32- or 64-bit )with the following packages:
+   * autoconf
+   * autogen
+   * gawk
+   * grep
+   * sed
+
+Cygwin tools aren't actually used for compiling jemalloc but for generating the header files. jemalloc on Windows is built using MSVC.
+
 ### Steps
-0. You must add the [.NET Core](https://dotnet.myget.org/gallery/dotnet-core) NuGet [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) on MyGet and also the [CoreFxLab](https://dotnet.myget.org/gallery/dotnet-corefxlab) [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) to your NuGet package sources. You can do this from Visual Studio 2017 from the Tools->Options->NuGet Package Manager menu item.
+0. You must add the [.NET Core](https://dotnet.myget.org/gallery/dotnet-core) NuGet [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) on MyGet and also the [CoreFxLab](https://dotnet.myget.org/gallery/dotnet-corefxlab) [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) to your NuGet package sources. You can do this in Visual Studio 2017 from Tools->Options->NuGet Package Manager menu item.
 1. Clone the project: `git clone https://github.com/alllisterb/jemalloc.NET`
-2. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. 
-3. The solution should build without errors.
-4. Run `jembench` from the solution folder to see the project version and help.
+2. Open a x64 Native Tools Command Prompt for VS 2017 and temporarily add `Cygwin\bin` to the PATH e.g `set PATH=%PATH%;C:\cygwin\bin`. Switch to the `jemalloc` subdirectory in your jemalloc.NET solution dir and run `sh -c "CC=cl ./autogen.sh"`. This will generate some files in the `jemalloc` subdirectory and only needs to be done once.
+4. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. 
+5. The solution should build without errors.
+6. Run `jembench` from the solution folder to see the project version and help.
