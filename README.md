@@ -1,7 +1,7 @@
 # jemalloc.NET: A native memory manager for .NET
 
 ![jembench](https://lh3.googleusercontent.com/9zFHRdddwBezYJGb2jgMGHT3lgDTFmBAcJ_s8NgOdmAF1nz1-sF-0p9ZMOjeFVc-HAJHMRyLNmO02aHjWL8F9JWlqPHmiypdcmDhSx8SK8unzENOE7sG7ZCEOZLvI5nSTk_H8DpKoQ=w958-h521-no)
-jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memory allocator and provides .NET applications with efficient data structures backed by native memory for large scale in-memory computation scenarios. jemalloc is "a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support" that is [widely used](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) in the industry, particularly in applications that must [scale and utilize](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) large amounts of memory. In addition to its fragmentation and concurrency optimizations, jemalloc provides an array of developer options for debugging, monitoring and tuning allocations that make it a great choice for use in developing memory-intensive applications.
+jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memory allocator and provides .NET applications with efficient data structures backed by native memory for large scale in-memory computation scenarios. jemalloc is "a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support" that is [widely used](https://github.com/jemalloc/jemalloc/wiki/Background#adoption) in the industry, particularly in applications that must [scale and utilize](http://highscalability.com/blog/2015/3/17/in-memory-computing-at-aerospike-scale-when-to-choose-and-ho.html) large amounts of memory. In addition to its fragmentation and concurrency optimizations, jemalloc provides an array of developer options for debugging, monitoring and tuning allocations that make it a great choice for use in developing memory-intensive applications.
 
 The jemalloc.NET project provides:
 * A low-level .NET API over the native jemalloc API functions like je_malloc, je_calloc, je_free, je_mallctl...
@@ -102,17 +102,17 @@ Inside a .NET application, jemalloc.NET native arrays and data structures can be
 
 ## Installation
 ### Requirements
-Currently only runs on 64bit Windows; support for Linux 64bit and other platforms supported by .NET Core will be added
+Currently only runs on 64bit Windows; support for Linux 64bit and other 64bit platforms supported by .NET Core will be added
 soon. 
 
 #### Windows
 * The latest [.NET Core 2.0 x64 runtime](https://www.microsoft.com/net/download/thank-you/dotnet-runtime-2.0.3-windows-x64-installer)
 * The latest version of the [Microsoft Visual C++ Redistributable for Visual Studio 2017](https://go.microsoft.com/fwlink/?LinkId=746572) 
 
-###Steps
+### Steps
 Grab the latest release from the [releases](https://github.com/allisterb/jemalloc.NET/releases) page and unzip to a folder. Type `jembench` to run the benchmark CLI program and you should see the program version and options printed. NuGet packagees can be found in x64\Release. The API library assembly files themselves are in x64\Release\netstandard2.0
 
-Note that if using jemalloc.NET in your own projects you must put the native jemallocd.dll library somewhere where it can be  located by the .NET runtime. You can create a post-build step to copy it to the output folder pf your project or put in somewhere on your %PATH%. 
+Note that if using jemalloc.NET in your own projects you must put the native jemallocd.dll library somewhere where it can be  located by the .NET runtime. You can create a post-build step to copy it to the output folder of your project or put it somewhere on your %PATH%. 
 
 ## Building from source
 Currently build instuctions are only provided for Visual Studio 2017 on Windows but instructions for building on Linux will also be provided. jemalloc.NET is a 64-bit library only.
@@ -145,9 +145,4 @@ Cygwin tools aren't actually used for compiling jemalloc but for generating the 
 
 ### jembench CLI
 Examples:
-* `jembench hugearray -l -u --math --cold-start -t 3 4096000000` Benchmark math operations on `HugeArray<UInt64>` arrays of size 4096000000 without benchmark warmup and only using 3 iterations of the target methods. Benchmarks on huge arrays can be lengthy so you should carefully control
-
-
-
-
-##Using the command-line program jembench
+* `jembench hugearray -l -u --math --cold-start -t 3 4096000000` Benchmark math operations on `HugeArray<UInt64>` arrays of size 4096000000 without benchmark warmup and only using 3 iterations of the target methods. Benchmarks on huge arrays can be lengthy so you should carefully choose the benchmark parameters affecting how long you want the benchmark to run,
