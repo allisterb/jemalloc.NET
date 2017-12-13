@@ -5,10 +5,10 @@ jemalloc.NET is a .NET API over the [jemalloc](http://jemalloc.net/) native memo
 
 The jemalloc.NET project provides:
 * A low-level .NET API over the native jemalloc API functions like je_malloc, je_calloc, je_free, je_mallctl...
-* A safety-focused high-level .NET API providing data structures like arrays backed by native memory allocated using jemalloc.
+* A safety-focused high-level .NET API providing data structures like arrays backed by native memory allocated using jemalloc together with management features like reference counting.
 * A benchmark CLI program: `jembench` which uses the excellent [BenchmarkDotNet](http://benchmarkdotnet.org/index.htm) library for easy and accurate benchmarking operations on native data structures vs managed objects using different parameters.
 
-Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements, and memory allocation is much more resistant to fragmentation. Large .NET arrays must be allocated on the Large Object Heap which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, filling a managed array of type UInt64[] of size 100 million is 2.6x slower than using an equivalent native array provided by jemalloc.NET:
+Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements, and memory allocation is much more resistant to fragmentation, while still providing necessary safety features like array bounds checking. Large .NET arrays must be allocated on the Large Object Heap and are not relocatable which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, filling a `UInt64[]` managed array of size 100 million is 2.6x slower than using an equivalent native array provided by jemalloc.NET:
 
 ``` ini
 
@@ -27,32 +27,10 @@ Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain
 |                          'Fill a managed array with a single value.' | 100000000 | 327.4 ms | 3.102 ms | 2.902 ms | 937.5000 | 937.5000 | 937.5000 | 800000192 B |
 | 'Fill a SafeArray on the system unmanaged heap with a single value.' | 100000000 | 126.1 ms | 1.220 ms | 1.081 ms |        - |        - |        - |       264 B |
 
-You can run this benchmark with the command `jembench array --fill -l -u 100000000`. In this case we see that using the managed array allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computations.
-
-Perhaps the killer feature of the recently introduced `Span<T>` class in .NET is its ability to efficently re-interpret numeric data structures (`Int32, Int64` and their siblings) into other strucutres like the `Vector<T>` SIMD-enabled data types introduced in 2016. `Vector<T>` types are special in that the .NET RyuJIT JIT compiler can compile operations on Vectors to use SIMD instructions like SSE, SSE2, and AVX for parallelizing operations on data on a single CPU core.
-
-Using the SIMD-enabled `SafeBuffer<T>.VectoryMultiply(n)` method provided by the jemalloc.NET API yields a 4.5x speedup for a simple in-place multiplication of a `Uint16[]` array of 1 million elements compared to the unoptimized linear approach, allowing the operation to complete in 3.3 ms:
-
-``` ini
-
-BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
-Processor=Intel Core i7-6700HQ CPU 2.60GHz (Skylake), ProcessorCount=8
-Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
-.NET Core SDK=2.1.2
-  [Host] : .NET Core 2.0.3 (Framework 4.6.25815.02), 64bit RyuJIT
-
-Job=JemBenchmark  Jit=RyuJit  Platform=X64  
-Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
-RunStrategy=Throughput  
-
-```
-|                                                              Method | Parameter |      Mean |     Error |    StdDev |     Gen 0 |  Allocated |
-|-------------------------------------------------------------------- |---------- |----------:|----------:|----------:|----------:|-----------:|
-|       'Multiply all values of a managed array with a single value.' |   1024000 | 15.861 ms | 0.3169 ms | 0.4231 ms | 7781.2500 | 24576000 B |
-| 'Vector multiply all values of a native array with a single value.' |   1024000 |  3.299 ms | 0.0344 ms | 0.0287 ms |         - |       56 B |
+You can run this benchmark with the command `jembench array --fill -l -u 100000000`. In this case we see that using the managed array allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computation.
 
 
-Managed .NET arays are also limited to Int32 indexing and a maximum size of about 2.15 billion elements. jemalloc.NET provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics. In the next benchmark `jembench hugearray --fill -i 4200000000`:
+Managed .NET arays are also limited to `Int32` indexing and a maximum size of about 2.15 billion elements. jemalloc.NET provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics. In the next benchmark `jembench hugearray --fill -i 4200000000`:
 
 ``` ini
 
@@ -73,9 +51,32 @@ RunStrategy=ColdStart  TargetCount=7  WarmupCount=-1
 |           'Fill a HugeArray on the system unmanaged heap with a single value.' | 4200000000 | 4.029 s | 3.2233 s | 1.4312 s |          0 B |
 
 
-an Int32[] array of maximum size can be allocated and filled in 3.2s. This array consumes 8.6GB on the managed heap. But a jemalloc.NET `HugeArray<Int32>` of nearly double the size at 4.2 billion elements can be allocated in only 4 s and again consumes no memory on the managed heap. The only limit on the size of a `HugeArray<T>` is the available system memory.
+an `Int32[]` of maximum size can be allocated and filled in 3.2s. This array consumes 8.6GB on the managed heap. But a jemalloc.NET `HugeArray<Int32>` of nearly double the size at 4.2 billion elements can be allocated in only 4 s and again consumes no memory on the managed heap. The only limit on the size of a `HugeArray<T>` is the available system memory.
 
-For huge arrays of `Int16[]` we see similar speedups:
+Perhaps the killer feature of the [recently introduced](https://blogs.msdn.microsoft.com/dotnet/2017/11/15/welcome-to-c-7-2-and-span/) `Span<T>` class in .NET is its ability to efficently zero-copy re-interpret numeric data structures (`Int32, Int64` and their siblings) into other structures like the `Vector<T>` SIMD-enabled data types introduced in 2016. `Vector<T>` types are special in that the .NET RyuJIT JIT compiler can compile operations on Vectors to use SIMD instructions like SSE, SSE2, and AVX for parallelizing operations on data on a single CPU core.
+
+Using the SIMD-enabled `SafeBuffer<T>.VectoryMultiply(n)` method provided by the jemalloc.NET API yields a 4.5x speedup for a simple in-place multiplication of a `Uint16[]` array of 1 million elements, compared to the unoptimized linear approach, allowing the operation to complete in 3.3 ms:
+
+``` ini
+
+BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
+Processor=Intel Core i7-6700HQ CPU 2.60GHz (Skylake), ProcessorCount=8
+Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
+.NET Core SDK=2.1.2
+  [Host] : .NET Core 2.0.3 (Framework 4.6.25815.02), 64bit RyuJIT
+
+Job=JemBenchmark  Jit=RyuJit  Platform=X64  
+Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
+RunStrategy=Throughput  
+
+```
+|                                                              Method | Parameter |      Mean |     Error |    StdDev |     Gen 0 |  Allocated |
+|-------------------------------------------------------------------- |---------- |----------:|----------:|----------:|----------:|-----------:|
+|       'Multiply all values of a managed array with a single value.' |   1024000 | 15.861 ms | 0.3169 ms | 0.4231 ms | 7781.2500 | 24576000 B |
+| 'Vector multiply all values of a native array with a single value.' |   1024000 |  3.299 ms | 0.0344 ms | 0.0287 ms |         - |       56 B |
+
+
+For huge arrays of `UInt16[]` we see similar speedups:
 ``` ini
 
 BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
@@ -95,33 +96,35 @@ RunStrategy=ColdStart  TargetCount=1
 |                              'Vector multiply all values of a native array with a single value.' | 4096000000 | 12.06 s |    NA |             - |         - |           0 B |
 
 
-For a huge array with 4.1 billion `UInt16` values it takes 12 seconds to do a SIMD-enabled multiplication operation on all the elements of the array. This is still 3x the performance of doing the same non-vectorized operation on a managed array of hald the size
-In a .NET application jemalloc.NET native arrays and data structures can be straightforwardly accessed by native libraries without the need to make additional copies. Buffer operations can be SIMD-vectorized which can make a significant performance difference for huge buffers with 10s of billions of values. 
+For a huge array with 4.1 billion `UInt16` values it takes 12 seconds to do a SIMD-enabled multiplication operation on all the elements of the array. This is still 3x the performance of doing the same non-vectorized operation on a managed array of half the size.
 
-The goal of the jemalloc.NET project is to make accessible to .NET the kind of big-data in-memory numeric, scientific and other computing that typically would require coding in a low=level language like C/C++ or assembler.
+Inside a .NET application, jemalloc.NET native arrays and data structures can be straightforwardly accessed by native libraries without the need to make additional copies or allocations. The goal of the jemalloc.NET project is to make accessible to .NET the kind of big-data in-memory numeric, scientific and other computing that typically would require coding in a low=level language like C/C++ or assembler.
 
 
 
 ## Installation
+### Requirements
+Currently only runs on 64bit Windows; support for Linux 64bit and other platforms supported by .NET Core will be added
+soon. 
 
-
-
-## Usage
-
+#### Windows
+* The latest [.NET Core 2.0 x64 runtime](https://www.microsoft.com/net/download/thank-you/dotnet-runtime-2.0.3-windows-x64-installer)
+* The latest version of the [Microsoft Visual C++ Redistributable for Visual Studio 2017](https://go.microsoft.com/fwlink/?LinkId=746572) 
 
 
 ## Building from source
-Currently build instuctions are only provided for Visual Studio 2017 on Windows x64.
+Currently build instuctions are only provided for Visual Studio 2017 on Windows but instructions for building on Linux will also be provided. jemalloc.NET is a 64-bit library only.
 ### Requirements
 [Visual Studio 2017 15.5](https://www.visualstudio.com/en-us/news/releasenotes/vs2017-relnotes#15.5.1) with at least the following components:
 * C# 7.2 compiler
-* .NET Core 2.0 SDK
+* .NET Core 2.0 SDK x64
 * MSVC 2017 compiler toolset v141 or higher
-* Windows 10 SDK for Desktop C++ version 10.0.10.15603 or higher
+* Windows 10 SDK for Desktop C++ version 10.0.10.15603 or higher. Note that if you only have higher versions installed you will need to retarget the jemalloc MSVC project to your SDK version from Visual Studio. 
 
 Per the instructions for building the native jemalloc library for Windows, you will also need Cygwin (32- or 64-bit )with the following packages:
    * autoconf
    * autogen
+   * gcc
    * gawk
    * grep
    * sed
@@ -130,8 +133,19 @@ Cygwin tools aren't actually used for compiling jemalloc but for generating the 
 
 ### Steps
 0. You must add the [.NET Core](https://dotnet.myget.org/gallery/dotnet-core) NuGet [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) on MyGet and also the [CoreFxLab](https://dotnet.myget.org/gallery/dotnet-corefxlab) [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) to your NuGet package sources. You can do this in Visual Studio 2017 from Tools->Options->NuGet Package Manager menu item.
-1. Clone the project: `git clone https://github.com/alllisterb/jemalloc.NET`
+1. Clone the project: `git clone https://github.com/alllisterb/jemalloc.NET` and init the submodules: `git submodule update --init --recursive`
 2. Open a x64 Native Tools Command Prompt for VS 2017 and temporarily add `Cygwin\bin` to the PATH e.g `set PATH=%PATH%;C:\cygwin\bin`. Switch to the `jemalloc` subdirectory in your jemalloc.NET solution dir and run `sh -c "CC=cl ./autogen.sh"`. This will generate some files in the `jemalloc` subdirectory and only needs to be done once.
-4. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. 
+4. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. Alternatively you can load the solution in Visual Studio and using the "Benchmark" solution configuration build the entire solution. 
 5. The solution should build without errors.
 6. Run `jembench` from the solution folder to see the project version and help.
+
+## Usage
+
+### jembench CLI
+Examples:
+* `jembench hugearray -l -u --math --cold-start -t 3 4096000000` Benchmark math operations on `HugeArray<UInt64>` arrays of size 4096000000 without benchmark warmup and only using 3 iterations of the target methods. Benchmarks on huge arrays can be lengthy so you should carefully control
+
+
+
+
+##Using the command-line program jembench
