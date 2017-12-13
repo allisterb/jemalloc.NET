@@ -75,6 +75,27 @@ RunStrategy=ColdStart  TargetCount=7  WarmupCount=-1
 
 an Int32[] array of maximum size can be allocated and filled in 3.2s. This array consumes 8.6GB on the managed heap. But a jemalloc.NET `HugeArray<Int32>` of nearly double the size at 4.2 billion elements can be allocated in only 4 s and again consumes no memory on the managed heap. The only limit on the size of a `HugeArray<T>` is the available system memory.
 
+For huge arrays of `Int16[]` we see similar speedups:
+``` ini
+
+BenchmarkDotNet=v0.10.11, OS=Windows 10 Redstone 2 [1703, Creators Update] (10.0.15063.726)
+Processor=Intel Core i7-6700HQ CPU 2.60GHz (Skylake), ProcessorCount=8
+Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
+.NET Core SDK=2.1.2
+  [Host] : .NET Core 2.0.3 (Framework 4.6.25815.02), 64bit RyuJIT
+
+Job=JemBenchmark  Jit=RyuJit  Platform=X64  
+Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
+RunStrategy=ColdStart  TargetCount=1  
+
+```
+|                                                                                           Method |  Parameter |    Mean | Error |         Gen 0 |     Gen 1 |     Allocated |
+|------------------------------------------------------------------------------------------------- |----------- |--------:|------:|--------------:|----------:|--------------:|
+| 'Multiply all values of a managed array with the maximum size [2146435071] with a single value.' | 4096000000 | 34.25 s |    NA | 16375000.0000 | 3000.0000 | 51514441704 B |
+|                              'Vector multiply all values of a native array with a single value.' | 4096000000 | 12.06 s |    NA |             - |         - |           0 B |
+
+
+For a huge array with 4.1 billion `UInt16` values it takes 12 seconds to do a SIMD-enabled multiplication operation on all the elements of the array. This is still 3x the performance of doing the same non-vectorized operation on a managed array of hald the size
 In a .NET application jemalloc.NET native arrays and data structures can be straightforwardly accessed by native libraries without the need to make additional copies. Buffer operations can be SIMD-vectorized which can make a significant performance difference for huge buffers with 10s of billions of values. 
 
 The goal of the jemalloc.NET project is to make accessible to .NET the kind of big-data in-memory numeric, scientific and other computing that typically would require coding in a low=level language like C/C++ or assembler.
@@ -102,6 +123,7 @@ with at least the following components:
 * Windows 10 SDK for Desktop C++ version 10.0.10.15603 or higher
 
 ### Steps
+0. You must add the [.NET Core](https://dotnet.myget.org/gallery/dotnet-core) NuGet [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) on MyGet and also the [CoreFxLab](https://dotnet.myget.org/gallery/dotnet-corefxlab) [feed](https://dotnet.myget.org/F/dotnet-core/api/v3/index.json) to your NuGet package sources. You can do this from Visual Studio 2017 from the Tools->Options->NuGet Package Manager menu item.
 1. Clone the project: `git clone https://github.com/alllisterb/jemalloc.NET`
 2. From a Visual Studio 2017 Developer Command prompt run `build.cmd`. 
 3. The solution should build without errors.
