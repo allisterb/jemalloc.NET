@@ -11,9 +11,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jemalloc", "jemalloc\msvc\projects\vc2017\jemalloc\jemalloc.vcxproj", "{8D6BB292-9E1C-413D-9F98-4864BDC1514A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jemalloc.Api", "jemalloc.Api\jemalloc.Api.csproj", "{9CD27E9F-1F2C-4BEC-8019-743FF8D86589}"
-	ProjectSection(ProjectDependencies) = postProject
-		{8D6BB292-9E1C-413D-9F98-4864BDC1514A} = {8D6BB292-9E1C-413D-9F98-4864BDC1514A}
-	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jemalloc.Cli", "jemalloc.Cli\jemalloc.Cli.csproj", "{1FE3EBE7-3922-4CAE-A142-B1C4DF935B0F}"
 EndProject
@@ -82,7 +79,6 @@ Global
 		{C24A6949-BA9E-443B-A67E-188AB489057E}.Release-static|x86.Build.0 = Release|Any CPU
 		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|Any CPU.ActiveCfg = Release|Win32
 		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|x64.ActiveCfg = Debug|x64
-		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|x64.Build.0 = Debug|x64
 		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|x86.ActiveCfg = Release|Win32
 		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|x86.Build.0 = Release|Win32
 		{8D6BB292-9E1C-413D-9F98-4864BDC1514A}.Benchmark|x86.Deploy.0 = Release|Win32
