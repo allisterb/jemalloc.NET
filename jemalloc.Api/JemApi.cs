@@ -84,10 +84,6 @@ namespace jemalloc
         #region Constructor
         static Jem()
         {
-            if (!File.Exists(@".\jemallocd.dll"))
-            {
-                File.Copy(@"C:\Projects\jemalloc.NET\x64\Debug\jemallocd.dll", @".\jemallocd.dll");
-            }
             __Internal.JeMallocMessage += messagesCallback;
         }
         #endregion
