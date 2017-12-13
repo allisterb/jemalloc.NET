@@ -34,6 +34,7 @@ namespace jemalloc.Benchmarks
         public void CreateNativeArray()
         {
             SafeArray<T> array = new SafeArray<T>(ArraySize);
+            array.Release();
         }
 
         [Benchmark(Description = "Fill a managed array with a single value.")]
@@ -74,6 +75,26 @@ namespace jemalloc.Benchmarks
             nativeArray.VectorMultiply(mul);
             T r = nativeArray[ArraySize / 2];
         }
+
+        [Benchmark(Description = "Fill all values of a managed array with a single value and then compute the square root.")]
+        [BenchmarkCategory("Arithmetic")]
+        public void ArithmeticSqrtManagedArray()
+        {
+            for (int i = 0; i < managedArray.Length; i++)
+            {
+                managedArray[i] = JemUtil.ValToGenericStruct<uint, T>(256u);
+                JemUtil.GenericSqrt(managedArray[i]);
+            }
+        }
+
+        [Benchmark(Description = "Fill all values of a native array with a single value and then compute the square root.")]
+        [BenchmarkCategory("Arithmetic")]
+        public void ArithmeticSqrtNativeArray()
+        {
+            nativeArray.Fill(JemUtil.ValToGenericStruct<uint, T>(256u));
+            nativeArray.VectorSqrt();
+        }
+
 
         protected T[] managedArray;
         protected SafeArray<T> nativeArray;
