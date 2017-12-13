@@ -3,15 +3,14 @@
 set ERROR_CODE=0
 dotnet restore jemalloc.NET.sln
 if not %ERRORLEVEL%==0  (
-    echo Error restoring NuGet packages for DevAudit.sln.
+    echo Error restoring NuGet packages for jemalloc.NET.sln.
     set ERROR_CODE=1
     goto End
 )
 if [%1]==[] (
     msbuild jemalloc\msvc\projects\vc2017\jemalloc\jemalloc.vcxproj /p:Configuration=Debug /p:Platform=x64
-	dotnet build jemalloc.NET.sln /p:Configuration=Benchmark /p:Platform=x64
 ) else (
-    dotnet build jemalloc.NET.sln /p:Configuration=Benchmark /p:Platform=x64;%*
+	msbuild jemalloc.NET.sln /p:Configuration=Benchmark /p:Platform=x64;%*
 )
 if not %ERRORLEVEL%==0  (
     echo Error building jemalloc.NET.sln.
