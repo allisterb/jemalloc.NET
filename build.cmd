@@ -8,7 +8,7 @@ if not %ERRORLEVEL%==0  (
     goto End
 )
 if [%1]==[] (
-    msbuild jemalloc\msvc\projects\vc2017\jemalloc\jemalloc.vcxproj /p:Configuration=Debug /p:Platform=x64
+    msbuild jemalloc.NET.sln /p:Configuration=Benchmark /p:Platform=x64
 ) else (
 	msbuild jemalloc.NET.sln /p:Configuration=Benchmark /p:Platform=x64;%*
 )
