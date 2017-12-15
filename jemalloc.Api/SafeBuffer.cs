@@ -62,7 +62,7 @@ namespace jemalloc
 
         #region Methods
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public unsafe bool Acquire()
+        public bool Acquire()
         {
             if (IsNotAllocated)
                 return false;
@@ -162,27 +162,21 @@ namespace jemalloc
             Span<T> span = AcquireSpan().Slice(index, VectorLength);
             return span.NonPortableCast<T, Vector<T>>()[0];
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorMultiply(T value)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
             T[] fill = new T[VectorLength];
-            for (int f = 0; f < VectorLength; f++)
-            {
-                fill[f] = value;
-            }
-            Vector<T> fillVector = new Vector<T>(fill);
-            Span <T> span = AcquireSpan();
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            for (int i = 0; i < vector.Length; i ++)
-            {
-                Vector<T> v = vector[i];
-                vector[i] = Vector.Multiply(v, fillVector);
-            }
+            Span<T> sFil = new Span<T>(fill);
+            sFil.Fill(value);
+            Span <Vector<T>> vector = AcquireSpan().NonPortableCast<T, Vector<T>>();
+            vector[0] = Vector.Multiply(vector[0], sFil.NonPortableCast<T, Vector<T>>()[0]);
             Release();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorSqrt()
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -214,7 +208,7 @@ namespace jemalloc
             return handle;
         }
 
-        protected unsafe void InitVector()
+        protected void InitVector()
         {
             if (Length % VectorLength == 0 && SIMD && IsNumeric)
             {
@@ -244,6 +238,7 @@ namespace jemalloc
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe T Read(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -383,8 +378,9 @@ namespace jemalloc
         #endregion
 
         #region Operators
-        public unsafe T this[int index]
+        public T this[int index]
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => this.Read(index);
 
             set => this.Write(index, value);

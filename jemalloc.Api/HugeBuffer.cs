@@ -64,7 +64,7 @@ namespace jemalloc
 
         #region Methods
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public unsafe bool Acquire()
+        public bool Acquire()
         {
             if (IsNotAllocated || IsInvalid)
                 return false;
@@ -164,22 +164,16 @@ namespace jemalloc
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
-            T[] factor = new T[VectorLength];
-            for (int f = 0; f < VectorLength; f++)
-            {
-                factor[f] = value;
-            }
-            Vector<T> factorVector = new Vector<T>(factor);
             ThrowIfCannotAcquire();
             for (int h = 0; h < segments2.Length; h++)
             {
                 Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-                int i = 0;
-                for (i = 0; i < vector.Length; i++)
-                {
-                    vector[i] = Vector.Multiply(vector[i], factorVector);
-                }
+                Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();           
+                T[] fill = new T[VectorLength];
+                Span<T> sFil = new Span<T>(fill);
+                sFil.Fill(value);
+                Vector<T> fillVector = sFil.NonPortableCast<T, Vector<T>>()[0];
+                vector[0] = Vector.Multiply(vector[0], fillVector);
             }
             Release();
         }
@@ -291,7 +285,7 @@ namespace jemalloc
             }
         }
 
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe T Read(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -434,6 +428,7 @@ namespace jemalloc
         #region Operators
         public T this[ulong index]
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => Read(index);
             
             set => Write(index, value);

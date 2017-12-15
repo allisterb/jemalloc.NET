@@ -57,7 +57,9 @@ namespace jemalloc.Cli
                 .WriteTo.Console(outputTemplate: "{Timestamp:HH:mm:ss}<{ThreadId:d2}> [{Level:u3}] {Message}{NewLine}{Exception}");
             L = Log.Logger = LConfig.CreateLogger();
             Type[] BenchmarkOptionTypes = Assembly.GetExecutingAssembly().GetTypes().Where(t => t.IsSubclassOf(typeof(Options))).ToArray();
-            ParserResult<object> result = new Parser().ParseArguments<Options, MallocBenchmarkOptions, NativeArrayBenchmarkOptions, HugeNativeArrayBenchmarkOptions>(args);
+            MethodInfo parseArgumentsMethod = typeof(ParserExtensions).GetMethods().Where(m => m.IsGenericMethod && m.Name == "ParseArguments" && m.GetGenericArguments().Count() == BenchmarkOptionTypes.Count()).First();
+            Parser p = new Parser();
+            ParserResult<object> result = (ParserResult<object>) parseArgumentsMethod.MakeGenericMethod(BenchmarkOptionTypes).Invoke(p , new object[] { p, args });
             result.WithNotParsed((IEnumerable<Error> errors) =>
             {
                 HelpText help = GetAutoBuiltHelpText(result);

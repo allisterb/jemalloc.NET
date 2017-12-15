@@ -36,6 +36,21 @@ namespace jemalloc.Benchmarks
             JemBenchmarkJobAttribute.ColdStartOverride = value;
         }
 
+        public static void SetTargetCountOverride(int value)
+        {
+            JemBenchmarkJobAttribute.TargetCountOverride = value;
+        }
+
+        public static void SetInvocationCountOverride(int value)
+        {
+            JemBenchmarkJobAttribute.InvocationCountOverride = value;
+        }
+
+        public static void SetWarmupCountOverride(int value)
+        {
+            JemBenchmarkJobAttribute.WarmupCountOverride = value;
+        }
+
         public static unsafe TData GetArrayFillValue()
         {
             TData value = default;

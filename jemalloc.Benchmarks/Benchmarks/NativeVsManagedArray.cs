@@ -22,7 +22,7 @@ namespace jemalloc.Benchmarks
         }
 
         [BenchmarkCategory("Create")]
-        [Benchmark(Description = "Create an array on the .NET managed heap", Baseline = true)]
+        [Benchmark(Description = "Create arrays on the .NET LOH", Baseline = true)]
         public void CreateManagedArray()
         {
             T[] someData = new T[ArraySize];
@@ -30,7 +30,7 @@ namespace jemalloc.Benchmarks
         }
 
         [BenchmarkCategory("Create")]
-        [Benchmark(Description = "Create a SafeArray on the system unmanaged heap")]
+        [Benchmark(Description = "Create SafeArrays on the system unmanaged heap")]
         public void CreateNativeArray()
         {
             SafeArray<T> array = new SafeArray<T>(ArraySize);
