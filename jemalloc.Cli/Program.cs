@@ -275,7 +275,7 @@ namespace jemalloc.Cli
                 Exit(ExitResult.INVALID_OPTIONS);
             }
         }
-        static void Benchmark<T>() where T : struct, IEquatable<T>
+        static void Benchmark<T>() where T : struct, IEquatable<T>, IComparable<T>, IConvertible
         {
             Contract.Requires(BenchmarkOptions.ContainsKey("Category"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));

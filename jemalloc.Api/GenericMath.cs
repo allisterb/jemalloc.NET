@@ -4,7 +4,7 @@ using System.Text;
 
 namespace jemalloc
 {
-    public static class GM<TData> where TData : struct, IEquatable<TData>
+    public static class GM<TData> where TData : struct, IEquatable<TData>, IComparable<TData>, IConvertible
     {
         #region Constructor
         static GM()
@@ -24,7 +24,7 @@ namespace jemalloc
         #region Methods
         public static TData Const<TValue>(TValue v) where TValue : struct, IEquatable<TValue>, IComparable<TValue>
         {
-            return JemUtil.ValToGenericStruct<TValue, TData>((checked(v)));
+            return (TData) Convert.ChangeType(v, typeof(TData));
         }
 
         public static TData Multiply(TData l, TData r) 
@@ -33,34 +33,34 @@ namespace jemalloc
             switch (value)
             {
                 case Tuple<Byte, Byte> v:
-                    return JemUtil.ValToGenericStruct<Byte, TData>(checked((byte)(v.Item1 * v.Item2)));
+                    return (TData)Convert.ChangeType(checked((byte)(v.Item1 * v.Item2)), typeof(TData));
 
                 case Tuple<SByte, SByte> v:
-                    return JemUtil.ValToGenericStruct<SByte, TData>(checked((SByte)(v.Item1 * v.Item2)));
+                    return (TData)Convert.ChangeType(checked((SByte)(v.Item1 * v.Item2)), typeof(TData));
 
                 case Tuple<UInt16, UInt16> v:
-                    return JemUtil.ValToGenericStruct<UInt16, TData>(checked((UInt16)(v.Item1 * v.Item2)));
+                    return (TData)Convert.ChangeType((checked((UInt16)(v.Item1 * v.Item2))), typeof(TData));
 
                 case Tuple<Int16, Int16> v:
-                    return JemUtil.ValToGenericStruct<Int16, TData>(checked((Int16)(v.Item1 * v.Item2)));
+                    return (TData)Convert.ChangeType(checked((Int16)(v.Item1 * v.Item2)), typeof(TData));
 
                 case Tuple<UInt32, UInt32> v:
-                    return JemUtil.ValToGenericStruct<UInt32, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
 
                 case Tuple<Int32, Int32> v:
-                    return JemUtil.ValToGenericStruct<Int32, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
 
                 case Tuple<UInt64, UInt64> v:
-                    return JemUtil.ValToGenericStruct<UInt64, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
 
                 case Tuple<Int64, Int64> v:
-                    return JemUtil.ValToGenericStruct<Int64, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
 
                 case Tuple<Single, Single> v:
-                    return JemUtil.ValToGenericStruct<Single, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
 
                 case Tuple<Double, Double> v:
-                    return JemUtil.ValToGenericStruct<Double, TData>(checked(v.Item1 * v.Item2));
+                    return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
                 default:
                     throw new Exception($"Unsupported type: {typeof(TData).Name}");
             }

@@ -7,7 +7,7 @@ using BenchmarkDotNet.Attributes;
 namespace jemalloc.Benchmarks
 {
     [JemBenchmarkJob(BenchmarkDotNet.Engines.RunStrategy.ColdStart, 7)]
-    public class HugeNativeVsManagedArrayBenchmark<T> : JemBenchmark<T, ulong> where T : struct, IEquatable<T>
+    public class HugeNativeVsManagedArrayBenchmark<T> : JemBenchmark<T, ulong> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public ulong ArraySize => Parameter;
 

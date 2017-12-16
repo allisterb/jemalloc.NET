@@ -19,7 +19,7 @@ namespace jemalloc.Benchmarks
 {
     [JemBenchmarkJob]
     [MemoryDiagnoser]
-    public abstract class JemBenchmark<TData, TParam> where TData : struct, IEquatable<TData> where TParam : struct
+    public abstract class JemBenchmark<TData, TParam> where TData : struct, IEquatable<TData>, IComparable<TData>, IConvertible where TParam : struct
     {
         #region Constructors
         static JemBenchmark()

@@ -9,7 +9,7 @@ using BenchmarkDotNet.Loggers;
 namespace jemalloc.Benchmarks
 {
     [OrderProvider(methodOrderPolicy: MethodOrderPolicy.Declared)]
-    public class NativeVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>
+    public class NativeVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public int ArraySize  => Parameter;
 
