@@ -168,12 +168,12 @@ namespace jemalloc
             for (int h = 0; h < segments2.Length; h++)
             {
                 Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();           
+                Span<Vector<T>> vectorSpan = span.NonPortableCast<T, Vector<T>>();           
                 T[] fill = new T[VectorLength];
                 Span<T> sFil = new Span<T>(fill);
                 sFil.Fill(value);
                 Vector<T> fillVector = sFil.NonPortableCast<T, Vector<T>>()[0];
-                vector[0] = Vector.Multiply(vector[0], fillVector);
+                vectorSpan[0] = Vector.Multiply(vectorSpan[0], fillVector);
             }
             Release();
         }
@@ -186,10 +186,10 @@ namespace jemalloc
             for (int h = 0; h < segments2.Length; h++)
             {
                 Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-                for (int i = 0; i < vector.Length; i++)
+                Span<Vector<T>> vectorvectorSpan = span.NonPortableCast<T, Vector<T>>();
+                for (int i = 0; i < vectorvectorSpan.Length; i++)
                 {
-                    vector[i] = Vector.SquareRoot(vector[i]);
+                    vectorvectorSpan[i] = Vector.SquareRoot(vectorvectorSpan[i]);
                 }
             }
             Release();
@@ -255,9 +255,10 @@ namespace jemalloc
             offset = (int) (index - ((ulong)(s) * (ulong) Int32.MaxValue));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe void InitVectors()
         {
-            if (Length % (ulong)VectorLength == 0 && SIMD)
+            if (IsNumeric && Length % (ulong)VectorLength == 0 && SIMD)
             {
          
                 IsVectorizable = true;
@@ -299,7 +300,7 @@ namespace jemalloc
             return ret;
         }
 
-       
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe T Write(ulong index, T value)
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -313,11 +314,14 @@ namespace jemalloc
             return value; 
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         IEnumerator IEnumerable.GetEnumerator() => new HugeBufferEnumerator<T>(this);
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfCannotAcquire()
         {
@@ -328,6 +332,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfIndexOutOfRange(ulong index)
         {
@@ -338,6 +343,7 @@ namespace jemalloc
          }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotAllocatedOrInvalid()
         {
@@ -352,6 +358,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotAllocated()
         {
@@ -362,6 +369,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotVectorisable()
         {
@@ -372,6 +380,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotNumeric()
         {
@@ -382,6 +391,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private static InvalidOperationException HandleIsInvalid()
         {
@@ -390,6 +400,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private static InvalidOperationException BufferIsNotAllocated()
         {
@@ -398,6 +409,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private static InvalidOperationException BufferIsNotVectorisable()
         {
@@ -406,6 +418,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private static InvalidOperationException BufferIsNotNumeric()
         {
@@ -414,6 +427,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private static IndexOutOfRangeException BufferIndexIsOutOfRange(ulong index)
         {
@@ -421,8 +435,6 @@ namespace jemalloc
             return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
         }
 
-        private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null,
-     new Type[] { typeof(void*), typeof(int) }, null);
         #endregion
 
         #region Operators

@@ -7,7 +7,7 @@ using System.Text;
 namespace jemalloc
 {
     /// <summary>Enumerates the elements of a <see cref="SafeBuffer{T}"/>.</summary>
-    public class SafeBufferEnumerator<T> : IEnumerator, IEnumerator<T> where T : struct
+    public class SafeBufferEnumerator<T> : IEnumerator, IEnumerator<T> where T : struct, IEquatable<T>
     {
         /// <summary>The SafeBuffer being enumerated.</summary>
         private readonly SafeBuffer<T> _buffer;

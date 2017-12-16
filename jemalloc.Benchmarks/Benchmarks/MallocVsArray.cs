@@ -6,7 +6,7 @@ using BenchmarkDotNet.Attributes;
 
 namespace jemalloc.Benchmarks
 {
-    public class MallocVsArrayBenchmark<T> : JemBenchmark<T, int> where T : struct
+    public class MallocVsArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>
     {
         public int ArraySize  => Parameter;
 

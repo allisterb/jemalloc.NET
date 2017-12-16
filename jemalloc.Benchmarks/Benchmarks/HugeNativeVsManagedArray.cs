@@ -7,13 +7,14 @@ using BenchmarkDotNet.Attributes;
 namespace jemalloc.Benchmarks
 {
     [JemBenchmarkJob(BenchmarkDotNet.Engines.RunStrategy.ColdStart, 7)]
-    public class HugeNativeVsManagedArrayBenchmark<T> : JemBenchmark<T, ulong> where T : struct
+    public class HugeNativeVsManagedArrayBenchmark<T> : JemBenchmark<T, ulong> where T : struct, IEquatable<T>
     {
         public ulong ArraySize => Parameter;
 
         [GlobalSetup]
-        public void GlobalSetup()
+        public override void GlobalSetup()
         {
+            base.GlobalSetup();
             managedArray = new T[2146435071];
             nativeArray = new HugeArray<T>(ArraySize);
             fill = GetArrayFillValue();

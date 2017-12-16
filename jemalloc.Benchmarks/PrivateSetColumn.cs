@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace jemalloc
+namespace jemalloc.Benchmarks
 {
-    public unsafe static class GenericArithmetic
+    class PrivateSetColumn
     {
     }
 }

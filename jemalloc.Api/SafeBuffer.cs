@@ -13,7 +13,7 @@ using System.Text;
 
 namespace jemalloc
 {
-    public abstract class SafeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
+    public abstract class SafeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct, IEquatable<T>
     {
         #region Constructors
         protected SafeBuffer(int length, params T[] values) : base(IntPtr.Zero, true)
@@ -87,11 +87,19 @@ namespace jemalloc
             DangerousRelease();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe Span<T> AcquireSpan()
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfCannotAcquire();
             return new Span<T>((void*)handle, (int)Length);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Span<Vector<T>> AcquireVectorSpan()
+        {
+            ThrowIfNotVectorisable();
+            return AcquireSpan().NonPortableCast<T, Vector<T>>();
         }
 
         public void Fill(T value)
@@ -150,6 +158,46 @@ namespace jemalloc
             return vector[0];
         }
 
+        public bool EqualTo(T[] array)
+        {
+            if (this.Length != array.Length)
+            {
+                return false;
+            }
+            if (IsVectorizable)
+            {
+                Span<Vector<T>> span = this.AcquireVectorSpan();
+                Span<Vector<T>> arraySpan = new Span<T>(array).NonPortableCast<T, Vector<T>>();
+        
+                for (int i = 0; i < arraySpan.Length; i++)
+                {
+                    if (!Vector.EqualsAll(span[i], arraySpan[i]))
+                    {
+                        Release();
+                        return false;
+                    }
+                }
+                Release();
+                return true;
+            }
+            else
+            {
+                Span<T> span = this.AcquireSpan();
+                Span<T> arraySpan = new Span<T>(array);
+                for (int i = 0; i < arraySpan.Length; i++)
+                {
+                    if (!(span[i].Equals(arraySpan[i])))
+                    {
+                        Release();
+                        return false;
+                    }
+                }
+                Release();
+                return true;
+            }
+            
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector<T> AcquireSliceAsVector(int index)
         {
@@ -169,10 +217,14 @@ namespace jemalloc
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
             T[] fill = new T[VectorLength];
-            Span<T> sFil = new Span<T>(fill);
-            sFil.Fill(value);
-            Span <Vector<T>> vector = AcquireSpan().NonPortableCast<T, Vector<T>>();
-            vector[0] = Vector.Multiply(vector[0], sFil.NonPortableCast<T, Vector<T>>()[0]);
+            Span<T> fillSpan = new Span<T>(fill);
+            fillSpan.Fill(value);
+            Span <Vector<T>> vectorSpan = AcquireSpan().NonPortableCast<T, Vector<T>>();
+            Vector<T> mulVector = fillSpan.NonPortableCast<T, Vector<T>>()[0];
+            for (int i = 0; i < vectorSpan.Length; i++)
+            {
+                vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
+            }
             Release();
         }
 
@@ -185,8 +237,7 @@ namespace jemalloc
             Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
             for (int i = 0; i < vector.Length; i++)
             {
-                Vector<T> v = vector[i];
-                vector[i] = Vector.SquareRoot(v);
+                vector[i] = Vector.SquareRoot(vector[i]);
             }
             Release();
         }

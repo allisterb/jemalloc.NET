@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace jemalloc
@@ -113,5 +114,7 @@ namespace jemalloc
         {
             return Unsafe.SizeOf<T>();
         }
+
+        public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
     }
 }

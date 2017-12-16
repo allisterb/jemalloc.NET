@@ -7,7 +7,7 @@ using System.Text;
 
 namespace jemalloc
 {
-    public class SafeArray<T> : SafeBuffer<T> where T : struct
+    public class SafeArray<T> : SafeBuffer<T> where T : struct, IEquatable<T>
     {
         public SafeArray(int length, params T[] values) : base(length, values) {}
     }

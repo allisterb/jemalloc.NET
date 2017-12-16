@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
+using System.Threading;
 using BenchmarkDotNet;
 using BenchmarkDotNet.Order;
 
@@ -10,25 +13,65 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Attributes.Columns;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Code;
+using BenchmarkDotNet.Loggers;
 
 namespace jemalloc.Benchmarks
 {
     [JemBenchmarkJob]
     [MemoryDiagnoser]
-    public class JemBenchmark<TData, TParam> where TData : struct where TParam : struct
+    public abstract class JemBenchmark<TData, TParam> where TData : struct, IEquatable<TData> where TParam : struct
     {
-        public JemBenchmark() { }
+        #region Constructors
+        static JemBenchmark()
+        {
 
+        }
+        public JemBenchmark() { }
+        #endregion
+
+        #region Properties
         [ParamsSource(nameof(GetParameters))]
         public TParam Parameter;
 
-        public IEnumerable<IParam> GetParameters() => BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
-
         public static IEnumerable<TParam> BenchmarkParameters { get; set; }
+
+        public static ILogger Log { get; } = new ConsoleLogger();
+
+        public static Process CurrentProcess { get; } = Process.GetCurrentProcess();
+
+        public static long InitialPrivateMemorySize { get; protected set; }
+
+        public static long PrivateMemorySize
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PrivateMemorySize64;
+            }
+        }
+
+        public static long PeakWorkingSet
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PeakWorkingSet64;
+            }
+        }
+        #endregion
+
+        #region Methods
+        public IEnumerable<IParam> GetParameters() => BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
 
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
         {
             return typeof(TBench).GenericTypeArguments.First().GetMethods(BindingFlags.Public).Count();
+        }
+
+        public virtual void GlobalSetup()
+        {
+            CurrentProcess.Refresh();
+            InitialPrivateMemorySize = CurrentProcess.PeakWorkingSet64;
         }
 
         public static void SetColdStartOverride(bool value)
@@ -51,73 +94,40 @@ namespace jemalloc.Benchmarks
             JemBenchmarkJobAttribute.WarmupCountOverride = value;
         }
 
-        public static unsafe TData GetArrayFillValue()
+        public TValue GetValue<TValue>(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            TData value = default;
-            switch (value)
+            if (JemUtil.BenchmarkValues.TryGetValue($"{Thread.CurrentThread.ManagedThreadId}_{name}", out object v))
             {
-                case Byte v:
-                    return JemUtil.ValToGenericStruct<Byte, TData>(Byte.MaxValue / 16);
-
-                case SByte v:
-                    return JemUtil.ValToGenericStruct<SByte, TData>(SByte.MaxValue / 16);
-
-                case UInt16 v:
-                    return JemUtil.ValToGenericStruct<UInt16, TData>(UInt16.MaxValue / 16);
-
-                case Int16 v:
-                    return JemUtil.ValToGenericStruct<Int16, TData>(Int16.MaxValue / 16);
-
-                case UInt32 v:
-                    return JemUtil.ValToGenericStruct<UInt32, TData>(UInt32.MaxValue / 16);
-                    
-                case Int32 v:
-                    return JemUtil.ValToGenericStruct<Int32, TData>(Int32.MaxValue / 16);
-
-                case UInt64 v:
-                    return JemUtil.ValToGenericStruct<UInt64, TData>(UInt64.MaxValue / 16);
-
-                case Int64 v:
-                    return JemUtil.ValToGenericStruct<Int64, TData>(Int64.MaxValue / 16);
-
-                default:
-                    return value;
+                return (TValue) v;
             }
+            else throw new Exception($"Could not get value {name}.");
         }
 
-        public static unsafe TData GetArrayMulValue()
+        public TValue SetValue<TValue>(string name, TValue value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            TData value = default;
-            switch (value)
+            if (!JemUtil.BenchmarkValues.TryAdd($"{Thread.CurrentThread.ManagedThreadId}_{name}", value))
             {
-                case Byte v:
-                    return JemUtil.ValToGenericStruct<Byte, TData>(4);
-
-                case SByte v:
-                    return JemUtil.ValToGenericStruct<SByte, TData>(4);
-
-                case UInt16 v:
-                    return JemUtil.ValToGenericStruct<UInt16, TData>(4);
-
-                case Int16 v:
-                    return JemUtil.ValToGenericStruct<Int16, TData>(4);
-
-                case UInt32 v:
-                    return JemUtil.ValToGenericStruct<UInt32, TData>(4);
-
-                case Int32 v:
-                    return JemUtil.ValToGenericStruct<Int32, TData>(4);
-
-                case UInt64 v:
-                    return JemUtil.ValToGenericStruct<UInt64, TData>(4);
-
-                case Int64 v:
-                    return JemUtil.ValToGenericStruct<Int64, TData>(4);
-
-                default:
-                    return value;
+                throw new Exception("Could not add value.");
             }
-
+            return value;
         }
+
+        public void RemoveValue(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        {
+            JemUtil.BenchmarkValues.Remove($"{Thread.CurrentThread.ManagedThreadId}_{name}", out object o);
+        }
+
+        #region Log
+        public static void Info(string format, params object[] values) => Log.WriteLineInfo(string.Format(format, values));
+
+        public static void InfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => Info("Executing {0}().", memberName);
+        #endregion
+
+        public static TData GetArrayFillValue() => GM<TData>.Random();            
+        
+        public static TData GetArrayMulValue() => GM<TData>.Const(4);
+
+        public static TData GetArraySqrFillValue() => GM<TData>.Random();
+        #endregion
     }
 }
