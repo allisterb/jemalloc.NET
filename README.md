@@ -8,7 +8,7 @@ The jemalloc.NET project provides:
 * A safety-focused high-level .NET API providing data structures like arrays backed by native memory allocated using jemalloc together with management features like reference counting.
 * A benchmark CLI program: `jembench` which uses the excellent [BenchmarkDotNet](http://benchmarkdotnet.org/index.htm) library for easy and accurate benchmarking operations on native data structures vs managed objects using different parameters.
 
-Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements, and memory allocation is much more resistant to fragmentation, while still providing necessary safety features like array bounds checking. Large .NET arrays must be allocated on the Large Object Heap and are not relocatable which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, filling a `UInt64[]` managed array of size 100 million is 2.6x slower than using an equivalent native array provided by jemalloc.NET:
+Data structures provided by the high-level API are more efficient than managed .NET arrays and objects at the scale of millions of elements, and memory allocation is much more resistant to fragmentation, while still providing necessary safety features like array bounds checking. Large .NET arrays must be allocated on the Large Object Heap and are not relocatable which leads to fragmentation and lower performance. For example in the following `jembench` benchmark on my laptop, creating and filling a `UInt64[]` managed array of size 10000000 and 100000000 is more than 2x slower than using an equivalent native array provided by jemalloc.NET:
 
 ``` ini
 
@@ -20,14 +20,22 @@ Frequency=2531251 Hz, Resolution=395.0616 ns, Timer=TSC
 
 Job=JemBenchmark  Jit=RyuJit  Platform=X64  
 Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain  
+RunStrategy=Throughput  
 
 ```
-|                                                               Method | Parameter |     Mean |    Error |   StdDev |    Gen 0 |    Gen 1 |    Gen 2 |   Allocated |
-|--------------------------------------------------------------------- |---------- |---------:|---------:|---------:|---------:|---------:|---------:|------------:|
-|                          'Fill a managed array with a single value.' | 100000000 | 327.4 ms | 3.102 ms | 2.902 ms | 937.5000 | 937.5000 | 937.5000 | 800000192 B |
-| 'Fill a SafeArray on the system unmanaged heap with a single value.' | 100000000 | 126.1 ms | 1.220 ms | 1.081 ms |        - |        - |        - |       264 B |
+|                                                                          Method | Parameter |       Mean |     Error |    StdDev |     Median |    Gen 0 |    Gen 1 |    Gen 2 |   Allocated |
+|-------------------------------------------------------------------------------- |---------- |-----------:|----------:|----------:|-----------:|---------:|---------:|---------:|------------:|
+|                                     **'Fill a managed array with a single value.'** |  **10000000** |   **9.059 ms** | **0.1745 ms** | **0.4777 ms** |   **8.913 ms** |        **-** |        **-** |        **-** |       **208 B** |
+|            'Fill a SafeArray on the system unmanaged heap with a single value.' |  10000000 |   8.715 ms | 0.1682 ms | 0.2466 ms |   8.623 ms |        - |        - |        - |       208 B |
+|                          'Create and Fill a managed array with a single value.' |  10000000 |  32.867 ms | 0.9156 ms | 1.3420 ms |  32.175 ms | 142.8571 | 142.8571 | 142.8571 |  80000769 B |
+| 'Create and Fill a SafeArray on the system unmanaged heap with a single value.' |  10000000 |  13.809 ms | 0.2679 ms | 0.2506 ms |  13.727 ms |        - |        - |        - |       192 B |
+|                                     **'Fill a managed array with a single value.'** | **100000000** |  **90.326 ms** | **1.7718 ms** | **2.4253 ms** |  **89.468 ms** |        **-** |        **-** |        **-** |       **208 B** |
+|            'Fill a SafeArray on the system unmanaged heap with a single value.' | 100000000 |  88.377 ms | 0.9775 ms | 0.8665 ms |  88.505 ms |        - |        - |        - |       208 B |
+|                          'Create and Fill a managed array with a single value.' | 100000000 | 310.880 ms | 5.9732 ms | 8.1762 ms | 306.952 ms | 125.0000 | 125.0000 | 125.0000 | 800000624 B |
+| 'Create and Fill a SafeArray on the system unmanaged heap with a single value.' | 100000000 | 137.288 ms | 0.9710 ms | 0.9083 ms | 137.111 ms |        - |        - |        - |       192 B |
 
-You can run this benchmark with the command `jembench array --fill -l -u 100000000`. In this case we see that using the managed array allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computation.
+
+You can run this benchmark with the command `jembench array --fill 10000000 100000000 -l -u`. In this case we see that using the managed array of size 10 million elements allocated  800 MB on the managed heap while using the native array did not cause any allocations on the managed heap for the array data. Avoiding the managed heap for very large but simple data structures like arrays is a key optimizarion for apps that do large-scale in-memory computation.
 
 
 Managed .NET arays are also limited to `Int32` indexing and a maximum size of about 2.15 billion elements. jemalloc.NET provides huge arrays through the `HugeArray<T>` class which allows you to access all available memory as a flat contiguous buffer using array semantics. In the next benchmark `jembench hugearray --fill -i 4200000000`:
