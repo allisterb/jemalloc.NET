@@ -63,7 +63,7 @@ an `Int32[]` of maximum size can be allocated and filled in 3.2s. This array con
 
 Perhaps the killer feature of the [recently introduced](https://blogs.msdn.microsoft.com/dotnet/2017/11/15/welcome-to-c-7-2-and-span/) `Span<T>` class in .NET is its ability to efficently zero-copy re-interpret numeric data structures (`Int32, Int64` and their siblings) into other structures like the `Vector<T>` SIMD-enabled data types introduced in 2016. `Vector<T>` types are special in that the .NET RyuJIT JIT compiler can compile operations on Vectors to use SIMD instructions like SSE, SSE2, and AVX for parallelizing operations on data on a single CPU core.
 
-Using the SIMD-enabled `SafeBuffer<T>.VectoryMultiply(n)` method provided by the jemalloc.NET API yields a 4.5x speedup for a simple in-place multiplication of a `Uint16[]` array of 1 million elements, compared to the unoptimized linear approach, allowing the operation to complete in 3.3 ms:
+Using the SIMD-enabled `SafeBuffer<T>.VectorMultiply(n)` method provided by the jemalloc.NET API yields a more than 12x speedup for a simple in-place multiplication of a `UInt64[]` array of 10 million elements, compared to the unoptimized linear approach, allowing the operation to complete in 60 ms:
 
 ``` ini
 
@@ -78,10 +78,10 @@ Runtime=Core  AllowVeryLargeObjects=True  Toolchain=InProcessToolchain
 RunStrategy=Throughput  
 
 ```
-|                                                              Method | Parameter |      Mean |     Error |    StdDev |     Gen 0 |  Allocated |
-|-------------------------------------------------------------------- |---------- |----------:|----------:|----------:|----------:|-----------:|
-|       'Multiply all values of a managed array with a single value.' |   1024000 | 15.861 ms | 0.3169 ms | 0.4231 ms | 7781.2500 | 24576000 B |
-| 'Vector multiply all values of a native array with a single value.' |   1024000 |  3.299 ms | 0.0344 ms | 0.0287 ms |         - |       56 B |
+|                                                              Method | Parameter |      Mean |     Error |   StdDev |       Gen 0 |   Gen 1 |   Allocated |
+|-------------------------------------------------------------------- |---------- |----------:|----------:|---------:|------------:|--------:|------------:|
+|       'Multiply all values of a managed array with a single value.' |  10000000 | 761.10 ms | 10.367 ms | 9.190 ms | 254250.0000 | 62.5000 | 800000304 B |
+| 'Vector multiply all values of a native array with a single value.' |  10000000 |  59.23 ms |  1.170 ms | 1.149 ms |           - |       - |       360 B |
 
 
 For huge arrays of `UInt16[]` we see similar speedups:
