@@ -23,7 +23,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillManagedArray()
         {
-            T fill = GetArrayFillValue();
+            T fill = GM<T>.Random();
             T[] someData = new T[ArraySize];
             for (int i = 0; i < someData.Length; i++)
             {
@@ -49,7 +49,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillSpan()
         {
-            T fill = GetArrayFillValue();
+            T fill = GM<T>.Random();
             ulong msize = (ulong)(ArraySize * JemUtil.SizeOfStruct<T>());
             IntPtr ptr = Jem.Malloc(msize);
             Span<T> s = JemUtil.PtrToSpan<T>(ptr, ArraySize);

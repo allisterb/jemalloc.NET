@@ -123,11 +123,6 @@ namespace jemalloc.Benchmarks
         public static void InfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => Info("Executing {0}().", memberName);
         #endregion
 
-        public static TData GetArrayFillValue() => GM<TData>.Random();            
-        
-        public static TData GetArrayMulValue() => GM<TData>.Const(4);
-
-        public static TData GetArraySqrFillValue() => GM<TData>.Random();
         #endregion
     }
 }

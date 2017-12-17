@@ -130,67 +130,77 @@ namespace jemalloc
             switch (e)
             {
                 case SByte v:
-                    return JemUtil.ValToGenericStruct<SByte, TData>(checked((sbyte)Rng.Next(0, SByte.MaxValue)));
+                    return Const(checked((sbyte)Rng.Next(0, SByte.MaxValue)));
                 case Byte v:
-                    return JemUtil.ValToGenericStruct<Byte, TData>(checked((byte)Rng.Next(0, Byte.MaxValue)));
+                    return Const(checked((byte)Rng.Next(0, Byte.MaxValue)));
                 case Int32 v:
-                    return JemUtil.ValToGenericStruct<Int32, TData>(checked((int)Rng.Next(0, Int32.MaxValue)));
+                    return Const(checked((int)Rng.Next(0, Int32.MaxValue)));
                 case UInt32 v:
-                    return JemUtil.ValToGenericStruct<UInt32, TData>(checked((uint)Rng.Next(0, Int32.MaxValue)));
+                    return Const(checked((uint)Rng.Next(0, Int32.MaxValue)));
                 case Int16 v:
-                    return JemUtil.ValToGenericStruct<Int16, TData>(checked((short)Rng.Next(0, Int16.MaxValue)));
+                    return Const(checked((short)Rng.Next(0, Int16.MaxValue)));
                 case UInt16 v:
-                    return JemUtil.ValToGenericStruct<UInt16, TData>(checked((ushort)Rng.Next(0, UInt16.MaxValue)));
+                    return Const(checked((ushort)Rng.Next(0, UInt16.MaxValue)));
                 case Int64 v:
-                    return JemUtil.ValToGenericStruct<Int64, TData>(checked((long)Rng.NextDouble() * Int64.MaxValue));
+                    return Const(checked((long)Rng.NextDouble() * Int64.MaxValue));
                 case UInt64 v:
-                    return JemUtil.ValToGenericStruct<UInt64, TData>(checked((ulong)Rng.NextDouble() * UInt64.MaxValue));
+                    return Const(checked((ulong)Rng.NextDouble() * UInt64.MaxValue));
+                case Single v:
+                    return Const(checked((Single)Rng.NextDouble() * Int64.MaxValue));
+                case Double v:
+                    return Const(checked((double)Rng.NextDouble() * Int64.MaxValue));
+
                 default:
                     throw new ArithmeticException();
             }
         }
 
-        public static Tuple<TData, TData> RandomMultiplyFactorAndValue()
+        public static TData Random(double max)
+        {
+            return Const(checked((double)Rng.NextDouble() * max));
+        }
+
+        public static (TData, TData) RandomMultiplyFactorAndValue()
         {
             TData e = default;
             TData max;
-            int factor = Rng.Next(1, 4);
+            int factor = Rng.Next(0, 4);
             switch (e)
             {
                 case SByte v:
-                    max = JemUtil.ValToGenericStruct<sbyte, TData>( (sbyte.MaxValue / (sbyte) 4));
+                    max = Random((sbyte)(sbyte.MaxValue / 4));
                     break;
                 case Byte v:
-                    max = JemUtil.ValToGenericStruct<byte, TData>((byte)(byte.MaxValue / (byte) 4));
-                    break;
-                case Int32 v:
-                    max = JemUtil.ValToGenericStruct<int, TData>((int)(int.MaxValue / 4));
-                    break;
-                case UInt32 v:
-                    max = JemUtil.ValToGenericStruct<uint, TData>(uint.MaxValue / 4u);
+                    max = Random((byte)(byte.MaxValue / (byte) 4));
                     break;
                 case Int16 v:
-                    max = JemUtil.ValToGenericStruct<short, TData>((short)(short.MaxValue / (short) 4));
+                    max = Random((short)(short.MaxValue / (short)4));
                     break;
                 case UInt16 v:
-                    max = JemUtil.ValToGenericStruct<ushort, TData>((ushort)(ushort.MaxValue / (ushort) 4));
+                    max = Random((ushort)(ushort.MaxValue / (ushort)4));
                     break;
-                case Int64 v:
-                    max = JemUtil.ValToGenericStruct<long, TData>((long)(long.MaxValue / 4));
+                case Int32 v:
+                    max = Random((int)(int.MaxValue / 4));
+                    break;
+                case UInt32 v:
+                    max = Random(uint.MaxValue / 4u);
+                    break;
+                 case Int64 v:
+                    max = Random((long)(long.MaxValue / 4));
                     break;
                 case UInt64 v:
-                    max = JemUtil.ValToGenericStruct<ulong, TData>(ulong.MaxValue / 4u);
+                    max = Random(ulong.MaxValue / 4u);
                     break;
                 case Double v:
-                    max = JemUtil.ValToGenericStruct<double, TData>((double)(long.MaxValue / 4));
+                    max = Random((double)(long.MaxValue / 4));
                     break;
                 case Single v:
-                    max = JemUtil.ValToGenericStruct<Single, TData>((Single)(long.MaxValue / 4));
+                    max = Random((Single)(long.MaxValue / 4));
                     break;
                 default:
                     throw new ArithmeticException();
             }
-            return new Tuple<TData, TData>(JemUtil.ValToGenericStruct<int, TData>(factor), JemUtil.ValToGenericStruct<int, TData>(20));
+            return (Const(factor), Const(max));
 
         }
         #endregion

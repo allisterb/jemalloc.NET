@@ -26,7 +26,7 @@ namespace jemalloc.Benchmarks
         public void FillSetup()
         {
             InfoThis();
-            T fill = GetArrayFillValue();
+            T fill = GM<T>.Random();
             Info($"Array fill value is {fill}.");
             SetValue("fill", fill);
             SetValue("managedArray", new T[ArraySize]);
@@ -107,8 +107,7 @@ namespace jemalloc.Benchmarks
         public void ArithmeticMutiplyGlobalSetup()
         {
             InfoThis();
-            T fill = GM<T>.Const(5);
-            T mul = GM<T>.Const(20);
+            (T mul, T fill) = GM<T>.RandomMultiplyFactorAndValue();
             SafeArray<T> na = new SafeArray<T>(ArraySize);
             T[] ma = new T[ArraySize];
             Info($"Array fill value is {fill}.");
@@ -118,7 +117,7 @@ namespace jemalloc.Benchmarks
             {
                 ma[i] = fill;
             }
-
+            na.Acquire();
             SetValue("fill", fill);
             SetValue("mul", mul);
             SetValue("managedArray", ma);

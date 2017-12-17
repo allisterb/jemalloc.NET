@@ -17,8 +17,7 @@ namespace jemalloc.Benchmarks
             base.GlobalSetup();
             managedArray = new T[2146435071];
             nativeArray = new HugeArray<T>(ArraySize);
-            fill = GetArrayFillValue();
-            mul = GetArrayMulValue();
+            (mul, fill) = GM<T>.RandomMultiplyFactorAndValue();
             Console.WriteLine("Managed array fill value is {0}.", fill);
             Console.WriteLine("Multiply factor is {0}", mul);
         }
@@ -42,7 +41,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fiill")]
         public void FillManagedArray()
         {
-            T fill = GetArrayFillValue();
+            T fill = GM<T>.Random();
             T[] someData = new T[2146435071];
             for (int i = 0; i < someData.Length; i++)
             {
@@ -57,7 +56,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillHugeNativeArray()
         {
-            T fill = GetArrayFillValue();
+            T fill = GM<T>.Random();
             HugeArray<T> array = new HugeArray<T>(ArraySize);
             array.Fill(fill);
             T r = array[ArraySize / 2];
