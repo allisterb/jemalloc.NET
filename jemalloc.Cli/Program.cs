@@ -282,6 +282,7 @@ namespace jemalloc.Cli
             Contract.Requires(BenchmarkOptions.ContainsKey("Sizes"));
             IConfig config = ManualConfig
                          .Create(DefaultConfig.Instance);
+            JemBenchmarkAttribute.CurrentConfig = config;
             try
             {
                 switch ((Category)BenchmarkOptions["Category"])

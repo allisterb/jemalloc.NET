@@ -22,7 +22,7 @@ namespace jemalloc
         #endregion
 
         #region Methods
-        public static TData Const<TValue>(TValue v) where TValue : struct, IEquatable<TValue>, IComparable<TValue>
+        public static TData Const<TValue>(TValue v) where TValue : struct, IEquatable<TValue>, IComparable<TValue>, IConvertible
         {
             return (TData) Convert.ChangeType(v, typeof(TData));
         }
@@ -142,13 +142,13 @@ namespace jemalloc
                 case UInt16 v:
                     return Const(checked((ushort)Rng.Next(0, UInt16.MaxValue)));
                 case Int64 v:
-                    return Const(checked((long)Rng.NextDouble() * Int64.MaxValue));
+                    return Const(checked((long)(Rng.NextDouble() * Int64.MaxValue)));
                 case UInt64 v:
-                    return Const(checked((ulong)Rng.NextDouble() * UInt64.MaxValue));
+                    return Const(checked((ulong)(Rng.NextDouble() * UInt64.MaxValue)));
                 case Single v:
-                    return Const(checked((Single)Rng.NextDouble() * Int64.MaxValue));
+                    return Const(checked(((Single)(Rng.NextDouble() * Int64.MaxValue))));
                 case Double v:
-                    return Const(checked((double)Rng.NextDouble() * Int64.MaxValue));
+                    return Const(checked((((double)Rng.NextDouble() * Int64.MaxValue))));
 
                 default:
                     throw new ArithmeticException();
