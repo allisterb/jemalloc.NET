@@ -8,7 +8,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
-using System.Linq;
 using System.Text;
 
 namespace jemalloc
@@ -82,9 +81,55 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         public void Release()
         {
-            if (IsNotAllocated)
+            if (IsNotAllocated || IsInvalid)
                 return;
             DangerousRelease();
+        }
+
+        protected unsafe ref T DangerousAsRef(int index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(index);
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected T[] UncheckedCopyToArray()
+        {
+            T[] a = new T[this.Length];
+            ThrowIfCannotAcquire();
+            for (int i = 0; i < this.Length; i++)
+            {
+                a[i] = this[i];
+            }
+            Release();
+            return a;
+        }
+
+        public T[] CopyToArray()
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            T[] a = new T[this.Length];
+            ThrowIfCannotAcquire();
+            for (int i = 0; i < this.Length; i++)
+            {
+                a[i] = this[i];
+            }
+            Release();
+            return a;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected T[] UncheckedCopyToArray(int index, int length)
+        {
+            T[] a = new T[length];
+            ThrowIfCannotAcquire();
+            for (int i = 0; i < length; i++)
+            {
+                a[i] = this[index + i];
+            }
+            Release();
+            return a;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,40 +155,6 @@ namespace jemalloc
             s.Fill(value);
             Release();
         }
-
-        protected unsafe ref T DangerousAsRef(int index)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfIndexOutOfRange(index);
-            return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected T[] UncheckedCopyToArray()
-        {
-            T[] a = new T[this.Length];
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < this.Length; i++)
-            {
-                a[i] = this[i];
-            }
-            Release();
-            return a;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected T[] UncheckedCopyToArray(int index, int length)
-        {
-            T[] a = new T[length];
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < length; i++)
-            {
-                a[i] = this[index + i];
-            }
-            Release();
-            return a;
-        }
-
 
         public Vector<T> AcquireAsSingleVector()
         {
@@ -422,10 +433,6 @@ namespace jemalloc
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
             return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
         }
-
-        private static ConstructorInfo VectorInternalConstructorUsingPointer = typeof(Vector<T>).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null,
-            new Type[] { typeof(void*), typeof(int) }, null);
-
         #endregion
 
         #region Operators

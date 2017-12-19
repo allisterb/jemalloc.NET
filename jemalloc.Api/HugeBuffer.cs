@@ -88,27 +88,12 @@ namespace jemalloc
             DangerousRelease();
         }
 
-        public unsafe Span<T> AcquireSpan(ulong index)
+        protected unsafe ref T DangerousAsRef(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            ThrowIfCannotAcquire();
             GetSegment(index, out void* ptr, out int offset);
-            return new Span<T>(ptr, offset + 1);
-        }
-
-        public unsafe void Fill(T value)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < segments.Length - 1; i++)
-            {                
-                Span<T> s = new Span<T>(segments[i].ToPointer(), Int32.MaxValue);
-                s.Fill(value);
-            }
-            Span<T> last = AcquireSpan(Length - 1);
-            last.Fill(value);
-            Release();
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
         }
 
         public T[] CopyToArray()
@@ -128,6 +113,31 @@ namespace jemalloc
             return a;
         }
 
+        public unsafe Span<T> AcquireSegmentSpan(ulong index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(index);
+            ThrowIfCannotAcquire();
+            GetSegment(index, out void* ptr, out int offset);
+            return new Span<T>(ptr, offset + 1);
+        }
+
+        public unsafe void Fill(T value)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfCannotAcquire();
+            for (int i = 0; i < segments.Length - 1; i++)
+            {                
+                Span<T> s = new Span<T>(segments[i].ToPointer(), Int32.MaxValue);
+                s.Fill(value);
+            }
+            Span<T> last = AcquireSegmentSpan(Length - 1);
+            last.Fill(value);
+            Release();
+            Release();
+        }
+
+
         public unsafe Vector<T> AcquireAsSingleVector()
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -142,7 +152,7 @@ namespace jemalloc
             return vector[0];
         }
 
-        public unsafe Vector<T> AcquireSliceToVector(ulong index)
+        public unsafe Vector<T> AcquireSliceSegmentAsVector(ulong index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotNumeric();
@@ -159,7 +169,7 @@ namespace jemalloc
             return vector[0];
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void VectorMultiply(T value)
         {
             ThrowIfNotAllocatedOrInvalid();
@@ -168,12 +178,12 @@ namespace jemalloc
             for (int h = 0; h < segments2.Length; h++)
             {
                 Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> vectorSpan = span.NonPortableCast<T, Vector<T>>();           
+                Span<Vector<T>> segmentVectorSpan = span.NonPortableCast<T, Vector<T>>();         
                 T[] fill = new T[VectorLength];
                 Span<T> sFil = new Span<T>(fill);
                 sFil.Fill(value);
                 Vector<T> fillVector = sFil.NonPortableCast<T, Vector<T>>()[0];
-                vectorSpan[0] = Vector.Multiply(vectorSpan[0], fillVector);
+                segmentVectorSpan[0] = Vector.Multiply(segmentVectorSpan[0], fillVector);
             }
             Release();
         }
@@ -195,14 +205,7 @@ namespace jemalloc
             Release();
         }
 
-        protected unsafe ref T DangerousGetRef(ulong index)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfIndexOutOfRange(index);
-            GetSegment(index, out void* ptr, out int offset);
-            return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-        }
-
+  
         protected unsafe virtual IntPtr Allocate(ulong length)
         {
             if (length < 0)
@@ -270,7 +273,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected unsafe void AcquirePointer(ref byte* pointer)
+        protected unsafe void DangerousAcquirePointer(ref byte* pointer)
         {
             pointer = null;
             if (IsNotAllocated || IsInvalid) return;

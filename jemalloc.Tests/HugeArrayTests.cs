@@ -58,14 +58,14 @@ namespace jemalloc.Tests
             Assert.Equal(a[3], v[3]);
             Assert.Equal(a[7], v[7]);
             HugeArray<uint> a2 = new HugeArray<uint>(12, 11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
-            Vector<uint> v2 = a2.AcquireSliceToVector(0);
+            Vector<uint> v2 = a2.AcquireSliceSegmentAsVector(0);
             Assert.Equal(11u, v2[0]);
             Assert.Equal(8u, v2[7]);
             HugeArray<uint> a3 = new HugeArray<uint>((ulong)Int32.MaxValue + 10000);
             a3.Fill(7u);
             a3[(ulong)Int32.MaxValue + 100] = 9;
             a3[(ulong)Int32.MaxValue + 101] = 4;
-            Vector<uint> v3 = a3.AcquireSliceToVector((ulong)Int32.MaxValue + 99);
+            Vector<uint> v3 = a3.AcquireSliceSegmentAsVector((ulong)Int32.MaxValue + 99);
             Assert.Equal(9u, v3[1]);
             Assert.Equal(4u, v3[2]);
             Assert.Equal(a3[(ulong)Int32.MaxValue + 99], v3[0]);

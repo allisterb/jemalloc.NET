@@ -6,7 +6,7 @@
     <RootNamespace>jemalloc</RootNamespace>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>jemalloc.NET</PackageId>
     <Version>0.1.3-alpha</Version>
     <Authors>Allister Beharry</Authors>
