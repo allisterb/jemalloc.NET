@@ -121,6 +121,11 @@ namespace jemalloc.Benchmarks
         public static void Info(string format, params object[] values) => Log.WriteLineInfo(string.Format(format, values));
 
         public static void InfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => Info("Executing {0}().", memberName);
+
+        public static void Error(string text, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => 
+            Log.WriteLineError(string.Format("Error : {0} At {1} in {2} on line {3}.", text, memberName, fileName, lineNumber));
+
+        public static void Error(string format, params object[] values) => Log.WriteLineError(string.Format(format, values));
         #endregion
 
         #endregion

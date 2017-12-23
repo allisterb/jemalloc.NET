@@ -25,10 +25,8 @@ namespace jemalloc
             this.LineNumber = line_number;
         }
 
-        public override string ToString()
-        {
-            return Jem.GetCallerDetails(this);
-        }
+        public override string ToString() => Jem.GetCallerDetails(this);
+        
     }
 
     internal enum ERRNO
@@ -99,8 +97,6 @@ namespace jemalloc
             {
                 
                 Allocations.Add(__ret);
-                    //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
-                
                 return __ret;
             }
             else
@@ -115,17 +111,13 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
-                
                 Allocations.Add(__ret);
-                    //AllocationsDetails.Add(new Tuple<IntPtr, ulong, CallerInformation>(__ret, size, caller));
-                
                 return __ret;
             }
             else
             {
                 throw new OutOfMemoryException($"Could not allocate {num * size} bytes for {GetCallerDetails(caller)}.");
             }
-
         }
 
         public static int PosixMemalign(void** memptr, ulong alignment, ulong size)
@@ -358,6 +350,44 @@ namespace jemalloc
             IntPtr ptr = Malloc(size, memberName, fileName, lineNumber);
             return new Span<T>((void*)ptr, length);
         }
+
+        public static IntPtr CallocFixedBuffer<T>(ulong length, ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        {
+            IntPtr ptr = Jem.Calloc(length, size);
+            if (ptr != IntPtr.Zero)
+            {
+                CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
+
+                if (!FixedBufferAllocations.TryAdd(ptr, new FixedBufferAllocation(caller, ptr, size, DateTime.UtcNow.Ticks)))
+                {
+                    throw new Exception($"Could not add pointer {ptr} to FixedBufferAllocations.");
+                }
+            }
+            return ptr;
+        }
+
+        public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp)
+        {
+            if (!Allocations.TryPeek(out ptr))
+            {
+                return false;
+            }
+            else if (FixedBufferAllocations.TryGetValue(ptr, out FixedBufferAllocation a))
+            {
+                if (a.Ptr == ptr && a.Size == size && a.TimeStamp == timestamp)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
         #endregion
 
         #region Utility methods
@@ -407,14 +437,13 @@ namespace jemalloc
 
         public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
 
+        public static ConcurrentDictionary<IntPtr, FixedBufferAllocation> FixedBufferAllocations = new ConcurrentDictionary<IntPtr, FixedBufferAllocation>();
+
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         
         public static bool PtrIsAllocated(IntPtr ptr)
         {
-            lock (allocationsLock)
-            {
-                return Allocations.Any(a => a == ptr);
-            }
+            return Allocations.TryPeek(out ptr);
         }
         #endregion
 

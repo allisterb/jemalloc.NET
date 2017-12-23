@@ -222,12 +222,6 @@ namespace jemalloc.Cli
             }); 
         }
 
-        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            Log.Error((Exception) e.ExceptionObject, "An unhandled exception occurred. The program will now shutdown.");
-            Exit(ExitResult.UNHANDLED_EXCEPTION);
-        }
-
         static void Benchmark(Options o)
         {
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
@@ -419,6 +413,13 @@ namespace jemalloc.Cli
             });
         }
 
-       
+        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Exception exception = (Exception)e.ExceptionObject;
+            Log.Error(exception, "An unhandled exception occurred. The program will now shutdown.");
+            Log.Error(exception.StackTrace);
+            Exit(ExitResult.UNHANDLED_EXCEPTION);
+        }
+
     }
 }

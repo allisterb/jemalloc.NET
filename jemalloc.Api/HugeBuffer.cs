@@ -22,7 +22,7 @@ namespace jemalloc
             {
                 throw new ArgumentException("Only structures without reference fields can be used with this class.");
             }
-            if ((ulong) values.Length > length)
+            if (l > length)
             {
                 throw new ArgumentException("The length of the list of values must be smaller or equal to the length of the buffer");
             }
@@ -58,6 +58,8 @@ namespace jemalloc
 
         public bool IsAllocated => !IsNotAllocated;
 
+        public bool IsValid => !IsInvalid;
+
         public bool IsVectorizable { get; protected set; }
 
         #endregion
@@ -68,16 +70,18 @@ namespace jemalloc
         {
             if (IsNotAllocated || IsInvalid)
                 return false;
-            bool result = false;
+            bool success = false;
             RuntimeHelpers.PrepareConstrainedRegions();
             try
             {
             }
             finally
             {
-                DangerousAddRef(ref result);
+                DangerousAddRef(ref success);
             }
-            return result;
+            if (success)
+                ++refCount;
+            return success;
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
@@ -85,6 +89,7 @@ namespace jemalloc
         {
             if (IsNotAllocated || IsInvalid)
                 return;
+            --refCount;
             DangerousRelease();
         }
 
@@ -255,7 +260,7 @@ namespace jemalloc
             int s = GetSegmentIndex(index);
             int l = segments.Length;
             ptr = segments[s].ToPointer();
-            offset = (int) (index - ((ulong)(s) * (ulong) Int32.MaxValue));
+            offset = (int) (index - ((ulong)(s) * Int32.MaxValue));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -451,6 +456,7 @@ namespace jemalloc
         #endregion
 
         #region Fields
+        internal int refCount;
         protected static readonly Type CLRType = typeof(T);
         protected static readonly T Element = default;
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();

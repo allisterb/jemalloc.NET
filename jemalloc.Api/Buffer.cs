@@ -16,7 +16,7 @@ namespace jemalloc
             _Span = new Span<T>();
             unsafe
             {
-                _VoidPointer = (void *) _Ptr;
+                _VoidPointer = (void*)_Ptr;
             }
             Allocate(length);
         }

@@ -18,10 +18,12 @@ namespace jemalloc
         public static readonly Type SingleCLRType = typeof(Single);
         public static readonly Type DoubleCLRType = typeof(Double);
         public static readonly Type CharCLRType = typeof(Char);
+        public static readonly Type DecimalCLRType = typeof(Decimal);
+        public static readonly Type IntPtrCLRType = typeof(IntPtr);
         public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
         {
             Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType, CharCLRType
+            SingleCLRType, DoubleCLRType, CharCLRType, DecimalCLRType, IntPtrCLRType
         });
 
         public static bool IsNumericType<T>()
@@ -45,70 +47,6 @@ namespace jemalloc
             void* ptr = Unsafe.AsPointer(ref v);
             return PtrToStruct<TReturn>(ptr);
         }
-
-        public unsafe static TReturn GenericMultiply<TReturn>(TReturn l, TReturn r) where TReturn : struct
-        {
-            Tuple<TReturn, TReturn> value = new Tuple<TReturn, TReturn>(l, r);
-            switch (value)
-            {
-                case Tuple<Byte, Byte> v:
-                    return JemUtil.ValToGenericStruct<Byte, TReturn>(checked((byte) (v.Item1 * v.Item2)));
-
-                case Tuple<SByte, SByte> v:
-                    return JemUtil.ValToGenericStruct<SByte, TReturn>(checked((SByte) (v.Item1 * v.Item2)));
-
-                case Tuple<UInt16, UInt16> v:
-                    return JemUtil.ValToGenericStruct<UInt16, TReturn>(checked((UInt16) (v.Item1 * v.Item2)));
-
-                case Tuple<Int16, Int16> v:
-                    return JemUtil.ValToGenericStruct<Int16, TReturn>(checked((Int16) (v.Item1 * v.Item2)));
-
-                case Tuple<UInt32, UInt32> v:
-                    return JemUtil.ValToGenericStruct<UInt32, TReturn>((checked(v.Item1 * v.Item2)));
-
-                case Tuple<Int32, Int32> v:
-                    return JemUtil.ValToGenericStruct<Int32, TReturn>((checked(v.Item1 * v.Item2)));
-
-                case Tuple<UInt64, UInt64> v:
-                    return JemUtil.ValToGenericStruct<UInt64, TReturn>((checked(v.Item1 * v.Item2)));
-
-                case Tuple<Int64, Int64> v:
-                    return JemUtil.ValToGenericStruct<Int64, TReturn>((checked(v.Item1 * v.Item2)));
-
-                default:
-                    throw new Exception($"Unsupported type: {typeof(TReturn).Name}");
-            }
-        }
-
-        public unsafe static double GenericSqrt<TReturn>(TReturn l) where TReturn : struct
-        {
-            if (!JemUtil.IsNumericType<TReturn>())
-            {
-                throw new ArithmeticException();
-            }
-            switch (l)
-            {
-                case SByte v:
-                    return checked(Math.Sqrt(v));
-                case Byte v:
-                    return checked(Math.Sqrt(v));
-                case Int32 v:
-                    return checked(Math.Sqrt(v));
-                case UInt32 v:
-                    return checked(Math.Sqrt(v));
-                case Int16 v:
-                    return checked(Math.Sqrt(v));
-                case UInt16 v:
-                    return checked(Math.Sqrt(v));
-                case Int64 v:
-                    return checked(Math.Sqrt(v));
-                case UInt64 v:
-                    return checked(Math.Sqrt(v));
-                default:
-                    throw new ArithmeticException();
-            }
-         }
-
 
         public static int SizeOfStruct<T>() where T : struct
         {

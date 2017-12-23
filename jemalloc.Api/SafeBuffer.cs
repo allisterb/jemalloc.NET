@@ -272,7 +272,7 @@ namespace jemalloc
 
         protected void InitVector()
         {
-            if (Length % VectorLength == 0 && SIMD && IsNumeric)
+            if (IsNumeric && Length % VectorLength == 0 && SIMD && IsNumeric)
             {
                 IsVectorizable = true;
             }
@@ -451,7 +451,7 @@ namespace jemalloc
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();
         protected static readonly UInt64 NotAllocated = UInt64.MaxValue;
         protected static bool IsNumeric = JemUtil.IsNumericType<T>();
-        protected static int VectorLength = Vector<T>.Count;
+        protected static int VectorLength = IsNumeric ? Vector<T>.Count : 0;
         protected static bool SIMD = Vector.IsHardwareAccelerated;
 
         protected internal unsafe void* voidPtr;

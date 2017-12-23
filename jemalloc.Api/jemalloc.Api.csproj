@@ -42,11 +42,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Memory" Version="4.5.0-preview1-26006-07" />
+    <PackageReference Include="System.Memory" Version="4.5.0-preview1-26021-02" />
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0-preview2-25707-02" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit.ILGeneration" Version="4.3.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.0-preview2-25707-02" />
+    <PackageReference Include="System.Text.Utf8String" Version="0.1.0-e171221-2" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

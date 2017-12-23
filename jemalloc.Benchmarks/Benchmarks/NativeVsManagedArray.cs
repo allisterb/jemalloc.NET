@@ -22,7 +22,7 @@ namespace jemalloc.Benchmarks
 
 
         #region Fill
-        [GlobalSetup(Target = "FillManagedArray")]
+        [GlobalSetup(Target = nameof(FillManagedArray))]
         public void FillSetup()
         {
             InfoThis();
@@ -32,7 +32,7 @@ namespace jemalloc.Benchmarks
             SetValue("managedArray", new T[ArraySize]);
             SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
             nativeArray.Acquire();
-            SetValue("nativeArray", new SafeArray<T>(ArraySize));
+            SetValue("nativeArray", nativeArray);
         }
 
         [Benchmark(Description = "Fill a managed array with a single value.")]
@@ -84,7 +84,7 @@ namespace jemalloc.Benchmarks
         [GlobalCleanup(Target = nameof(FillNativeArrayWithCreate))]
         public void CleanupFillArray()
         {
-            Info(nameof(CleanupFillArray));
+            InfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
             SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
             T fill = GetValue<T>("fill");
