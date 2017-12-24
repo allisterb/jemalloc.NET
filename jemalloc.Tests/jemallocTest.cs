@@ -7,7 +7,9 @@ using Xunit;
 namespace jemalloc.Tests
 {
     public abstract class jemallocTest
-    { 
+    {
+        public static Random Rng = new Random();
+
         public jemallocTest()
         {
             Jem.Init("tcache:false,narenas:3");  

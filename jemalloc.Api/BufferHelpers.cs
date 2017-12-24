@@ -395,6 +395,38 @@ namespace jemalloc
             return false;
         }
 
+        public static bool IsReferenceOrContainsReferences(Type type, out FieldInfo referenceField)
+        {
+            referenceField = null;
+            if (type.GetTypeInfo().IsPrimitive) // This is hopefully the common case. All types that return true for this are value types w/out embedded references.
+                return false;
+
+            if (!type.GetTypeInfo().IsValueType)
+                return true;
+
+            // If type is a Nullable<> of something, unwrap it first.
+            Type underlyingNullable = Nullable.GetUnderlyingType(type);
+            if (underlyingNullable != null)
+                type = underlyingNullable;
+
+            if (type.GetTypeInfo().IsEnum)
+                return false;
+
+            foreach (FieldInfo field in type.GetTypeInfo().DeclaredFields)
+            {
+                if (field.IsStatic)
+                    continue;
+                if (IsReferenceOrContainsReferences(field.FieldType, out referenceField))
+                {
+                    referenceField = field;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+
         public static class PerTypeValues<T>
         {
             //

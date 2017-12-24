@@ -17,9 +17,9 @@ namespace jemalloc
         #region Constructors
         protected SafeBuffer(int length, params T[] values) : base(IntPtr.Zero, true)
         {
-            if (BufferHelpers.IsReferenceOrContainsReferences<T>())
+            if (BufferHelpers.IsReferenceOrContainsReferences(typeof(T), out FieldInfo field))
             {
-                throw new ArgumentException("Only structures without reference fields can be used with this class.");
+                throw new ArgumentException($"Only structures without reference fields can be used with this class. The field {field.Name} has type {field.FieldType.Name}.");
             }
             if (values.Length > length)
             {

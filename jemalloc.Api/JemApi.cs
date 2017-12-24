@@ -351,43 +351,49 @@ namespace jemalloc
             return new Span<T>((void*)ptr, length);
         }
 
-        public static IntPtr CallocFixedBuffer<T>(ulong length, ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        #region FixedBuffer
+        public static IntPtr CallocFixedBuffer<T>(ulong length, ulong size, long timestamp, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            IntPtr ptr = Jem.Calloc(length, size);
+            IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
                 CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
-
-                if (!FixedBufferAllocations.TryAdd(ptr, new FixedBufferAllocation(caller, ptr, size, DateTime.UtcNow.Ticks)))
-                {
-                    throw new Exception($"Could not add pointer {ptr} to FixedBufferAllocations.");
-                }
+                FixedBufferAllocations.Add(new FixedBufferAllocation(caller, ptr, length * size, timestamp));
             }
             return ptr;
         }
 
+        public static bool FreeFixedBuffer(IntPtr ptr)
+        {
+            bool success = Free(ptr);
+            if (success)
+            {
+                if (!FixedBufferAllocations.TryTake(out FixedBufferAllocation a))
+                {
+                    throw new Exception($"Could not remove FixedBuffer {a.Ptr} from FixedBufferAllocations.");
+                }
+            }
+            return success;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp)
         {
             if (!Allocations.TryPeek(out ptr))
             {
                 return false;
             }
-            else if (FixedBufferAllocations.TryGetValue(ptr, out FixedBufferAllocation a))
+            else if (FixedBufferAllocations.TryPeek(out FixedBufferAllocation a))
             {
-                if (a.Ptr == ptr && a.Size == size && a.TimeStamp == timestamp)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                return true;
             }
             else
             {
                 return false;
             }
         }
+        #endregion
+
         #endregion
 
         #region Utility methods
@@ -437,7 +443,7 @@ namespace jemalloc
 
         public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
 
-        public static ConcurrentDictionary<IntPtr, FixedBufferAllocation> FixedBufferAllocations = new ConcurrentDictionary<IntPtr, FixedBufferAllocation>();
+        public static ConcurrentBag<FixedBufferAllocation> FixedBufferAllocations = new ConcurrentBag<FixedBufferAllocation>();
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         

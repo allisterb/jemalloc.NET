@@ -10,16 +10,39 @@ namespace jemalloc
     [StructLayout(LayoutKind.Sequential)]
     public struct FixedBuffer<T> : IDisposable, IRetainable, IEquatable<FixedBuffer<T>> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
-        #region Constructor
+        #region Constructors
         public FixedBuffer(int length)
         {
             _Ptr = IntPtr.Zero;
             _Length = 0;
             _SizeInBytes = 0;
-            _Timestamp = 0;
+            _Timestamp = DateTime.UtcNow.Ticks;
             RefCount = 0;
+            IsReadOnly = false;
             Allocate(length);
         }
+
+        public FixedBuffer(int length, bool isReadOnly) : this(length)
+        {
+            IsReadOnly = true;
+
+        }
+        public FixedBuffer(T[] array) : this(array.Length)
+        {           
+            ReadOnlySpan<T> arraySpan = new ReadOnlySpan<T>(array);
+            arraySpan.CopyTo(this.Span);   
+        }
+
+        public unsafe FixedBuffer(Span<T> span) : this(span.Length)
+        {
+            span.CopyTo(this.Span);
+        }
+        public unsafe FixedBuffer(ReadOnlySpan<T> span) : this(span.Length)
+        {
+            IsReadOnly = true;
+            span.CopyTo(this.Span);
+        }
+
         #endregion
 
         #region Implemented members
@@ -39,20 +62,22 @@ namespace jemalloc
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        #endregion
-        #region Disposer
+
         private void Dispose(bool disposing)
         {
             Free();
         }
+
         #endregion
 
         #endregion
 
         #region Properties
-        public bool IsInvalid => _Ptr == IntPtr.Zero;
+        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp);
 
         public bool IsRetained => RefCount > 0;
+
+        public bool IsReadOnly { get; private set; }
 
         public int Length
         {
@@ -100,6 +125,15 @@ namespace jemalloc
             }
         }
 
+        public unsafe ReadOnlySpan<T> ReadOnlySpan
+        {
+            get
+            {
+                ThrowIfInvalid();
+                return new ReadOnlySpan<T>(_Ptr.ToPointer(), _Length);
+            }
+        }
+
         public int RefCount { get; internal set; }
 
         #endregion
@@ -107,13 +141,11 @@ namespace jemalloc
         #region Methods
         private unsafe bool Allocate(int length)
         {
-            _Ptr = Jem.CallocFixedBuffer<T>((ulong)length, ElementSizeInBytes);
+            _Ptr = Jem.CallocFixedBuffer<T>((ulong)length, ElementSizeInBytes, _Timestamp);
             if (_Ptr != IntPtr.Zero)
             {
                 _Length = length;
                 _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
-                _Timestamp = DateTime.Now.Ticks;
-
                 return true;
             }
             else return false;
@@ -140,7 +172,7 @@ namespace jemalloc
             ThrowIfRefCountNonZero();
             if (Interlocked.Exchange(ref _Ptr, IntPtr.Zero) != IntPtr.Zero)
             {
-                if (Jem.Free(_Ptr))
+                if (Jem.FreeFixedBuffer(_Ptr))
                 {
                     _Ptr = IntPtr.Zero;
                     return true;
@@ -157,11 +189,46 @@ namespace jemalloc
             }
         }
 
-
         public void Fill(T value)
         {
             ThrowIfInvalid();
             Span.Fill(value);
+        }
+
+        public bool EqualTo(T[] array)
+        {
+            if (_Length != array.Length)
+            {
+                return false;
+            }
+            else
+            {
+                ReadOnlySpan<T> span = new ReadOnlySpan<T>(array);
+                return this.Span.SequenceEqual(span);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private unsafe T Read(int index)
+        {
+            ThrowIfInvalid();
+            Acquire();
+            // return (T*) (_ptr + byteOffset);
+            T ret = Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
+            Release();
+            return ret;
+        }
+
+
+        private unsafe T Write(int index, T value)
+        {
+            ThrowIfInvalid();
+            ThrowIfReadOnly();
+            Acquire();
+            ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
+            v = value;
+            Release();
+            return value;
         }
 
         private void ThrowIfInvalid()
@@ -180,6 +247,13 @@ namespace jemalloc
             }
         }
 
+        private void ThrowIfReadOnly()
+        {
+            if (IsReadOnly)
+            {
+                throw new InvalidOperationException($"FixedBuffer<{typeof(T).Name}>({this._Length}) is read-only.");
+            }
+        }
 
         #endregion
 
@@ -191,11 +265,11 @@ namespace jemalloc
             {
                 if (IsInvalid)
                     throw new InvalidOperationException("The buffer is invalid.");
-                if (index >= (Length))
+                if (index >= (_Length))
                     throw new IndexOutOfRangeException();
                 unsafe
                 {
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(Ptr.ToPointer()), index);
+                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
                 }
             }
         }
@@ -208,6 +282,7 @@ namespace jemalloc
         private ulong _SizeInBytes;
         private int _Length;
         private long _Timestamp;
+         
         #endregion
     }
 }

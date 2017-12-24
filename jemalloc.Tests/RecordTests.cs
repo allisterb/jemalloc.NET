@@ -14,7 +14,7 @@ namespace jemalloc.Tests
             SafeArray<TestRecord> records = new SafeArray<TestRecord>(100);
             for (int i = 0; i < records.Length; i++)
             {
-                records[i] = TestRecord.MakeTestRecord();
+                records[i] = TestRecord.MakeTestRecord(Rng);
             }
         }
     }

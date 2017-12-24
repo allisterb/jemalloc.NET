@@ -12,8 +12,20 @@ namespace jemalloc.Tests
         public void CanCreateFixedArray()
         {
             FixedBuffer<byte> buffer = new FixedBuffer<byte>(4096);
+            byte[] managedArray = new byte[4096];
             SafeArray<FixedBuffer<byte>> byteBuffer = new SafeArray<FixedBuffer<byte>>(1000);
-            
+            byteBuffer[0] = new FixedBuffer<byte>(100);
+            byteBuffer[0][16] = 0xff;
+            Assert.Equal(0xff, byteBuffer[0][16]);
+            byteBuffer[0].Free();
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                byte v = (byte)Rng.Next(0, 255);
+                managedArray[i] = v;
+                buffer[i] = v;
+            }
+            Assert.True(buffer.EqualTo(managedArray));
+            buffer.Free();
         }
     }
 }
