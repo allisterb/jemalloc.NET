@@ -41,11 +41,14 @@ namespace jemalloc.Cli
     [Verb("malloc", HelpText = "Benchmark native memory allocation using jemalloc vs. .NET managed heap and Large Object Heap allocation")]
     class MallocBenchmarkOptions : Options
     {
-        [Option("create", Required = false, HelpText = "Benchmark malloc and Span<T> creation vs managed array creation.")]
+        [Option("create", Required = false, HelpText = "Benchmark malloc vs managed array alloc.")]
         public bool Create { get; set; }
 
         [Option("fill", Required = false, HelpText = "Benchmark fill Span<T> on system unmanaged heap vs fill managed arrays.")]
         public bool Fill { get; set; }
+
+        [Option("fragment", Required = false, HelpText = "Run an allocation pattern that fragments the LOH vs. native memory.")]
+        public bool Fragment { get; set; }
 
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<int> Sizes { get; set; }

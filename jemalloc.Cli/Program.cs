@@ -37,7 +37,8 @@ namespace jemalloc.Cli
         {
             CREATE,
             FILL,
-            MATH
+            MATH,
+            FRAGMENT
         }
 
         static Version Version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -154,7 +155,10 @@ namespace jemalloc.Cli
                 {
                     BenchmarkOptions.Add("Operation", Operation.FILL);
                 }
-
+                else if (o.Fragment)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.FRAGMENT);
+                }
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
                     Log.Error("You must select an operation to benchmark with --fill.");
@@ -321,9 +325,16 @@ namespace jemalloc.Cli
                                 config = config.With(new NameFilter(name => name.Contains("Fill")));
                                 L.Information("Starting {num} fill benchmarks for data type {t} with array sizes: {s}", JemBenchmark<T, int>.GetBenchmarkMethodCount<MallocVsArrayBenchmark<T>>(),
                                     typeof(T).Name, MallocVsArrayBenchmark<T>.BenchmarkParameters);
-                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
-                        
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");                        
                                 break;
+
+                            case Operation.FRAGMENT:
+                                config = config.With(new NameFilter(name => name.Contains("Fragment")));
+                                L.Information("Starting {num} fragment benchmarks for data type {t} with array sizes: {s}", JemBenchmark<T, int>.GetBenchmarkMethodCount<MallocVsArrayBenchmark<T>>(),
+                                    typeof(T).Name, MallocVsArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                break;
+
                             default:
                                 throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
                         }

@@ -221,12 +221,11 @@ namespace jemalloc
             }
         }
 
-        public Span<T> Slice(int start, int length)
+        public Span<T> AcquireSlice(int start, int length)
         {
             ThrowIfInvalid();
             Acquire();
             Span<T> ret = Span.Slice(start, length);
-            Release();
             return ret; 
         }
 
@@ -301,12 +300,16 @@ namespace jemalloc
         #endregion
 
         #region Operators
-        public ref T this[int index]
+        public T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                return ref Read(index);
+                return Read(index);
+            }
+            set
+            {
+                Write(index, value);
             }
         }
         #endregion
