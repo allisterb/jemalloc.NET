@@ -9,7 +9,7 @@ using BenchmarkDotNet.Loggers;
 namespace jemalloc.Benchmarks
 {
     [OrderProvider(methodOrderPolicy: MethodOrderPolicy.Declared)]
-    public class NativeVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
+    public class FixedBufferVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public int ArraySize  => Parameter;
 
@@ -30,7 +30,7 @@ namespace jemalloc.Benchmarks
             Info($"Array fill value is {fill}.");
             SetValue("fill", fill);
             SetValue("managedArray", new T[ArraySize]);
-            SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
             nativeArray.Acquire();
             SetValue("nativeArray", nativeArray);
         }
@@ -47,11 +47,11 @@ namespace jemalloc.Benchmarks
             }
         }
 
-        [Benchmark(Description = "Fill a SafeArray on the system unmanaged heap with a single value.")]
+        [Benchmark(Description = "Fill a FixedBuffer on the system unmanaged heap with a single value.")]
         [BenchmarkCategory("Fill")]
-        public void FillNativeArray()
+        public void FillFixedBuffer()
         {
-            SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
+            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
             T fill = GetValue<T>("fill");
             nativeArray.Fill(fill);
         }
@@ -69,24 +69,22 @@ namespace jemalloc.Benchmarks
             managedArray = null;
         }
 
-        [Benchmark(Description = "Create and Fill a SafeArray on the system unmanaged heap with a single value.")]
+        [Benchmark(Description = "Create and Fill a FixedBuffer on the system unmanaged heap with a single value.")]
         [BenchmarkCategory("Fill")]
-        public void FillNativeArrayWithCreate()
+        public void FillFixedBufferWithCreate()
         {
-            SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
             T fill = GetValue<T>("fill");
             nativeArray.Fill(fill);
-            nativeArray.Release();
-            nativeArray.Close();
-            nativeArray = null;
+            nativeArray.Free();
         }
 
-        [GlobalCleanup(Target = nameof(FillNativeArrayWithCreate))]
+        [GlobalCleanup(Target = nameof(FillFixedBufferWithCreate))]
         public void CleanupFillArray()
         {
             InfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
-            SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
+            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
             T fill = GetValue<T>("fill");
             int index = GM<T>.Rng.Next(0, ArraySize);
             if (!nativeArray[index].Equals(managedArray[index]))
@@ -95,6 +93,7 @@ namespace jemalloc.Benchmarks
                 throw new Exception();
             }
             nativeArray.Release();
+            nativeArray.Free();
             managedArray = null;
             RemoveValue("managedArray");
             RemoveValue("nativeArray");
@@ -108,7 +107,7 @@ namespace jemalloc.Benchmarks
         {
             InfoThis();
             (T mul, T fill) = GM<T>.RandomMultiplyFactorAndValue();
-            SafeArray<T> na = new SafeArray<T>(ArraySize);
+            FixedBuffer<T> na = new FixedBuffer<T>(ArraySize);
             T[] ma = new T[ArraySize];
             Info($"Array fill value is {fill}.");
             Info($"Array mul value is {mul}.");

@@ -165,8 +165,34 @@ namespace jemalloc.Cli
                     Benchmark(o);
                 }
             })
+            .WithParsed<FixedBufferBenchmarkOptions>(o =>
+            {
+                BenchmarkOptions.Add("Category", Category.BUFFER);
+                if (o.Create)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.CREATE);
+                }
+                else if (o.Fill)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.FILL);
+                }
+                else if (o.Math)
+                {
+                    BenchmarkOptions.Add("Operation", Operation.MATH);
+                }
 
-            .WithParsed<NativeArrayBenchmarkOptions>(o =>
+                if (!BenchmarkOptions.ContainsKey("Operation"))
+                {
+                    Log.Error("You must select an operation to benchmark with --create or --fill.");
+                    Exit(ExitResult.SUCCESS);
+                }
+                else
+                {
+                    Benchmark(o);
+                }
+
+            })
+            .WithParsed<SafeArrayBenchmarkOptions>(o =>
             {
                 BenchmarkOptions.Add("Category", Category.NARRAY);
                 if (o.Create)
@@ -193,7 +219,6 @@ namespace jemalloc.Cli
                 }
                 
             })
-
             .WithParsed<HugeNativeArrayBenchmarkOptions>(o =>
             {
                 BenchmarkOptions.Add("Category", Category.HUGEARRAY);
@@ -265,7 +290,7 @@ namespace jemalloc.Cli
             }
             else
             {
-                L.Error("You must select a data type to benchmark with: -b, -i, -s, -l, -d and -u.");
+                L.Error("You must select a data type to benchmark with: -b, -i, -h, -l, -d, -s, and -u.");
                 Exit(ExitResult.INVALID_OPTIONS);
             }
         }
@@ -305,15 +330,15 @@ namespace jemalloc.Cli
                         BenchmarkSummary = BenchmarkRunner.Run<MallocVsArrayBenchmark<T>>(config);
                         break;
 
-                    case Category.NARRAY:
-                        NativeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                    case Category.BUFFER:
+                        FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:
                                 L.Information("Starting {num} create array benchmarks for data type {t} with array sizes: {s}",
-                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayBenchmark<T>>(),
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<FixedBufferVsManagedArrayBenchmark<T>>(),
                                     typeof(T).Name,
-                                    NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                    FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
                                     .With(new NameFilter(name => name.StartsWith("Create")));
@@ -321,8 +346,8 @@ namespace jemalloc.Cli
 
                             case Operation.FILL:
                                 L.Information("Starting {num} array fill benchmarks for data type {t} with array sizes: {s}",
-                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayBenchmark<T>>(),
-                                    typeof(T).Name, NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<FixedBufferVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
                                     .With(new NameFilter(name => name.StartsWith("Fill")));
@@ -330,8 +355,8 @@ namespace jemalloc.Cli
 
                             case Operation.MATH:
                                 L.Information("Starting {num} array math benchmarks for data type {t} with array sizes: {s}",
-                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<NativeVsManagedArrayBenchmark<T>>(),
-                                    typeof(T).Name, NativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<FixedBufferVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
                                 config = config
                                     .With(new NameFilter(name => name.StartsWith("Arith")));
@@ -340,7 +365,45 @@ namespace jemalloc.Cli
                             default:
                                 throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
                         }
-                        BenchmarkSummary = BenchmarkRunner.Run<NativeVsManagedArrayBenchmark<T>>(config);
+                        BenchmarkSummary = BenchmarkRunner.Run<FixedBufferVsManagedArrayBenchmark<T>>(config);
+                        break;
+
+                    case Category.NARRAY:
+                        SafeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        switch ((Operation)BenchmarkOptions["Operation"])
+                        {
+                            case Operation.CREATE:
+                                L.Information("Starting {num} create array benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<SafeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name,
+                                    SafeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                config = config
+                                    .With(new NameFilter(name => name.StartsWith("Create")));
+                                break;
+
+                            case Operation.FILL:
+                                L.Information("Starting {num} array fill benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<SafeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, SafeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                config = config
+                                    .With(new NameFilter(name => name.StartsWith("Fill")));
+                                break;
+
+                            case Operation.MATH:
+                                L.Information("Starting {num} array math benchmarks for data type {t} with array sizes: {s}",
+                                    JemBenchmark<T, int>.GetBenchmarkMethodCount<SafeVsManagedArrayBenchmark<T>>(),
+                                    typeof(T).Name, SafeVsManagedArrayBenchmark<T>.BenchmarkParameters);
+                                L.Information("Please allow some time for the pilot and warmup phases of the benchmark.");
+                                config = config
+                                    .With(new NameFilter(name => name.StartsWith("Arith")));
+                                break;
+
+                            default:
+                                throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
+                        }
+                        BenchmarkSummary = BenchmarkRunner.Run<SafeVsManagedArrayBenchmark<T>>(config);
                         break;
 
                     case Category.HUGEARRAY:

@@ -24,8 +24,12 @@ namespace jemalloc.Tests
                 managedArray[i] = v;
                 buffer[i] = v;
             }
+            FixedBuffer<byte> copy = buffer;
             Assert.True(buffer.EqualTo(managedArray));
+            Assert.True(copy.EqualTo(managedArray));
             buffer.Free();
+            Assert.Throws<InvalidOperationException>(() => buffer.Acquire());
+            Assert.Throws<InvalidOperationException>(() => copy[0]);
         }
     }
 }

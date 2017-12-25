@@ -16,9 +16,11 @@ namespace jemalloc
             _Ptr = IntPtr.Zero;
             _Length = 0;
             _SizeInBytes = 0;
-            _Timestamp = DateTime.UtcNow.Ticks;
+            _Timestamp = 0;
             RefCount = 0;
             IsReadOnly = false;
+            AllocateThreadId = 0;
+            ThrowIfTypeNotPrimitive();
             Allocate(length);
         }
 
@@ -33,16 +35,15 @@ namespace jemalloc
             arraySpan.CopyTo(this.Span);   
         }
 
-        public unsafe FixedBuffer(Span<T> span) : this(span.Length)
+        public FixedBuffer(Span<T> span) : this(span.Length)
         {
             span.CopyTo(this.Span);
         }
-        public unsafe FixedBuffer(ReadOnlySpan<T> span) : this(span.Length)
+        public FixedBuffer(ReadOnlySpan<T> span) : this(span.Length)
         {
             IsReadOnly = true;
             span.CopyTo(this.Span);
         }
-
         #endregion
 
         #region Implemented members
@@ -57,7 +58,7 @@ namespace jemalloc
         {
             if (IsRetained)
             {
-                throw new InvalidOperationException($"FixedBuffer<{typeof(T).Name}>({this._Length}) has outstanding references.");
+                throw new InvalidOperationException($"FixedBuffer<{typeof(T)}[{_Length}] has outstanding references.");
             }
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -73,7 +74,7 @@ namespace jemalloc
         #endregion
 
         #region Properties
-        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp);
+        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId);
 
         public bool IsRetained => RefCount > 0;
 
@@ -141,11 +142,14 @@ namespace jemalloc
         #region Methods
         private unsafe bool Allocate(int length)
         {
-            _Ptr = Jem.CallocFixedBuffer<T>((ulong)length, ElementSizeInBytes, _Timestamp);
+            long t = DateTime.UtcNow.Ticks;
+            int th = Thread.CurrentThread.ManagedThreadId;
+            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th);
             if (_Ptr != IntPtr.Zero)
             {
                 _Length = length;
                 _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
+                _Timestamp = t;
                 return true;
             }
             else return false;
@@ -154,7 +158,6 @@ namespace jemalloc
         public unsafe MemoryHandle Acquire()
         {
             ThrowIfInvalid();
-            ThrowIfRefCountNonZero();
             RefCount++;
             return new MemoryHandle(this, this.Ptr.ToPointer());
         }
@@ -162,7 +165,6 @@ namespace jemalloc
         public void Release()
         {
             ThrowIfInvalid();
-            ThrowIfRefCountNonZero();
             RefCount--;
         }
 
@@ -175,6 +177,12 @@ namespace jemalloc
                 if (Jem.FreeFixedBuffer(_Ptr))
                 {
                     _Ptr = IntPtr.Zero;
+                    _Length = 0;
+                    _SizeInBytes = 0;
+                    _Timestamp = 0;
+                    RefCount = 0;
+                    IsReadOnly = false;
+                    AllocateThreadId = 0;
                     return true;
                 }
                 else
@@ -191,8 +199,10 @@ namespace jemalloc
 
         public void Fill(T value)
         {
+            Acquire();
             ThrowIfInvalid();
             Span.Fill(value);
+            Release();
         }
 
         public bool EqualTo(T[] array)
@@ -203,24 +213,36 @@ namespace jemalloc
             }
             else
             {
+                Acquire();
                 ReadOnlySpan<T> span = new ReadOnlySpan<T>(array);
-                return this.Span.SequenceEqual(span);
+                bool ret = this.Span.SequenceEqual(span);
+                Release();
+                return ret;
             }
         }
 
+        public Span<T> Slice(int start, int length)
+        {
+            ThrowIfInvalid();
+            Acquire();
+            Span<T> ret = Span.Slice(start, length);
+            Release();
+            return ret; 
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe T Read(int index)
+        private unsafe ref T Read(int index)
         {
             ThrowIfInvalid();
             Acquire();
             // return (T*) (_ptr + byteOffset);
-            T ret = Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
+            ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             Release();
-            return ret;
+            return ref ret;
         }
 
 
-        private unsafe T Write(int index, T value)
+        private unsafe ref T Write(int index, T value)
         {
             ThrowIfInvalid();
             ThrowIfReadOnly();
@@ -228,14 +250,27 @@ namespace jemalloc
             ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             v = value;
             Release();
-            return value;
+            return ref v;
         }
 
+        
         private void ThrowIfInvalid()
         {
             if (IsInvalid)
             {
-                throw new InvalidOperationException($"FixedBuffer<{typeof(T).Name}>({this._Length}) is invalid.");
+                throw new InvalidOperationException($"{nameof(FixedBuffer<T>)}({this._Length}) is invalid.");
+            }
+        }
+
+        private void ThrowIfIndexOutOfRange(int index)
+        { 
+            if (index >= _Length)
+            {
+                throw new IndexOutOfRangeException($"Index {index} is greater than the maximum index of the buffer {_Length - 1}.");
+            }
+            else if (index < 0)
+            {
+                throw new IndexOutOfRangeException($"Index {index} is less than zero.");
             }
         }
 
@@ -243,7 +278,7 @@ namespace jemalloc
         {
             if (RefCount > 0)
             {
-                throw new InvalidOperationException($"FixedBuffer<{typeof(T).Name}>({this._Length}) has RefCount {RefCount}.");
+                throw new InvalidOperationException($"{nameof(FixedBuffer<T>)}({this._Length}) has RefCount {RefCount}.");
             }
         }
 
@@ -251,7 +286,15 @@ namespace jemalloc
         {
             if (IsReadOnly)
             {
-                throw new InvalidOperationException($"FixedBuffer<{typeof(T).Name}>({this._Length}) is read-only.");
+                throw new InvalidOperationException($"{nameof(FixedBuffer<T>)}({this._Length}) is read-only.");
+            }
+        }
+
+        private void ThrowIfTypeNotPrimitive()
+        {
+            if (!typeof(T).IsPrimitive)
+            {
+                throw new ArgumentException($"The type {typeof(T).Name} is not a primitive type.");
             }
         }
 
@@ -263,14 +306,7 @@ namespace jemalloc
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (IsInvalid)
-                    throw new InvalidOperationException("The buffer is invalid.");
-                if (index >= (_Length))
-                    throw new IndexOutOfRangeException();
-                unsafe
-                {
-                    return ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
-                }
+                return ref Read(index);
             }
         }
         #endregion
@@ -282,7 +318,8 @@ namespace jemalloc
         private ulong _SizeInBytes;
         private int _Length;
         private long _Timestamp;
-         
+        private int AllocateThreadId;
+        
         #endregion
     }
 }

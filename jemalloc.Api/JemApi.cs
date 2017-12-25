@@ -351,14 +351,14 @@ namespace jemalloc
             return new Span<T>((void*)ptr, length);
         }
 
-        #region FixedBuffer
-        public static IntPtr CallocFixedBuffer<T>(ulong length, ulong size, long timestamp, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        #region NativeArray
+        public static IntPtr AllocateFixedBuffer<T>(ulong length, ulong size, long timestamp, int tid, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
                 CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
-                FixedBufferAllocations.Add(new FixedBufferAllocation(caller, ptr, length * size, timestamp));
+                FixedBufferAllocations.Add(new FixedBufferAllocation(ptr, length * size, timestamp, tid));
             }
             return ptr;
         }
@@ -370,26 +370,30 @@ namespace jemalloc
             {
                 if (!FixedBufferAllocations.TryTake(out FixedBufferAllocation a))
                 {
-                    throw new Exception($"Could not remove FixedBuffer {a.Ptr} from FixedBufferAllocations.");
+                    throw new Exception($"Could not remove NativeArray allocation record {a.Ptr} from NativeArrayAllocations.");
                 }
             }
             return success;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp)
+        public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid)
         {
             if (!Allocations.TryPeek(out ptr))
             {
                 return false;
             }
-            else if (FixedBufferAllocations.TryPeek(out FixedBufferAllocation a))
-            {
-                return true;
-            }
             else
             {
-                return false;
+                FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid);
+                if (FixedBufferAllocations.TryPeek(out a))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         #endregion

@@ -15,7 +15,7 @@ namespace jemalloc.Cli
         [Option('b', "int8", Required = false, HelpText = "Use byte as the underlying data type.", SetName = "type")]
         public bool Int8 { get; set; }
 
-        [Option('s', "int16", Required = false, HelpText = "Use Int16 short integer as the underlying data type.", SetName = "type")]
+        [Option('h', "int16", Required = false, HelpText = "Use Int16 short integer as the underlying data type.", SetName = "type")]
         public bool Int16 { get; set; }
 
         [Option('i', "int32", Required = false, HelpText = "Use Int32 integer as the underlying data type.", SetName = "type")]
@@ -27,6 +27,9 @@ namespace jemalloc.Cli
         [Option('d', "double", Required = false, HelpText = "Use double-precision floating point as the underlying data type.", SetName = "type")]
         public bool Double { get; set; }
 
+        [Option('s', "string", Required = false, HelpText = "Use String as the underlying data type.", SetName = "type")]
+        public bool String { get; set; }
+
         [Option('c', "cold-start", Required = false, HelpText = "Don't run warmup phase of benchmarks.")]
         public bool ColdStart { get; set; }
 
@@ -35,7 +38,7 @@ namespace jemalloc.Cli
 
     }
 
-    [Verb("malloc", HelpText = "Benchmark data structures backed by native memory allocated using jemalloc vs. .NET managed arrays, vectors, and tensors.")]
+    [Verb("malloc", HelpText = "Benchmark native memory allocation using jemalloc vs. .NET managed heap and Large Object Heap allocation")]
     class MallocBenchmarkOptions : Options
     {
         [Option("create", Required = false, HelpText = "Benchmark malloc and Span<T> creation vs managed array creation.")]
@@ -48,8 +51,8 @@ namespace jemalloc.Cli
         public IEnumerable<int> Sizes { get; set; }
     }
 
-    [Verb("array", HelpText = "Benchmark arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
-    class NativeArrayBenchmarkOptions : Options
+    [Verb("buffer", HelpText = "Benchmark FixedBuffer arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
+    class FixedBufferBenchmarkOptions : Options
     {
         [Option("create", Required = false, HelpText = "Benchmark native array creation vs managed arrays.")]
         public bool Create { get; set; }
@@ -63,6 +66,24 @@ namespace jemalloc.Cli
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<int> Sizes { get; set; }
     }
+
+    [Verb("sarray", HelpText = "Benchmark arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
+    class SafeArrayBenchmarkOptions : Options
+    {
+        [Option("create", Required = false, HelpText = "Benchmark native array creation vs managed arrays.")]
+        public bool Create { get; set; }
+
+        [Option("fill", Required = false, HelpText = "Benchmark fill native array vs managed arrays.")]
+        public bool Fill { get; set; }
+
+        [Option("math", Required = false, HelpText = "Benchmark arithmetic and other math operations on native array vs managed arrays.")]
+        public bool Math { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<int> Sizes { get; set; }
+    }
+
+
 
     [Verb("hugearray", HelpText = "Benchmark huge arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
     class HugeNativeArrayBenchmarkOptions : Options
