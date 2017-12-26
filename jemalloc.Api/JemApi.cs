@@ -259,11 +259,28 @@ namespace jemalloc
         {
             if (!Initialized)
             {
-                MallocConf = conf;
+                if (mallocMessagesBuilder == null)
+                {
+                    mallocMessagesBuilder = new StringBuilder();
+                }
+                try
+                {
+                    MallocConf = conf;
+                }
+                catch (Exception)
+                {
+                    throw new ArgumentException($"The configuration string \'{conf}\' is invalid");
+                }
                 Initialized = true;
                 return true;
             }
             else return false;
+        }
+
+
+        public static bool PtrIsAllocated(IntPtr ptr)
+        {
+            return Allocations.TryPeek(out ptr);
         }
 
         public static string MallocStats => GetMallocStats(string.Empty);
@@ -295,34 +312,72 @@ namespace jemalloc
             }
         }
 
+        #region MallCtl
         public static int GetMallCtlInt32(string name)
         {
             void* i = stackalloc int[1];
             ulong size = sizeof(Int32);
-            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
-            return *(Int32*)(i);
+            ERRNO r = (ERRNO) Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
+            return r == ERRNO.ENONE ? *(Int32*)(i) : throw GetExceptionForErrNo($"Could not get mallctl value {name}.", r);
+        }
+
+        public static bool SetMallCtlInt32(string name, int value)
+        {
+            void* i = &value;
+            ulong size = sizeof(Int32);
+            ERRNO r = (ERRNO) Mallctl(name, IntPtr.Zero, ref size, (IntPtr) i, size);
+            return r == ERRNO.ENONE ? true : throw GetExceptionForErrNo($"Could not set mallctl value {name} to {value}.", r);
         }
 
         public static bool GetMallCtlBool(string name)
         {
-            return GetMallCtlInt32(name) == 1 ? true : false;
+            void* i = stackalloc byte[1];
+            ulong size = sizeof(byte);
+            ERRNO r = (ERRNO)Mallctl(name, (IntPtr)i, ref size, IntPtr.Zero, 0);
+            return r == ERRNO.ENONE ? *(byte*)(i) == 1 ? true : false: 
+                r == ERRNO.ENOENT ? false : throw GetExceptionForErrNo($"Could not get mallctl value {name}.", r);
+         
         }
 
+        public static bool SetMallCtlBool(string name, bool value)
+        {
+            byte v = value ? (byte) 1 : (byte) 0;
+            void* n = &v;
+            ulong size = sizeof(byte);
+            ERRNO r = (ERRNO)Mallctl(name, IntPtr.Zero, ref size, (IntPtr)n, size);
+            return r == ERRNO.ENONE ? true : throw GetExceptionForErrNo($"Could not set mallctl value {name} to {value}.", r);
+        }
 
         public static UInt64 GetMallCtlUInt64(string name)
         {
             void* i = stackalloc UInt64[1];
             ulong size = sizeof(UInt64);
-            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
-            return *(UInt64*)(i);
+            ERRNO r = (ERRNO) Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
+            return r == ERRNO.ENONE ? *(UInt64*)(i) : throw GetExceptionForErrNo($"Could not get mallctl value {name}.", r);
+        }
+
+        public static bool SetMallCtlUInt64(string name, ulong value)
+        {
+            void* n = &value;
+            ulong size = sizeof(UInt64);
+            ERRNO r = (ERRNO) Mallctl(name, IntPtr.Zero, ref size, (IntPtr) n, size);
+            return r == ERRNO.ENONE ? true : throw GetExceptionForErrNo($"Could not set mallctl value {name} to {value}.", r);
         }
 
         public static Int64 GetMallCtlSInt64(string name)
         {
             void* i = stackalloc Int64[1];
             ulong size = sizeof(Int64);
-            Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
-            return *(Int64*)(i);
+            ERRNO r = (ERRNO) Mallctl(name, (IntPtr) i, ref size, IntPtr.Zero, 0);
+            return r == ERRNO.ENONE ? *(Int64*)(i) : throw GetExceptionForErrNo($"Could not get mallctl value {name}.", r);
+        }
+
+        public static bool SetMallCtlSInt64(string name, long value)
+        {
+            void* n = &value;
+            ulong size = sizeof(Int64);
+            ERRNO r = (ERRNO) Mallctl(name, IntPtr.Zero, ref size, (IntPtr)n, size);
+            return r == ERRNO.ENONE ? true : throw GetExceptionForErrNo($"Could not set mallctl value {name} to {value}.", r);
         }
 
         public static string GetMallCtlStr(string name)
@@ -337,9 +392,10 @@ namespace jemalloc
             }
             else
             {
-               throw GetExceptionForErrNo((ERRNO) ret);
+               throw GetExceptionForErrNo($"Could not get mallctl value {name}.", (ERRNO)ret);
             }
         }
+        #endregion
 
         public static int TryFreeAll()
         {
@@ -413,14 +469,14 @@ namespace jemalloc
             return (flag & Flags) == flag;
         }
 
-        internal static Exception GetExceptionForErrNo(ERRNO no)
+        internal static Exception GetExceptionForErrNo(string message, ERRNO no)
         {
             switch (no)
             {
                 case ERRNO.ENOMEM:
-                    return new OutOfMemoryException();
+                    return new OutOfMemoryException(message);
                 default:
-                    return new Exception();
+                    return new Exception(message);
             }
         }
 
@@ -442,6 +498,7 @@ namespace jemalloc
 
         public static ALLOC_FLAGS Flags;
 
+        #region Malloc Messages
         public static event JeMallocMessageAction MallocMessage;
 
         public static string MallocMessages => mallocMessagesBuilder.ToString();
@@ -451,6 +508,7 @@ namespace jemalloc
             mallocMessagesBuilder.Append(m);
             MallocMessage.Invoke(m);
         };
+        #endregion
 
         #region jemalloc Statistics
         public static UInt64 AllocatedBytes => GetMallCtlUInt64("stats.allocated");
@@ -458,16 +516,13 @@ namespace jemalloc
         public static UInt64 MappedBytes => GetMallCtlUInt64("stats.mapped");
         #endregion
 
+        #region Allocations ledgers
         public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
 
         public static ConcurrentBag<FixedBufferAllocation> FixedBufferAllocations = new ConcurrentBag<FixedBufferAllocation>();
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
-        
-        public static bool PtrIsAllocated(IntPtr ptr)
-        {
-            return Allocations.TryPeek(out ptr);
-        }
+        #endregion
         #endregion
 
         #region Fields

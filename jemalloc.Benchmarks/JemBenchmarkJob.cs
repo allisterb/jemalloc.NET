@@ -68,6 +68,7 @@ namespace jemalloc.Benchmarks
             job.Infrastructure.Toolchain = new InProcessToolchain(TimeSpan.FromMinutes(TimeoutInMinutes), BenchmarkActionCodegen.ReflectionEmit, true);
             Config = ManualConfig.CreateEmpty()
                 .With(job)
+                .With(ProcessMemoryStatisticColumn.Allocated)
                 .With(JemStatisticColumn.Allocated)
                 .With(JemStatisticColumn.Active)
                 .With(JemStatisticColumn.Mapped);

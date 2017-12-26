@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -7,25 +8,29 @@ namespace jemalloc
 {
     public static class JemUtil
     {
-        public static readonly Type Int8CLRType = typeof(SByte);
-        public static readonly Type UInt8CLRType = typeof(Byte);
-        public static readonly Type Int16CLRType = typeof(Int16);
-        public static readonly Type UInt16CLRType = typeof(UInt16);
-        public static readonly Type Int32CLRType = typeof(Int32);
-        public static readonly Type UInt32CLRType = typeof(UInt32);
-        public static readonly Type Int64CLRType = typeof(Int64);
-        public static readonly Type UInt64CLRType = typeof(UInt64);
-        public static readonly Type SingleCLRType = typeof(Single);
-        public static readonly Type DoubleCLRType = typeof(Double);
-        public static readonly Type CharCLRType = typeof(Char);
-        public static readonly Type DecimalCLRType = typeof(Decimal);
-        public static readonly Type IntPtrCLRType = typeof(IntPtr);
-        public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
+        #region Constructor
+        static JemUtil()
         {
-            Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType, CharCLRType, DecimalCLRType, IntPtrCLRType
-        });
+            InitialProcessMemory = ProcessMemoryAllocated;
+        }
+        #endregion
 
+        #region Properties
+        public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
+        public static Process CurrentProcess { get; } = Process.GetCurrentProcess();
+        public static long InitialProcessMemory { get;  }
+        public static long ProcessMemoryAllocated
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PrivateMemorySize64;
+            }
+        }
+
+        #endregion
+
+        #region Methods
         public static bool IsNumericType<T>()
         {
             return NumericTypes.Contains(typeof(T));
@@ -101,7 +106,28 @@ namespace jemalloc
             string[] s = PrintBytes(bytes, suffix).Split(' ');
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
         }
+        #endregion
 
-        public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
+        #region Fields
+        public static readonly Type Int8CLRType = typeof(SByte);
+        public static readonly Type UInt8CLRType = typeof(Byte);
+        public static readonly Type Int16CLRType = typeof(Int16);
+        public static readonly Type UInt16CLRType = typeof(UInt16);
+        public static readonly Type Int32CLRType = typeof(Int32);
+        public static readonly Type UInt32CLRType = typeof(UInt32);
+        public static readonly Type Int64CLRType = typeof(Int64);
+        public static readonly Type UInt64CLRType = typeof(UInt64);
+        public static readonly Type SingleCLRType = typeof(Single);
+        public static readonly Type DoubleCLRType = typeof(Double);
+        public static readonly Type CharCLRType = typeof(Char);
+        public static readonly Type DecimalCLRType = typeof(Decimal);
+        public static readonly Type IntPtrCLRType = typeof(IntPtr);
+        public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
+        {
+            Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
+            SingleCLRType, DoubleCLRType, CharCLRType, DecimalCLRType, IntPtrCLRType
+        });
+
+        #endregion
     }
 }

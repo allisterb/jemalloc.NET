@@ -20,7 +20,12 @@ namespace jemalloc.Benchmarks
         public override void GlobalSetup()
         {
             base.GlobalSetup();
-            
+
+            if (!Jem.SetMallCtlSInt64("arenas.dirty_decay_ms", 10) || !Jem.SetMallCtlSInt64("arenas.muzzy_decay_ms", 10) || !Jem.SetMallCtlBool("opt.background_thread", true))
+            {
+                throw new Exception();
+
+            }
         }
 
 
@@ -77,7 +82,7 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Fragment
-        /*
+        
         [Benchmark(Description = "Run an allocation pattern that won't fragment the Large Object Heap.", Baseline = true)]
         [BenchmarkCategory("Fragment")]
         public void FragmentLOHBaseline()
@@ -180,11 +185,13 @@ namespace jemalloc.Benchmarks
                 GC.Collect();
             }
         }
-        */
+        
         [Benchmark(Description = "Run an allocation pattern that fragments the unmanaged heap.")]
         [BenchmarkCategory("Fragment")]
         public void FragmentNativeHeap()
         {
+
+            Info($"Dirty decay time: {Jem.GetMallCtlSInt64("arenas.dirty_decay_ms")} ms");
             int largeBlockSize = InitialLargeBlockSize;
             SafeArray<FixedBuffer<T>> smallBlocks = new SafeArray<FixedBuffer<T>>(LoopCount);
             int i = 0;
@@ -208,7 +215,7 @@ namespace jemalloc.Benchmarks
             catch (OutOfMemoryException)
             {
                 Info(Jem.MallocStats);
-                Error($"Out-of-Memory at index {i} with allocated small block : and large block size {largeBlockSize}.");
+                Error($"Out-of-Memory at index {i} with large block size {largeBlockSize}.");
                 return;
             }
             finally

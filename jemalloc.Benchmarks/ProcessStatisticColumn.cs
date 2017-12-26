@@ -9,10 +9,10 @@ using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Columns;
 namespace jemalloc.Benchmarks
 {
-    public class JemStatisticColumn : IColumn
+    public class ProcessMemoryStatisticColumn : IColumn
     {
         #region Constructors
-        public JemStatisticColumn(string columnName, Func<string> jemStatFunction, string legend)
+        public ProcessMemoryStatisticColumn(string columnName, Func<string> jemStatFunction, string legend)
         {
             ColumnName = columnName;
             JemStatFunction = jemStatFunction;
@@ -69,12 +69,9 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Available columns
-        public static readonly IColumn Allocated = new JemStatisticColumn("JEM allocated", () => JemUtil.PrintBytes(Jem.AllocatedBytes),
-            "Allocated memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");
-        public static readonly IColumn Active = new JemStatisticColumn("JEM active", () => JemUtil.PrintBytes(Jem.ActiveBytes),
-            "Active memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");
-        public static readonly IColumn Mapped = new JemStatisticColumn("JEM mapped", () => JemUtil.PrintBytes(Jem.MappedBytes),
-            "Mapped memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");
+        public static readonly IColumn Allocated = new JemStatisticColumn("Process allocated", () => JemUtil.PrintBytes(JemUtil.ProcessMemoryAllocated),
+            "Allocated memory for entire process per single operation (native and managed, inclusive, 1KB = 1024B)");
+       
         #endregion
     }
 }

@@ -17,7 +17,7 @@ namespace jemalloc.Tests
         public void CanReadMallCtlBool()
         {
             Assert.True(Jem.GetMallCtlBool("config.debug"));
-            Assert.False(Jem.GetMallCtlBool("config.valgrind"));
+            Assert.False(Jem.GetMallCtlBool("config.xmalloc"));
         }
 
         [Fact]
