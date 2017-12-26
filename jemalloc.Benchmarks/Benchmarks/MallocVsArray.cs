@@ -12,10 +12,18 @@ namespace jemalloc.Benchmarks
     public class MallocVsArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public int ArraySize => Parameter;
-        public const int InitialLargeBlockSize = 64 * 1024 * 1024; //128 MB
+        public const int InitialLargeBlockSize = 64 * 1024 * 1024; //64 MB
         public const int SmallBlockSize = 900000;
-        public int LoopCount  => Parameter;
-        
+        public int LoopCount => Parameter;
+
+        [GlobalSetup]
+        public override void GlobalSetup()
+        {
+            base.GlobalSetup();
+            
+        }
+
+
 
         #region Create
         [Benchmark(Description = "Create array of data on the managed heap.")]
@@ -69,6 +77,7 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Fragment
+        /*
         [Benchmark(Description = "Run an allocation pattern that won't fragment the Large Object Heap.", Baseline = true)]
         [BenchmarkCategory("Fragment")]
         public void FragmentLOHBaseline()
@@ -82,7 +91,7 @@ namespace jemalloc.Benchmarks
                     largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
                     if ((i + 1) % 50 == 0 && i != 0)
                     {
-                        Info("Block size is {0} bytes.", largeBlockSize);
+                        Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
                     T[] bigBlock = new T[largeBlockSize];
                     T[] smallBlock = new T[SmallBlockSize];
@@ -90,8 +99,7 @@ namespace jemalloc.Benchmarks
             }
             catch (OutOfMemoryException)
             {
-                Info($"OOM at {GC.GetTotalMemory(false) } bytes.");
-
+                Error($"OOM at index {i}.");
                 return;
             }
             finally
@@ -114,7 +122,7 @@ namespace jemalloc.Benchmarks
                     largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
                     if ((i + 1) % 50 == 0 && i != 0)
                     {
-                        Info("Block size is {0} bytes.", largeBlockSize);
+                        Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
                     T[] bigBlock = new T[largeBlockSize];
                     T[] smallBlock = new T[SmallBlockSize];
@@ -123,11 +131,12 @@ namespace jemalloc.Benchmarks
             }
             catch (OutOfMemoryException)
             {
-                Info($"OOM at index {i}.");
+                Error($"OOM at index {i}.");
                 return;
             }
             finally
             {
+                smallBlocks = null;
                 GC.Collect();
             }
         }
@@ -146,7 +155,7 @@ namespace jemalloc.Benchmarks
                     largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
                     if ((i + 1) % 50 == 0 && i != 0)
                     {
-                        Info("Block size is {0} bytes.", largeBlockSize);
+                        Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
                     if (i % 10 == 0 && i != 0)
                     {
@@ -162,23 +171,24 @@ namespace jemalloc.Benchmarks
             }
             catch (OutOfMemoryException)
             {
-                Info($"OOM at index {i}.");
+                Error($"OOM at index {i}.");
                 return; 
             }
             finally
             {
-                GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.Default;
+                smallBlocks = null;
                 GC.Collect();
             }
         }
-
+        */
         [Benchmark(Description = "Run an allocation pattern that fragments the unmanaged heap.")]
         [BenchmarkCategory("Fragment")]
         public void FragmentNativeHeap()
         {
             int largeBlockSize = InitialLargeBlockSize;
-            List<FixedBuffer<T>> smallBlocks = new List<FixedBuffer<T>>();
+            SafeArray<FixedBuffer<T>> smallBlocks = new SafeArray<FixedBuffer<T>>(LoopCount);
             int i = 0;
+            FixedBuffer<T> bigBlock = default;
             try
             {
                 for (i = 0; i < LoopCount; i++)
@@ -187,22 +197,23 @@ namespace jemalloc.Benchmarks
                      
                     if ((i + 1) % 50 == 0 && i != 0)
                     {
-                        Info("Block size is {0} bytes.", largeBlockSize);
+                        Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
-                    FixedBuffer<T> bigBlock = new FixedBuffer<T>(largeBlockSize);
+                    bigBlock = new FixedBuffer<T>(largeBlockSize);
                     FixedBuffer<T> smallBlock = new FixedBuffer<T>(SmallBlockSize);
-                    smallBlocks.Add(smallBlock);
-                    bigBlock.Free();
+                    smallBlocks[i] = smallBlock;
+                    if (!bigBlock.Free()) throw new Exception();
                 }
             }
             catch (OutOfMemoryException)
             {
-                Info($"OOM at loop index {i}.");
+                Info(Jem.MallocStats);
+                Error($"Out-of-Memory at index {i} with allocated small block : and large block size {largeBlockSize}.");
                 return;
             }
             finally
             {
-                GC.Collect();
+                Jem.TryFreeAll();
             }
         }
 

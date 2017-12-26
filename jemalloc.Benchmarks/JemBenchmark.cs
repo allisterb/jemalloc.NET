@@ -128,6 +128,34 @@ namespace jemalloc.Benchmarks
         public static void Error(string format, params object[] values) => Log.WriteLineError(string.Format(format, values));
         #endregion
 
+        public static string PrintBytes(double bytes, string suffix = "")
+        {
+            if (bytes >= 0 && bytes <= 1024)
+            {
+                return string.Format("{0:N0} B{1}", bytes, suffix);
+            }
+            else if (bytes >= 1024 && bytes < (1024 * 1024))
+            {
+                return string.Format("{0:N1} KB{1}", bytes / 1024, suffix);
+            }
+            else if (bytes >= (1024 * 1024) && bytes < (1024 * 1024 * 1024))
+            {
+                return string.Format("{0:N1} MB{1}", bytes / (1024 * 1024), suffix);
+            }
+            else if (bytes >= (1024 * 1024 * 1024))
+            {
+                return string.Format("{0:N1} GB{1}", bytes / (1024 * 1024 * 1024), suffix);
+            }
+            else throw new ArgumentOutOfRangeException();
+
+        }
+
+        public static Tuple<double, string> PrintBytesToTuple(double bytes, string suffix = "")
+        {
+            string[] s = PrintBytes(bytes, suffix).Split(' ');
+            return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
+        }
+
         #endregion
     }
 }

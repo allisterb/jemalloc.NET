@@ -15,7 +15,7 @@ namespace jemalloc.Tests
             byte[] managedArray = new byte[4096];
             SafeArray<FixedBuffer<byte>> byteBuffer = new SafeArray<FixedBuffer<byte>>(1000);
             byteBuffer[0] = new FixedBuffer<byte>(100);
-            byteBuffer[0][16] = 0xff;
+            //byteBuffer[0][16]= 0xff;
             Assert.Equal(0xff, byteBuffer[0][16]);
             byteBuffer[0].Free();
             for (int i = 0; i < buffer.Length; i++)

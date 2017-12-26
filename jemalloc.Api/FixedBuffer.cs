@@ -241,7 +241,7 @@ namespace jemalloc
         }
 
 
-        private unsafe ref T Write(int index, T value)
+        private unsafe ref T Write(int index, ref T value)
         {
             ThrowIfInvalid();
             ThrowIfReadOnly();
@@ -303,14 +303,9 @@ namespace jemalloc
         public T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                return Read(index);
-            }
-            set
-            {
-                Write(index, value);
-            }
+            get => this.Read(index);
+
+            set => this.Write(index, ref value);
         }
         #endregion
 

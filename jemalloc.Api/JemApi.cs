@@ -92,6 +92,7 @@ namespace jemalloc
         public static global::System.IntPtr Malloc(ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
+            Initialized = true;
             IntPtr __ret = __Internal.JeMalloc(size);
             if (__ret != IntPtr.Zero)
             {
@@ -108,6 +109,7 @@ namespace jemalloc
         public static global::System.IntPtr Calloc(ulong num, ulong size, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
+            Initialized = true;
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
@@ -122,18 +124,21 @@ namespace jemalloc
 
         public static int PosixMemalign(void** memptr, ulong alignment, ulong size)
         {
+            Initialized = true;
             var __ret = __Internal.JePosixMemalign(memptr, alignment, size);
             return __ret;
         }
 
         public static global::System.IntPtr AlignedAlloc(ulong alignment, ulong size)
         {
+            Initialized = true;
             var __ret = __Internal.JeAlignedAlloc(alignment, size);
             return __ret;
         }
 
         public static global::System.IntPtr Realloc(global::System.IntPtr ptr, ulong size)
         {
+            Initialized = true;
             var __ret = __Internal.JeRealloc(ptr, size);
             return __ret;
         }
@@ -165,40 +170,47 @@ namespace jemalloc
 
         public static global::System.IntPtr Mallocx(ulong size, int flags)
         {
+            Initialized = true;
             var __ret = __Internal.JeMallocx(size, flags);
             return __ret;
         }
 
         public static global::System.IntPtr Rallocx(global::System.IntPtr ptr, ulong size, int flags)
         {
+            Initialized = true;
             var __ret = __Internal.JeRallocx(ptr, size, flags);
             return __ret;
         }
 
         public static ulong Xallocx(global::System.IntPtr ptr, ulong size, ulong extra, int flags)
         {
+            Initialized = true;
             var __ret = __Internal.JeXallocx(ptr, size, extra, flags);
             return __ret;
         }
 
         public static ulong Sallocx(global::System.IntPtr ptr, int flags)
         {
+            Initialized = true;
             var __ret = __Internal.JeSallocx(ptr, flags);
             return __ret;
         }
 
         public static void Dallocx(global::System.IntPtr ptr, int flags)
         {
+            Initialized = true;
             __Internal.JeDallocx(ptr, flags);
         }
 
         public static void Sdallocx(global::System.IntPtr ptr, ulong size, int flags)
         {
+            Initialized = true;
             __Internal.JeSdallocx(ptr, size, flags);
         }
 
         public static ulong Nallocx(ulong size, int flags)
         {
+            Initialized = true;
             var __ret = __Internal.JeNallocx(size, flags);
             return __ret;
         }
@@ -243,31 +255,26 @@ namespace jemalloc
         #endregion
 
         #region High-level API
-        public static void Init(string conf)
+        public static bool Init(string conf)
         {
             if (!Initialized)
             {
                 MallocConf = conf;
                 Initialized = true;
+                return true;
             }
+            else return false;
         }
 
-        public static void Init(ALLOC_FLAGS flags, string conf = null)
-        {
-            Flags = flags;
-        }
+        public static string MallocStats => GetMallocStats(string.Empty);
 
-        public static string MallocStatsPrint()
+        public static string GetMallocStats(string opt)
         {
-            return MallocStatsPrint(string.Empty);
-        }
-
-        public static string MallocStatsPrint(string opt)
-        {
-            StringBuilder statsBuilder = new StringBuilder();
+            StringBuilder statsBuilder = new StringBuilder(1000);
             __Internal.JeMallocMessageCallback stats = (o, m) => { statsBuilder.Append(m); };
             __Internal.JeMallocStatsPrint(Marshal.GetFunctionPointerForDelegate(stats), IntPtr.Zero, opt);
             return statsBuilder.ToString();
+           
         }
 
         public static ulong MallocUsableSize(global::System.IntPtr ptr)
@@ -444,6 +451,12 @@ namespace jemalloc
             mallocMessagesBuilder.Append(m);
             MallocMessage.Invoke(m);
         };
+
+        #region jemalloc Statistics
+        public static UInt64 AllocatedBytes => GetMallCtlUInt64("stats.allocated");
+        public static UInt64 ActiveBytes => GetMallCtlUInt64("stats.active");
+        public static UInt64 MappedBytes => GetMallCtlUInt64("stats.mapped");
+        #endregion
 
         public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
 

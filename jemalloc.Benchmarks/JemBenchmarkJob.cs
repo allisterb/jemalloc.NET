@@ -65,9 +65,12 @@ namespace jemalloc.Benchmarks
                 job.Run.RunStrategy = RunStrategy;
             }
             
-
             job.Infrastructure.Toolchain = new InProcessToolchain(TimeSpan.FromMinutes(TimeoutInMinutes), BenchmarkActionCodegen.ReflectionEmit, true);
-            Config = ManualConfig.CreateEmpty().With(job);
+            Config = ManualConfig.CreateEmpty()
+                .With(job)
+                .With(JemStatisticColumn.Allocated)
+                .With(JemStatisticColumn.Active)
+                .With(JemStatisticColumn.Mapped);
         }
 
         #region Properties

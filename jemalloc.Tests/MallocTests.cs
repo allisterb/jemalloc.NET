@@ -20,11 +20,12 @@ namespace jemalloc.Tests
         [Fact]
         public void CanMallocandFree()
         {
+            Jem.Init("retain=false");
             long size = 100 * 1000 * 1000;
             Assert.True(init_privateMemorySize < size);
             Assert.True(init_allocated < (ulong) size);
             IntPtr p = Jem.Malloc((ulong) size);
-            string stats = Jem.MallocStatsPrint();
+            string stats = Jem.MallocStats;
             ulong allocated = Jem.GetMallCtlUInt64("stats.allocated");
             CurrentProcess.Refresh();
             Assert.True((CurrentProcess.PrivateMemorySize64 - init_privateMemorySize) >= size);
