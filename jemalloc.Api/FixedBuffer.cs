@@ -78,8 +78,9 @@ namespace jemalloc
 
         bool IEquatable<FixedBuffer<T>>.Equals(FixedBuffer<T> buffer)
         {
-            return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp;
+            return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp && this.AllocateThreadId == buffer.AllocateThreadId;
         }
+
         #region Disposer
         void IDisposable.Dispose()
         {
@@ -228,7 +229,6 @@ namespace jemalloc
 
         public ReadOnlySpan<T> Slice(int start, int length)
         {
-            ThrowIfInvalid();
             return Span.Slice(start, length);
         }
 
@@ -245,8 +245,6 @@ namespace jemalloc
 
         private unsafe ref T Write(int index, ref T value)
         {
-            ThrowIfInvalid();
-            ThrowIfReadOnly();
             Retain();
             ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             v = value;

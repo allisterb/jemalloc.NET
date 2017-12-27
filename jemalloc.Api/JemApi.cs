@@ -558,7 +558,6 @@ namespace jemalloc
         #endregion
 
         #region Fields
-        private static object allocationsLock = new object();
         private static StringBuilder mallocMessagesBuilder = new StringBuilder();
         private static ImmutableDictionary<IntPtr, int> _Allocations = ImmutableDictionary.Create<IntPtr, int>();
         private static ImmutableDictionary<IntPtr, FixedBufferAllocation> _FixedBufferAllocations = ImmutableDictionary.Create<IntPtr, FixedBufferAllocation>();

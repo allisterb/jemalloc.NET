@@ -30,12 +30,8 @@ namespace jemalloc
             base.SetHandle(Allocate(length));
             if (IsAllocated)
             {
-                for (ulong i = 0; i < l; i++)
-                {
-                    this[i] = values[i];
-                }
+                CopyFrom(values);
             }
-
         }
         #endregion
 
@@ -71,16 +67,11 @@ namespace jemalloc
             if (IsNotAllocated || IsInvalid)
                 return false;
             bool success = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-            }
-            finally
-            {
-                DangerousAddRef(ref success);
-            }
+            DangerousAddRef(ref success);
             if (success)
-                ++refCount;
+            {
+                Jem.IncrementRefCount(handle);
+            }
             return success;
         }
 
@@ -89,8 +80,8 @@ namespace jemalloc
         {
             if (IsNotAllocated || IsInvalid)
                 return;
-            --refCount;
             DangerousRelease();
+            Jem.DecrementRefCount(handle);
         }
 
         protected unsafe ref T DangerousAsRef(ulong index)
@@ -101,52 +92,86 @@ namespace jemalloc
             return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
         }
 
-        public T[] CopyToArray()
+        public void CopyFrom(T[] array)
         {
             ThrowIfNotAllocatedOrInvalid();
+            new Span<T>(array).CopyTo(AcquireSegmentSpan(0));
+            Release();
+        }
+
+        public T[] CopyToArray()
+        {
             if (this.Length > Int32.MaxValue)
             {
                 throw new ArgumentOutOfRangeException("This length of this array exceeds the max length of a managed array.");
             }
             T[] a = new T[this.Length];
-            ThrowIfCannotAcquire();
-            for (ulong i = 0; i < this.Length; i++)
-            {
-                a[i] = this[i];
-            }
+            AcquireSegmentSpan(0).CopyTo(new Span<T>(a));
             Release();
             return a;
         }
 
+        public bool EqualTo(T[] array)
+        {
+            if (this.Length != (ulong) array.Length)
+            {
+                return false;
+            }
+            if (IsVectorizable)
+            {
+                Span<Vector<T>> span = this.AcquireSegmentSpan(0).NonPortableCast<T, Vector<T>>();
+                Span<Vector<T>> arraySpan = new Span<T>(array).NonPortableCast<T, Vector<T>>();
+
+                for (int i = 0; i < arraySpan.Length; i++)
+                {
+                    if (!Vector.EqualsAll(span[i], arraySpan[i]))
+                    {
+                        Release();
+                        return false;
+                    }
+                }
+                Release();
+                return true;
+            }
+            else
+            {
+                Span<T> span = this.AcquireSegmentSpan(0);
+                Span<T> arraySpan = new Span<T>(array);
+                for (int i = 0; i < arraySpan.Length; i++)
+                {
+                    if (!(span[i].Equals(arraySpan[i])))
+                    {
+                        Release();
+                        return false;
+                    }
+                }
+                Release();
+                return true;
+            }
+        }
+
         public unsafe Span<T> AcquireSegmentSpan(ulong index)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             ThrowIfCannotAcquire();
-            GetSegment(index, out void* ptr, out int offset);
-            return new Span<T>(ptr, offset + 1);
+            int i = GetSegmentIndex(index);
+            return new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
         }
 
         public unsafe void Fill(T value)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfCannotAcquire();
-            for (int i = 0; i < segments.Length - 1; i++)
-            {                
-                Span<T> s = new Span<T>(segments[i].ToPointer(), Int32.MaxValue);
+            for (int i = 0; i < segments.Length; i++)
+            {
+                Span<T> s = new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
                 s.Fill(value);
             }
-            Span<T> last = AcquireSegmentSpan(Length - 1);
-            last.Fill(value);
-            Release();
             Release();
         }
 
-
         public unsafe Vector<T> AcquireAsSingleVector()
         {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfNotVectorisable();
+            ThrowIfNotNumeric();
             if (this.Length != (ulong) VectorLength)
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
@@ -157,27 +182,39 @@ namespace jemalloc
             return vector[0];
         }
 
-        public unsafe Vector<T> AcquireSliceSegmentAsVector(ulong index)
+        public unsafe Span<Vector<T>> AcquireSegmentAsVectorSpan(ulong index)
         {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfNotNumeric();
             if ((Length - index) < (ulong) VectorLength)
             {
                 ThrowIfIndexOutOfRange(index);
             }
             ThrowIfCannotAcquire();
             T v = this[index];
+            int i = GetSegmentIndex(index);
+            if (segments2[i].Item2 % VectorLength != 0)
+            {
+                BufferIsNotVectorisable();
+            }
+            return new Span<Vector<T>>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
+        }
+        public unsafe Vector<T> AcquireSliceAsVector(ulong index)
+        {
+            ThrowIfIndexOutOfRange(index);
+            if ((Length - index) < (ulong) VectorLength)
+            {
+                BufferIsNotVectorisable();
+            }
+            int i = GetSegmentIndex(index);
             GetSegment(index, out void* ptr, out int offset);
-            IntPtr p = new IntPtr(ptr);
-            Span<T> span = new Span<T>(BufferHelpers.Add<T>(p, offset).ToPointer(), VectorLength);
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            return vector[0];
+            IntPtr start = BufferHelpers.Add<T>(segments2[i].Item1, offset);
+            Acquire();
+            Span<T> s = new Span<T>(start.ToPointer(), VectorLength);
+            return s.NonPortableCast<T, Vector<T>>()[0];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void VectorMultiply(T value)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
             ThrowIfCannotAcquire();
             for (int h = 0; h < segments2.Length; h++)
@@ -195,7 +232,6 @@ namespace jemalloc
 
         public unsafe void VectorSqrt()
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
             ThrowIfCannotAcquire();
             for (int h = 0; h < segments2.Length; h++)
@@ -295,17 +331,15 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected unsafe T Read(ulong index)
+        protected unsafe ref T Read(ulong index)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             // return (T*) (seg_ptr + byteOffset);
-            T ret;
             ThrowIfCannotAcquire();                
             GetSegment(index, out void* ptr, out int offset);
-            ret = Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
+            ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
             Release();
-            return ret;
+            return ref ret;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -446,12 +480,11 @@ namespace jemalloc
         #endregion
 
         #region Operators
-        public T this[ulong index]
+        public ref T this[ulong index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Read(index);
+            get => ref Read(index);
             
-            set => Write(index, value);
         }
         #endregion
 

@@ -29,12 +29,10 @@ namespace jemalloc
             base.SetHandle(Allocate(length));
             if (IsAllocated)
             {
-                for (int i = 0; i < values.Length; i++)
-                {
-                    this[i] = values[i];
-                }
+                CopyFrom(values);
             }
         }
+
         #endregion
 
         #region Overriden members
@@ -56,6 +54,8 @@ namespace jemalloc
 
         public bool IsAllocated => !IsNotAllocated;
 
+        public bool IsValid => !IsInvalid;
+
         public bool IsVectorizable { get; protected set; }
         #endregion
 
@@ -63,19 +63,15 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         public bool Acquire()
         {
-            if (IsNotAllocated)
+            if (IsNotAllocated || IsInvalid)
                 return false;
-            bool result = false;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
+            bool success = false;
+            DangerousAddRef(ref success);
+            if (success)
             {
+                Jem.IncrementRefCount(handle);
             }
-            finally
-            {
-
-                DangerousAddRef(ref result);
-            }
-            return result;
+            return success;
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
@@ -84,6 +80,7 @@ namespace jemalloc
             if (IsNotAllocated || IsInvalid)
                 return;
             DangerousRelease();
+            Jem.DecrementRefCount(handle);
         }
 
         protected unsafe ref T DangerousAsRef(int index)
@@ -93,80 +90,21 @@ namespace jemalloc
             return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected T[] UncheckedCopyToArray()
+        public void CopyFrom(T[] array)
         {
-            T[] a = new T[this.Length];
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < this.Length; i++)
-            {
-                a[i] = this[i];
-            }
+            Span<T> s = AcquireSpan();
+            new Span<T>(array).CopyTo(s);
             Release();
-            return a;
         }
 
         public T[] CopyToArray()
         {
-            ThrowIfNotAllocatedOrInvalid();
             T[] a = new T[this.Length];
             ThrowIfCannotAcquire();
-            for (int i = 0; i < this.Length; i++)
-            {
-                a[i] = this[i];
-            }
-            Release();
-            return a;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected T[] UncheckedCopyToArray(int index, int length)
-        {
-            T[] a = new T[length];
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < length; i++)
-            {
-                a[i] = this[index + i];
-            }
-            Release();
-            return a;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Span<T> AcquireSpan()
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfCannotAcquire();
-            return new Span<T>((void*)handle, (int)Length);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Span<Vector<T>> AcquireVectorSpan()
-        {
-            ThrowIfNotVectorisable();
-            return AcquireSpan().NonPortableCast<T, Vector<T>>();
-        }
-
-        public void Fill(T value)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfCannotAcquire();
-            Span<T> s = AcquireSpan();
-            s.Fill(value);
-            Release();
-        }
-
-        public Vector<T> AcquireAsSingleVector()
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfNotNumeric();
-            if (this.Length != Vector<T>.Count)
-            {
-                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
-            }
             Span<T> span = AcquireSpan();
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            return vector[0];
+            span.CopyTo(new Span<T>(a));
+            Release();
+            return a;
         }
 
         public bool EqualTo(T[] array)
@@ -179,7 +117,7 @@ namespace jemalloc
             {
                 Span<Vector<T>> span = this.AcquireVectorSpan();
                 Span<Vector<T>> arraySpan = new Span<T>(array).NonPortableCast<T, Vector<T>>();
-        
+
                 for (int i = 0; i < arraySpan.Length; i++)
                 {
                     if (!Vector.EqualsAll(span[i], arraySpan[i]))
@@ -206,7 +144,40 @@ namespace jemalloc
                 Release();
                 return true;
             }
-            
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Span<T> AcquireSpan()
+        {
+            ThrowIfCannotAcquire();
+            return new Span<T>((void*)handle, (int)Length);
+        }
+
+        public void Fill(T value)
+        {
+            Span<T> s = AcquireSpan();
+            s.Fill(value);
+            Release();
+        }
+
+        public Vector<T> AcquireAsSingleVector()
+        {
+            ThrowIfNotNumeric();
+            if (this.Length != Vector<T>.Count)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            Span<T> span = AcquireSpan();
+            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            return vector[0];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Span<Vector<T>> AcquireVectorSpan()
+        {
+            ThrowIfNotVectorisable();
+            return AcquireSpan().NonPortableCast<T, Vector<T>>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -225,7 +196,6 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorMultiply(T value)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfNotVectorisable();
             T[] fill = new T[VectorLength];
             Span<T> fillSpan = new Span<T>(fill);
@@ -241,11 +211,9 @@ namespace jemalloc
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorSqrt()
-        {
-            ThrowIfNotAllocatedOrInvalid();
+        {  
             ThrowIfNotVectorisable();
-            Span<T> span = AcquireSpan();
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            Span<Vector<T>> vector = AcquireVectorSpan();
             for (int i = 0; i < vector.Length; i++)
             {
                 vector[i] = Vector.SquareRoot(vector[i]);
@@ -285,19 +253,8 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         protected unsafe void AcquirePointer(ref byte* pointer)
         {
-            if (IsNotAllocated)
-                return;
-            pointer = null;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-            }
-            finally
-            {
-                bool result = false;
-                DangerousAddRef(ref result);
-                pointer = (byte*)handle;
-            }
+            ThrowIfCannotAcquire();
+            pointer = (byte*)handle;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
