@@ -18,8 +18,11 @@ namespace jemalloc
 
         #region Properties
         public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
+
         public static Process CurrentProcess { get; } = Process.GetCurrentProcess();
-        
+
+        public static Random Rng { get; } = new Random();
+
         public static long ProcessPrivateMemory
         {
             get

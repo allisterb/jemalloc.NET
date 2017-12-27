@@ -489,7 +489,6 @@ namespace jemalloc
         #endregion
 
         #region Fields
-        internal int refCount;
         protected static readonly Type CLRType = typeof(T);
         protected static readonly T Element = default;
         protected static readonly uint ElementSizeInBytes = (uint) JemUtil.SizeOfStruct<T>();

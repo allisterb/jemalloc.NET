@@ -7,13 +7,14 @@ namespace jemalloc
     public readonly struct FixedBufferAllocation : IEquatable<FixedBufferAllocation>
     {
         #region Constructor
-        public FixedBufferAllocation(IntPtr ptr, ulong size, long timestamp, int tid)
+        public FixedBufferAllocation(IntPtr ptr, ulong size, long timestamp, int tid, int rid)
         {
             this.Ptr = ptr;
             this.Size = size;
             this.TimeStamp = timestamp;
             this.ThreadId = tid;
-            HashCode = JemUtil.CombineHashCodes(this.Ptr.GetHashCode(), this.Size.GetHashCode(), this.TimeStamp.GetHashCode(), this.ThreadId.GetHashCode());
+            this.Rid = rid;
+            HashCode = JemUtil.CombineHashCodes(this.Ptr.GetHashCode(), this.Size.GetHashCode(), this.TimeStamp.GetHashCode(), this.ThreadId.GetHashCode(), this.Rid.GetHashCode());
         }
         #endregion
 
@@ -44,6 +45,8 @@ namespace jemalloc
         public readonly ulong Size;
         public readonly long TimeStamp;
         public readonly int ThreadId;
+        public readonly int Rid;
         public readonly int HashCode;
+
     }
 }

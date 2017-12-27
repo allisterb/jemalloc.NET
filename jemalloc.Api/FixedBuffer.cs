@@ -19,16 +19,18 @@ namespace jemalloc
             _Timestamp = 0;
             IsReadOnly = false;
             AllocateThreadId = 0;
+            Id = JemUtil.Rng.Next(0, 4096);
             ThrowIfTypeNotPrimitive();
             long t = DateTime.UtcNow.Ticks;
             int th = Thread.CurrentThread.ManagedThreadId;
-            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th);
+            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th, Id);
             if (_Ptr != IntPtr.Zero)
             {
                 _Length = length;
                 _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
                 _Timestamp = t;
                 AllocateThreadId = th;
+                
             }
             else throw new OutOfMemoryException($"Could not allocate {(ulong)_Length * ElementSizeInBytes} bytes for {Name}");
 
@@ -104,7 +106,7 @@ namespace jemalloc
         #region Properties
 
         #region Public
-        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId);
+        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId, Id);
 
         public bool IsValid => !IsInvalid;
 
@@ -187,6 +189,7 @@ namespace jemalloc
         {
             ThrowIfInvalid();
             IntPtr p = _Ptr;
+       
             if (Interlocked.Exchange(ref p, IntPtr.Zero) != IntPtr.Zero)
             {
                 if (Jem.FreeFixedBuffer(_Ptr))
@@ -317,7 +320,7 @@ namespace jemalloc
         private readonly int _Length;
         private readonly long _Timestamp;
         private readonly int AllocateThreadId;
-        
+        private readonly int Id;
         #endregion
     }
 }

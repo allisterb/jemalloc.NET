@@ -75,7 +75,7 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Fragment
-        
+        /*
         [Benchmark(Description = "Run an allocation pattern that won't fragment the Large Object Heap.", Baseline = true)]
         [BenchmarkCategory("Fragment")]
         public void FragmentLOHBaseline()
@@ -179,7 +179,7 @@ namespace jemalloc.Benchmarks
                 GC.Collect();
             }
         }
-        
+        */
         [Benchmark(Description = "Run an allocation pattern that fragments the unmanaged heap.")]
         [BenchmarkCategory("Fragment")]
         public void FragmentNativeHeap()
@@ -200,7 +200,15 @@ namespace jemalloc.Benchmarks
                     }
                     bigBlock = new FixedBuffer<T>(largeBlockSize);
                     FixedBuffer<T> smallBlock = new FixedBuffer<T>(SmallBlockSize);
+                    int j = JemUtil.Rng.Next(0, ArraySize); 
+                    T r = GM<T>.Random();
+                    smallBlock[j] = r;
                     smallBlocks[i] = smallBlock;
+                    /*
+                    if (!smallBlocks[i][j].Equals(r))
+                    {
+                        throw new Exception("Cannot validate buffer.");
+                    }*/
                     if (!bigBlock.Free()) throw new Exception();
                     largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }

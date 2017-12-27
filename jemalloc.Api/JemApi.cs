@@ -100,7 +100,7 @@ namespace jemalloc
             {
                 if (!ImmutableInterlocked.TryAdd(ref _Allocations, __ret, 0))
                 {
-                    throw new Exception($"Could not add pointer {__ret} to Allocationd ledger.");
+                    throw new Exception($"Could not add pointer {__ret} to Allocations ledger.");
                 }
                 return __ret;
             }
@@ -163,8 +163,15 @@ namespace jemalloc
             {
                 if (Allocations.ContainsKey(ptr))
                 {
-                    __Internal.JeFree(ptr);
-                    ret = ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount);
+                    if (!ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount))
+                    {
+                        ret = false;
+                    }
+                    else
+                    {
+                        __Internal.JeFree(ptr);
+                        ret = true;
+                    }
 
                 }
                 else
@@ -450,33 +457,35 @@ namespace jemalloc
         }
 
         #region FixedBuffer
-        public static IntPtr AllocateFixedBuffer<T>(ulong length, ulong size, long timestamp, int tid, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        public static IntPtr AllocateFixedBuffer<T>(ulong length, ulong size, long timestamp, int tid, int rid, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
-                if (!ImmutableInterlocked.TryAdd(ref _FixedBufferAllocations, ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid)))
+                if (!ImmutableInterlocked.TryAdd(ref _FixedBufferAllocations, ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid)))
                 {
-                    Jem.Free(ptr);
-                    throw new Exception("Could not add FixedBuffer to allocation record.");
+                    throw new Exception($"Could not add allocation record for ptr {ptr} to fixed buffer allocations ledger.");
                 }
-                //FixedBufferRefCounts.TryAdd(ptr, 0);
             }
             return ptr;
         }
 
         public static bool FreeFixedBuffer(IntPtr ptr)
         {
-            bool success = Free(ptr);
-            if (success)
+            if (!ImmutableInterlocked.TryRemove(ref _FixedBufferAllocations, ptr, out FixedBufferAllocation a))
             {
-                return ImmutableInterlocked.TryRemove(ref _FixedBufferAllocations, ptr, out FixedBufferAllocation a);   
+                return false;
             }
-            return success;
+            else if (!Jem.Free(ptr))
+            {
+                return false;
+            }
+            else return true;
+            
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid)
+        public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid, int rid)
         {
             if (!Allocations.ContainsKey(ptr))
             {
@@ -484,7 +493,7 @@ namespace jemalloc
             }
             else
             {
-                FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid);
+                FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid, rid);
                 return FixedBufferAllocations.Contains(new KeyValuePair<IntPtr, FixedBufferAllocation>(ptr, a));
                
             }
