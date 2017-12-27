@@ -49,4 +49,16 @@ namespace jemalloc
         public readonly int HashCode;
 
     }
+    public class FixedBufferComparator : IEqualityComparer<FixedBufferAllocation>
+    {
+        public bool Equals(FixedBufferAllocation l, FixedBufferAllocation r)
+        {
+            return l.HashCode == r.HashCode;
+        }
+
+        public int GetHashCode(FixedBufferAllocation a)
+        {
+            return a.HashCode;
+        }
+    }
 }

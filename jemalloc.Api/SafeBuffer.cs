@@ -79,8 +79,8 @@ namespace jemalloc
         {
             if (IsNotAllocated || IsInvalid)
                 return;
-            DangerousRelease();
             Jem.DecrementRefCount(handle);
+            DangerousRelease();
         }
 
         protected unsafe ref T DangerousAsRef(int index)
@@ -260,7 +260,6 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe ref T Read(int index)
         {
-            ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             ThrowIfCannotAcquire();
             

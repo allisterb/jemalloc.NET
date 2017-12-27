@@ -33,6 +33,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jemalloc.Benchmarks", "jema
 		{C4032FF9-E677-4ABD-9150-F292971959E9} = {C4032FF9-E677-4ABD-9150-F292971959E9}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "jemalloc.StressTests", "jemalloc.StressTests\jemalloc.StressTests.csproj", "{F242A777-036C-4AB8-9393-3931A98A92F1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Benchmark|Any CPU = Benchmark|Any CPU
@@ -258,6 +260,36 @@ Global
 		{E5044104-376A-44A4-A1C0-D4F1C88D1149}.Release-static|x64.Build.0 = Release|Any CPU
 		{E5044104-376A-44A4-A1C0-D4F1C88D1149}.Release-static|x86.ActiveCfg = Release|Any CPU
 		{E5044104-376A-44A4-A1C0-D4F1C88D1149}.Release-static|x86.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|Any CPU.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|Any CPU.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|x64.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|x64.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|x86.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Benchmark|x86.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|x64.ActiveCfg = Debug|x64
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|x64.Build.0 = Debug|x64
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug|x86.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|Any CPU.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|Any CPU.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|x64.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|x64.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|x86.ActiveCfg = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Debug-static|x86.Build.0 = Debug|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|x64.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|x64.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|x86.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release|x86.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|Any CPU.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|Any CPU.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|x64.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|x64.Build.0 = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|x86.ActiveCfg = Release|Any CPU
+		{F242A777-036C-4AB8-9393-3931A98A92F1}.Release-static|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

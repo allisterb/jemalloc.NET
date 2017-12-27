@@ -161,24 +161,13 @@ namespace jemalloc
             }
             finally
             {
-                if (Allocations.ContainsKey(ptr))
+                if (ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount))
                 {
-                    if (!ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount))
-                    {
-                        ret = false;
-                    }
-                    else
-                    {
-                        __Internal.JeFree(ptr);
+                    __Internal.JeFree(ptr);
                         ret = true;
-                    }
-
-                }
-                else
-                {
-                    ret = false;
                 }
             }
+            
             return ret;
         }
 
@@ -462,10 +451,15 @@ namespace jemalloc
             IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
+                
                 if (!ImmutableInterlocked.TryAdd(ref _FixedBufferAllocations, ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid)))
                 {
                     throw new Exception($"Could not add allocation record for ptr {ptr} to fixed buffer allocations ledger.");
                 }
+                /*
+                ImmutableInterlocked.AddOrUpdate(ref _FixedBufferAllocations, ptr, (a) => new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid),
+                    (k, v) => new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid));
+                    */
             }
             return ptr;
         }
@@ -494,7 +488,7 @@ namespace jemalloc
             else
             {
                 FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid, rid);
-                return FixedBufferAllocations.Contains(new KeyValuePair<IntPtr, FixedBufferAllocation>(ptr, a));
+                return FixedBufferAllocations.ContainsValue(a);
                
             }
         }
@@ -570,6 +564,7 @@ namespace jemalloc
         private static StringBuilder mallocMessagesBuilder = new StringBuilder();
         private static ImmutableDictionary<IntPtr, int> _Allocations = ImmutableDictionary.Create<IntPtr, int>();
         private static ImmutableDictionary<IntPtr, FixedBufferAllocation> _FixedBufferAllocations = ImmutableDictionary.Create<IntPtr, FixedBufferAllocation>();
+        private static FixedBufferComparator fixedBufferComparator = new FixedBufferComparator();
         #endregion
     }
 }

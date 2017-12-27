@@ -19,11 +19,11 @@ namespace jemalloc
             _Timestamp = 0;
             IsReadOnly = false;
             AllocateThreadId = 0;
-            Id = JemUtil.Rng.Next(0, 4096);
+            Rid = JemUtil.Rng.Next(0, 4096);
             ThrowIfTypeNotPrimitive();
             long t = DateTime.UtcNow.Ticks;
             int th = Thread.CurrentThread.ManagedThreadId;
-            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th, Id);
+            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th, Rid);
             if (_Ptr != IntPtr.Zero)
             {
                 _Length = length;
@@ -80,7 +80,8 @@ namespace jemalloc
 
         bool IEquatable<FixedBuffer<T>>.Equals(FixedBuffer<T> buffer)
         {
-            return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp && this.AllocateThreadId == buffer.AllocateThreadId;
+            return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp 
+                && this.AllocateThreadId == buffer.AllocateThreadId && this.Rid == buffer.Rid;
         }
 
         #region Disposer
@@ -106,7 +107,7 @@ namespace jemalloc
         #region Properties
 
         #region Public
-        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId, Id);
+        public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId, Rid);
 
         public bool IsValid => !IsInvalid;
 
@@ -319,8 +320,8 @@ namespace jemalloc
         private readonly ulong _SizeInBytes;
         private readonly int _Length;
         private readonly long _Timestamp;
-        private readonly int AllocateThreadId;
-        private readonly int Id;
+        internal readonly int AllocateThreadId;
+        internal readonly int Rid;
         #endregion
     }
 }
