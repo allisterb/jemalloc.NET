@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
 namespace jemalloc
@@ -11,15 +12,15 @@ namespace jemalloc
         #region Constructor
         static JemUtil()
         {
-            InitialProcessMemory = ProcessMemoryAllocated;
+            
         }
         #endregion
 
         #region Properties
         public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
         public static Process CurrentProcess { get; } = Process.GetCurrentProcess();
-        public static long InitialProcessMemory { get;  }
-        public static long ProcessMemoryAllocated
+        
+        public static long ProcessPrivateMemory
         {
             get
             {
@@ -27,7 +28,32 @@ namespace jemalloc
                 return CurrentProcess.PrivateMemorySize64;
             }
         }
+        public static long ProcessPeakVirtualMem
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PeakVirtualMemorySize64;
+            }
+        }
 
+        public static long ProcessPeakWorkingSet
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PeakWorkingSet64;
+            }
+        }
+
+        public static long ProcessPeakPagedMem
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PeakPagedMemorySize64;
+            }
+        }
         #endregion
 
         #region Methods
@@ -106,6 +132,7 @@ namespace jemalloc
             string[] s = PrintBytes(bytes, suffix).Split(' ');
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
         }
+
         #endregion
 
         #region Fields

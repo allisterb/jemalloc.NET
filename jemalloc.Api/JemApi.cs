@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -8,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
 using System.Security;
 using System.Text;
+using System.Threading;
 
 namespace jemalloc
 {
@@ -96,8 +98,10 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeMalloc(size);
             if (__ret != IntPtr.Zero)
             {
-                
-                Allocations.Add(__ret);
+                if (!ImmutableInterlocked.TryAdd(ref _Allocations, __ret, 0))
+                {
+                    throw new Exception($"Could not add pointer {__ret} to Allocationd ledger.");
+                }
                 return __ret;
             }
             else
@@ -113,7 +117,10 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
-                Allocations.Add(__ret);
+                if (!ImmutableInterlocked.TryAdd(ref _Allocations, __ret, 0))
+                {
+                    throw new Exception($"Could not add pointer {__ret} to Allocationd ledger.");
+                }
                 return __ret;
             }
             else
@@ -154,10 +161,10 @@ namespace jemalloc
             }
             finally
             {
-                if (Allocations.TryTake(out ptr))
+                if (Allocations.ContainsKey(ptr))
                 {
                     __Internal.JeFree(ptr);
-                    ret = true;
+                    ret = ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount);
 
                 }
                 else
@@ -277,10 +284,34 @@ namespace jemalloc
             else return false;
         }
 
+        public static int GetRefCount(IntPtr ptr)
+        {
+            return Allocations[ptr];
+        }
+
+        public static void IncrementRefCount(IntPtr ptr)
+        {
+            int refCount;
+            do
+            {
+                refCount = Allocations[ptr];
+            }
+            while (!ImmutableInterlocked.TryUpdate(ref _Allocations, ptr, refCount + 1, refCount));
+        }
+
+        public static void DecrementRefCount(IntPtr ptr)
+        {
+            int refCount;
+            do
+            {
+                refCount = Allocations[ptr];
+            }
+            while (!ImmutableInterlocked.TryUpdate(ref _Allocations, ptr, refCount - 1, refCount) && refCount > 0);
+        }
 
         public static bool PtrIsAllocated(IntPtr ptr)
         {
-            return Allocations.TryPeek(out ptr);
+            return Allocations.ContainsKey(ptr);
         }
 
         public static string MallocStats => GetMallocStats(string.Empty);
@@ -290,8 +321,11 @@ namespace jemalloc
             StringBuilder statsBuilder = new StringBuilder(1000);
             __Internal.JeMallocMessageCallback stats = (o, m) => { statsBuilder.Append(m); };
             __Internal.JeMallocStatsPrint(Marshal.GetFunctionPointerForDelegate(stats), IntPtr.Zero, opt);
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                statsBuilder = statsBuilder.Replace("\\n", "\\r\\n");
+            }
             return statsBuilder.ToString();
-           
         }
 
         public static ulong MallocUsableSize(global::System.IntPtr ptr)
@@ -400,11 +434,12 @@ namespace jemalloc
         public static int TryFreeAll()
         {
             int c = Allocations.Count;
-            foreach (IntPtr p in Allocations)
+            foreach (IntPtr p in Allocations.Keys)
             {
                 Jem.Free(p);
+                ImmutableInterlocked.TryRemove(ref _Allocations, p, out int refCount);
             }
-            Allocations = new ConcurrentBag<IntPtr>();
+            
             return c;
         }
 
@@ -414,14 +449,18 @@ namespace jemalloc
             return new Span<T>((void*)ptr, length);
         }
 
-        #region NativeArray
+        #region FixedBuffer
         public static IntPtr AllocateFixedBuffer<T>(ulong length, ulong size, long timestamp, int tid, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
             IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
-                CallerInformation caller = new CallerInformation(memberName, fileName, lineNumber);
-                FixedBufferAllocations.Add(new FixedBufferAllocation(ptr, length * size, timestamp, tid));
+                if (!ImmutableInterlocked.TryAdd(ref _FixedBufferAllocations, ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid)))
+                {
+                    Jem.Free(ptr);
+                    throw new Exception("Could not add FixedBuffer to allocation record.");
+                }
+                //FixedBufferRefCounts.TryAdd(ptr, 0);
             }
             return ptr;
         }
@@ -431,10 +470,7 @@ namespace jemalloc
             bool success = Free(ptr);
             if (success)
             {
-                if (!FixedBufferAllocations.TryTake(out FixedBufferAllocation a))
-                {
-                    throw new Exception($"Could not remove NativeArray allocation record {a.Ptr} from NativeArrayAllocations.");
-                }
+                return ImmutableInterlocked.TryRemove(ref _FixedBufferAllocations, ptr, out FixedBufferAllocation a);   
             }
             return success;
         }
@@ -442,21 +478,15 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid)
         {
-            if (!Allocations.TryPeek(out ptr))
+            if (!Allocations.ContainsKey(ptr))
             {
                 return false;
             }
             else
             {
                 FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid);
-                if (FixedBufferAllocations.TryPeek(out a))
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                return FixedBufferAllocations.Contains(new KeyValuePair<IntPtr, FixedBufferAllocation>(ptr, a));
+               
             }
         }
         #endregion
@@ -476,7 +506,7 @@ namespace jemalloc
                 case ERRNO.ENOMEM:
                     return new OutOfMemoryException(message);
                 default:
-                    return new Exception(message);
+                    return new Exception(message + $" {no}.");
             }
         }
 
@@ -511,15 +541,17 @@ namespace jemalloc
         #endregion
 
         #region jemalloc Statistics
-        public static UInt64 AllocatedBytes => GetMallCtlUInt64("stats.allocated");
-        public static UInt64 ActiveBytes => GetMallCtlUInt64("stats.active");
+        public static UInt64 AllocatedPages => GetMallCtlUInt64("stats.allocated");
+        public static UInt64 ActivePages => GetMallCtlUInt64("stats.active");
         public static UInt64 MappedBytes => GetMallCtlUInt64("stats.mapped");
         #endregion
 
         #region Allocations ledgers
-        public static ConcurrentBag<IntPtr> Allocations { get; private set; } = new ConcurrentBag<IntPtr>();
+        public static ImmutableDictionary<IntPtr, int> Allocations => _Allocations;
 
-        public static ConcurrentBag<FixedBufferAllocation> FixedBufferAllocations = new ConcurrentBag<FixedBufferAllocation>();
+        public static ImmutableDictionary<IntPtr, FixedBufferAllocation> FixedBufferAllocations => _FixedBufferAllocations;
+
+        public static ConcurrentDictionary<IntPtr, int> FixedBufferRefCounts { get; private set; } = new ConcurrentDictionary<IntPtr, int>();
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         #endregion
@@ -528,6 +560,8 @@ namespace jemalloc
         #region Fields
         private static object allocationsLock = new object();
         private static StringBuilder mallocMessagesBuilder = new StringBuilder();
+        private static ImmutableDictionary<IntPtr, int> _Allocations = ImmutableDictionary.Create<IntPtr, int>();
+        private static ImmutableDictionary<IntPtr, FixedBufferAllocation> _FixedBufferAllocations = ImmutableDictionary.Create<IntPtr, FixedBufferAllocation>();
         #endregion
     }
 }

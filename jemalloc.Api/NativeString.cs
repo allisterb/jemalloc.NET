@@ -68,7 +68,7 @@ namespace jemalloc
 
         public bool IsEmpty => Bytes.Length == 0;
 
-        public ReadOnlySpan<byte> Bytes => buffer.Span;
+        public ReadOnlySpan<byte> Bytes => buffer.WriteSpan;
         
         internal Utf8Span Span => new Utf8Span(Bytes);
         #endregion
@@ -104,7 +104,7 @@ namespace jemalloc
         public bool Equals(string other) => Span.Equals(other);
 
 
-        public Utf8CodePointEnumerator GetEnumerator() => new Utf8CodePointEnumerator(buffer.ReadOnlySpan);
+        public Utf8CodePointEnumerator GetEnumerator() => new Utf8CodePointEnumerator(buffer.Span);
 
         public int CompareTo(NativeString other) => Span.CompareTo(other);
 
@@ -199,7 +199,7 @@ namespace jemalloc
             }
             if (index == 0 && length == Bytes.Length) return this;
 
-            return new NativeString(buffer.ReadOnlySpan.Slice(index, length));
+            return new NativeString(buffer.Span.Slice(index, length));
         }
 
         public int IndexOf(NativeString value) => Bytes.IndexOf(value.Bytes);

@@ -69,9 +69,9 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Available columns
-        public static readonly IColumn Allocated = new JemStatisticColumn("JEM allocated", () => JemUtil.PrintBytes(Jem.AllocatedBytes),
+        public static readonly IColumn Allocated = new JemStatisticColumn("JEM allocated", () => JemUtil.PrintBytes(Jem.AllocatedPages),
             "Allocated memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");
-        public static readonly IColumn Active = new JemStatisticColumn("JEM active", () => JemUtil.PrintBytes(Jem.ActiveBytes),
+        public static readonly IColumn Active = new JemStatisticColumn("JEM active", () => JemUtil.PrintBytes(Jem.ActivePages),
             "Active memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");
         public static readonly IColumn Mapped = new JemStatisticColumn("JEM mapped", () => JemUtil.PrintBytes(Jem.MappedBytes),
             "Mapped memory using jemalloc per single operation (native only, inclusive, 1KB = 1024B)");

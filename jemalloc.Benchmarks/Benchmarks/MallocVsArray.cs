@@ -20,15 +20,8 @@ namespace jemalloc.Benchmarks
         public override void GlobalSetup()
         {
             base.GlobalSetup();
-
-            if (!Jem.SetMallCtlSInt64("arenas.dirty_decay_ms", 10) || !Jem.SetMallCtlSInt64("arenas.muzzy_decay_ms", 10) || !Jem.SetMallCtlBool("opt.background_thread", true))
-            {
-                throw new Exception();
-
-            }
+            Jem.Init("dirty_decay_ms:10,muzzy_decay_ms:10");
         }
-
-
 
         #region Create
         [Benchmark(Description = "Create array of data on the managed heap.")]
@@ -93,13 +86,14 @@ namespace jemalloc.Benchmarks
             {
                 for (i = 0; i < LoopCount; i++)
                 {
-                    largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
-                    if ((i + 1) % 50 == 0 && i != 0)
+                    if ((i) % 50 == 0 && i != 0)
                     {
                         Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
                     T[] bigBlock = new T[largeBlockSize];
                     T[] smallBlock = new T[SmallBlockSize];
+                    largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
+
                 }
             }
             catch (OutOfMemoryException)
@@ -124,14 +118,15 @@ namespace jemalloc.Benchmarks
             {
                 for (i = 0; i < LoopCount; i++)
                 {
-                    largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
-                    if ((i + 1) % 50 == 0 && i != 0)
+                    if ((i) % 50 == 0 && i != 0)
                     {
                         Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
                     T[] bigBlock = new T[largeBlockSize];
                     T[] smallBlock = new T[SmallBlockSize];
-                    smallBlocks.Add(smallBlock);                    
+                    smallBlocks.Add(smallBlock);
+                    largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
+
                 }
             }
             catch (OutOfMemoryException)
@@ -157,8 +152,7 @@ namespace jemalloc.Benchmarks
             {
                 for (i = 0; i < LoopCount; i++)
                 {
-                    largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
-                    if ((i + 1) % 50 == 0 && i != 0)
+                    if ((i) % 50 == 0 && i != 0)
                     {
                         Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
@@ -171,7 +165,7 @@ namespace jemalloc.Benchmarks
                     T[] bigBlock = new T[largeBlockSize];
                     T[] smallBlock = new T[SmallBlockSize];
                     smallBlocks.Add(smallBlock);
-
+                    largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }
             }
             catch (OutOfMemoryException)
@@ -199,10 +193,8 @@ namespace jemalloc.Benchmarks
             try
             {
                 for (i = 0; i < LoopCount; i++)
-                {
-                    largeBlockSize = largeBlockSize + (4 * 1024 * 1024);
-                     
-                    if ((i + 1) % 50 == 0 && i != 0)
+                {                     
+                    if ((i) % 50 == 0 && i != 0)
                     {
                         Info("Block size is {0} bytes.", PrintBytes(largeBlockSize));
                     }
@@ -210,6 +202,7 @@ namespace jemalloc.Benchmarks
                     FixedBuffer<T> smallBlock = new FixedBuffer<T>(SmallBlockSize);
                     smallBlocks[i] = smallBlock;
                     if (!bigBlock.Free()) throw new Exception();
+                    largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }
             }
             catch (OutOfMemoryException)

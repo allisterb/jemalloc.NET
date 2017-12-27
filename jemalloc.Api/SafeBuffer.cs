@@ -301,16 +301,16 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected unsafe T Read(int index)
+        protected unsafe ref T Read(int index)
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
             ThrowIfCannotAcquire();
             
             // return (T*) (_ptr + byteOffset);
-            T ret =  Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+            ref T ret =  ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
             Release();
-            return ret;
+            return ref ret;
         }
 
         
@@ -436,12 +436,10 @@ namespace jemalloc
         #endregion
 
         #region Operators
-        public T this[int index]
+        public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => this.Read(index);
-
-            set => this.Write(index, value);
+            get => ref this.Read(index);
          }
         #endregion
 

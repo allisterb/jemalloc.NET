@@ -69,7 +69,7 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Available columns
-        public static readonly IColumn Allocated = new JemStatisticColumn("Process allocated", () => JemUtil.PrintBytes(JemUtil.ProcessMemoryAllocated),
+        public static readonly IColumn Allocated = new JemStatisticColumn("Process allocated", () => JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory),
             "Allocated memory for entire process per single operation (native and managed, inclusive, 1KB = 1024B)");
        
         #endregion

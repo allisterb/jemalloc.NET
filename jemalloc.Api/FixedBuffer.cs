@@ -8,7 +8,7 @@ using System.Threading;
 namespace jemalloc
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct FixedBuffer<T> : IDisposable, IRetainable, IEquatable<FixedBuffer<T>> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
+    public readonly struct FixedBuffer<T> : IDisposable, IRetainable, IEquatable<FixedBuffer<T>> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         #region Constructors
         public FixedBuffer(int length)
@@ -17,11 +17,21 @@ namespace jemalloc
             _Length = 0;
             _SizeInBytes = 0;
             _Timestamp = 0;
-            RefCount = 0;
             IsReadOnly = false;
             AllocateThreadId = 0;
             ThrowIfTypeNotPrimitive();
-            Allocate(length);
+            long t = DateTime.UtcNow.Ticks;
+            int th = Thread.CurrentThread.ManagedThreadId;
+            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th);
+            if (_Ptr != IntPtr.Zero)
+            {
+                _Length = length;
+                _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
+                _Timestamp = t;
+                AllocateThreadId = th;
+            }
+            else throw new OutOfMemoryException($"Could not allocate {(ulong)_Length * ElementSizeInBytes} bytes for {Name}");
+
         }
 
         public FixedBuffer(int length, bool isReadOnly) : this(length)
@@ -30,25 +40,42 @@ namespace jemalloc
 
         }
         public FixedBuffer(T[] array) : this(array.Length)
-        {           
+        {
             ReadOnlySpan<T> arraySpan = new ReadOnlySpan<T>(array);
-            arraySpan.CopyTo(this.Span);   
+            arraySpan.CopyTo(this.WriteSpan);
         }
 
         public FixedBuffer(Span<T> span) : this(span.Length)
         {
-            span.CopyTo(this.Span);
+            span.CopyTo(this.WriteSpan);
         }
         public FixedBuffer(ReadOnlySpan<T> span) : this(span.Length)
         {
             IsReadOnly = true;
-            span.CopyTo(this.Span);
+            span.CopyTo(this.WriteSpan);
         }
         #endregion
 
         #region Implemented members
-        void IRetainable.Retain() => ++RefCount;
-        bool IRetainable.Release() => Free();
+        public void Retain()
+        {
+            ThrowIfInvalid();
+            Jem.IncrementRefCount(_Ptr);
+        }
+        public bool Release()
+        {
+            ThrowIfInvalid();
+            if (RefCount == 0)
+            {
+                return false;
+            }
+            else
+            {
+                Jem.DecrementRefCount(_Ptr);
+                return true;
+            }
+         }
+
         bool IEquatable<FixedBuffer<T>>.Equals(FixedBuffer<T> buffer)
         {
             return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp;
@@ -74,11 +101,24 @@ namespace jemalloc
         #endregion
 
         #region Properties
+
+        #region Public
         public bool IsInvalid => _Ptr == IntPtr.Zero || !Jem.FixedBufferIsAllocatedWith(_Ptr, _SizeInBytes, _Timestamp, AllocateThreadId);
+
+        public bool IsValid => !IsInvalid;
+
+        public int RefCount
+        {
+            get
+            {
+                ThrowIfInvalid();
+                return Jem.GetRefCount(_Ptr);
+            }
+        }
 
         public bool IsRetained => RefCount > 0;
 
-        public bool IsReadOnly { get; private set; }
+        public bool IsReadOnly { get; }
 
         public int Length
         {
@@ -100,6 +140,16 @@ namespace jemalloc
 
         }
 
+        public unsafe ReadOnlySpan<T> Span
+        {
+            get
+            {
+                ThrowIfInvalid();
+                return new ReadOnlySpan<T>(_Ptr.ToPointer(), _Length);
+            }
+        }
+
+
         internal IntPtr Ptr
         {
             get
@@ -108,6 +158,7 @@ namespace jemalloc
                 return _Ptr;
             }
         }
+        #endregion
 
         internal long Timestamp
         {
@@ -117,7 +168,7 @@ namespace jemalloc
                 return _Timestamp;
             }
         }
-        public unsafe Span<T> Span
+        internal unsafe Span<T> WriteSpan
         {
             get
             {
@@ -126,69 +177,24 @@ namespace jemalloc
             }
         }
 
-        public unsafe ReadOnlySpan<T> ReadOnlySpan
-        {
-            get
-            {
-                ThrowIfInvalid();
-                return new ReadOnlySpan<T>(_Ptr.ToPointer(), _Length);
-            }
-        }
-
-        public int RefCount { get; internal set; }
-
         #endregion
 
         #region Methods
-        private unsafe bool Allocate(int length)
-        {
-            long t = DateTime.UtcNow.Ticks;
-            int th = Thread.CurrentThread.ManagedThreadId;
-            _Ptr = Jem.AllocateFixedBuffer<T>((ulong)length, ElementSizeInBytes, t, th);
-            if (_Ptr != IntPtr.Zero)
-            {
-                _Length = length;
-                _SizeInBytes = (ulong)_Length * ElementSizeInBytes;
-                _Timestamp = t;
-                return true;
-            }
-            else return false;
-        }
-
-        public unsafe MemoryHandle Acquire()
-        {
-            ThrowIfInvalid();
-            RefCount++;
-            return new MemoryHandle(this, this.Ptr.ToPointer());
-        }
-
-        public void Release()
-        {
-            ThrowIfInvalid();
-            RefCount--;
-        }
+        public void Acquire() => Retain();
 
         public bool Free()
         {
             ThrowIfInvalid();
-            ThrowIfRefCountNonZero();
-            if (Interlocked.Exchange(ref _Ptr, IntPtr.Zero) != IntPtr.Zero)
+            IntPtr p = _Ptr;
+            if (Interlocked.Exchange(ref p, IntPtr.Zero) != IntPtr.Zero)
             {
                 if (Jem.FreeFixedBuffer(_Ptr))
                 {
-                    _Ptr = IntPtr.Zero;
-                    _Length = 0;
-                    _SizeInBytes = 0;
-                    _Timestamp = 0;
-                    RefCount = 0;
-                    IsReadOnly = false;
-                    AllocateThreadId = 0;
                     return true;
                 }
                 else
                 {
                     return false;
-                    //throw new Exception($"Could not free buffer at pointer {_Ptr}.");
                 }
             }
             else
@@ -199,9 +205,8 @@ namespace jemalloc
 
         public void Fill(T value)
         {
-            Acquire();
-            ThrowIfInvalid();
-            Span.Fill(value);
+            Retain();
+            WriteSpan.Fill(value);
             Release();
         }
 
@@ -213,27 +218,24 @@ namespace jemalloc
             }
             else
             {
-                Acquire();
+                Retain();
                 ReadOnlySpan<T> span = new ReadOnlySpan<T>(array);
-                bool ret = this.Span.SequenceEqual(span);
+                bool ret = this.WriteSpan.SequenceEqual(span);
                 Release();
                 return ret;
             }
         }
 
-        public Span<T> AcquireSlice(int start, int length)
+        public ReadOnlySpan<T> Slice(int start, int length)
         {
             ThrowIfInvalid();
-            Acquire();
-            Span<T> ret = Span.Slice(start, length);
-            return ret; 
+            return Span.Slice(start, length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe ref T Read(int index)
         {
-            ThrowIfInvalid();
-            Acquire();
+            Retain();
             // return (T*) (_ptr + byteOffset);
             ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             Release();
@@ -245,7 +247,7 @@ namespace jemalloc
         {
             ThrowIfInvalid();
             ThrowIfReadOnly();
-            Acquire();
+            Retain();
             ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             v = value;
             Release();
@@ -275,9 +277,9 @@ namespace jemalloc
 
         private void ThrowIfRefCountNonZero()
         {
-            if (RefCount > 0)
+            if (0 > 0)
             {
-                throw new InvalidOperationException($"{nameof(FixedBuffer<T>)}({this._Length}) has RefCount {RefCount}.");
+                throw new InvalidOperationException($"{nameof(FixedBuffer<T>)}({this._Length}) has RefCount .");
             }
         }
 
@@ -297,26 +299,26 @@ namespace jemalloc
             }
         }
 
+        private string Name => $"{nameof(FixedBuffer<T>)}({this._Length})";
+
         #endregion
 
         #region Operators
-        public T this[int index]
+        public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => this.Read(index);
-
-            set => this.Write(index, ref value);
+            get => ref this.Read(index);
         }
         #endregion
 
         #region Fields
         private static readonly Type ElementType = typeof(T);
         private static readonly ulong ElementSizeInBytes = (ulong) JemUtil.SizeOfStruct<T>();
-        private IntPtr _Ptr;
-        private ulong _SizeInBytes;
-        private int _Length;
-        private long _Timestamp;
-        private int AllocateThreadId;
+        private readonly IntPtr _Ptr;
+        private readonly ulong _SizeInBytes;
+        private readonly int _Length;
+        private readonly long _Timestamp;
+        private readonly int AllocateThreadId;
         
         #endregion
     }
