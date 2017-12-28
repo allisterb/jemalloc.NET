@@ -188,7 +188,10 @@ namespace jemalloc
 
         public bool Free()
         {
-            ThrowIfInvalid();
+            if (IsInvalid)
+            {
+                return false;
+            }
             IntPtr p = _Ptr;
        
             if (Interlocked.Exchange(ref p, IntPtr.Zero) != IntPtr.Zero)
@@ -257,7 +260,7 @@ namespace jemalloc
         }
 
         
-        private void ThrowIfInvalid()
+        internal void ThrowIfInvalid()
         {
             if (IsInvalid)
             {
@@ -265,7 +268,7 @@ namespace jemalloc
             }
         }
 
-        private void ThrowIfIndexOutOfRange(int index)
+        internal void ThrowIfIndexOutOfRange(int index)
         { 
             if (index >= _Length)
             {
@@ -277,7 +280,7 @@ namespace jemalloc
             }
         }
 
-        private void ThrowIfRefCountNonZero()
+        internal void ThrowIfRefCountNonZero()
         {
             if (0 > 0)
             {
@@ -285,7 +288,7 @@ namespace jemalloc
             }
         }
 
-        private void ThrowIfReadOnly()
+        internal void ThrowIfReadOnly()
         {
             if (IsReadOnly)
             {
@@ -293,7 +296,7 @@ namespace jemalloc
             }
         }
 
-        private void ThrowIfTypeNotPrimitive()
+        internal void ThrowIfTypeNotPrimitive()
         {
             if (!typeof(T).IsPrimitive)
             {
@@ -301,7 +304,7 @@ namespace jemalloc
             }
         }
 
-        private string Name => $"{nameof(FixedBuffer<T>)}({this._Length})";
+        internal string Name => $"{nameof(FixedBuffer<T>)}({this._Length})";
 
         #endregion
 

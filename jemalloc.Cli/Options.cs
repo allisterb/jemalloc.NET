@@ -30,6 +30,9 @@ namespace jemalloc.Cli
         [Option('s', "string", Required = false, HelpText = "Use String as the underlying data type.", SetName = "type")]
         public bool String { get; set; }
 
+        [Option("udt", Required = false, HelpText = "Use a user-defined data type as the underlying data type.", SetName = "type")]
+        public bool Udt { get; set; }
+
         [Option('c', "cold-start", Required = false, HelpText = "Don't run warmup phase of benchmarks.")]
         public bool ColdStart { get; set; }
 

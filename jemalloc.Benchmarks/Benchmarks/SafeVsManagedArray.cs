@@ -20,13 +20,12 @@ namespace jemalloc.Benchmarks
             Info($"Array size is {ArraySize}.");
         }
 
-
         #region Fill
         [GlobalSetup(Target = nameof(FillManagedArray))]
         public void FillSetup()
         {
             InfoThis();
-            T fill = GM<T>.Random();
+            T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
             Info($"Array fill value is {fill}.");
             SetValue("fill", fill);
             SetValue("managedArray", new T[ArraySize]);
@@ -76,9 +75,7 @@ namespace jemalloc.Benchmarks
             SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
             T fill = GetValue<T>("fill");
             nativeArray.Fill(fill);
-            nativeArray.Release();
             nativeArray.Close();
-            nativeArray = null;
         }
 
         [GlobalCleanup(Target = nameof(FillNativeArrayWithCreate))]
@@ -88,7 +85,7 @@ namespace jemalloc.Benchmarks
             T[] managedArray = GetValue<T[]>("managedArray");
             SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
             T fill = GetValue<T>("fill");
-            int index = GM<T>.Rng.Next(0, ArraySize);
+            int index = JemUtil.Rng.Next(0, ArraySize);
             if (!nativeArray[index].Equals(managedArray[index]))
             {
                 Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {fill}.");
@@ -194,6 +191,5 @@ namespace jemalloc.Benchmarks
 
         }
         #endregion
-
     }
 }

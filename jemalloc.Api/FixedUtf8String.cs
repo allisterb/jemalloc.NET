@@ -15,14 +15,14 @@ using System.Text.Utf8;
 namespace jemalloc
 {
     [DebuggerDisplay("{ToString()} utf8")]
-    public readonly struct NativeString : IEquatable<NativeString>
+    public readonly struct FixedUtf8String : IEquatable<FixedUtf8String>, IRetainable, IDisposable
     {
         #region Constructors
-        public NativeString(ReadOnlySpan<byte> utf8Bytes) => buffer = new FixedBuffer<byte>(utf8Bytes);
+        public FixedUtf8String(ReadOnlySpan<byte> utf8Bytes) => buffer = new FixedBuffer<byte>(utf8Bytes);
 
-        public NativeString(Utf8Span utf8Span) : this(utf8Span.Bytes) { }
+        public FixedUtf8String(Utf8Span utf8Span) : this(utf8Span.Bytes) { }
 
-        public NativeString(string utf16String)
+        public FixedUtf8String(string utf16String)
         {
             if (utf16String == null)
             {
@@ -35,12 +35,32 @@ namespace jemalloc
             }
             else
             {
-                buffer = new FixedBuffer<byte>(Encoding.UTF8.GetBytes(utf16String));
+                byte[] b = Encoding.UTF8.GetBytes(utf16String);
+                buffer = new FixedBuffer<byte>(b);
             }
         }
 
-        private NativeString(byte[] utf8Bytes) => buffer = new FixedBuffer<byte>(utf8Bytes);
-        
+        private FixedUtf8String(byte[] utf8Bytes) => buffer = new FixedBuffer<byte>(utf8Bytes);
+
+        #endregion
+
+        #region Implemented members
+        public void Retain() => buffer.Retain();
+        public bool Release() => buffer.Release();
+        #region Disposer
+        void IDisposable.Dispose()
+        {
+            if (IsRetained)
+            {
+                throw new InvalidOperationException($"FixedString<[{this.Length}] has outstanding references.");
+            }
+            else
+            {
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+        }
+        #endregion
         #endregion
 
         #region Overidden members
@@ -50,9 +70,9 @@ namespace jemalloc
 
         public override bool Equals(object obj)
         {
-            if (obj is NativeString)
+            if (obj is FixedUtf8String)
             {
-                return Equals((NativeString)obj);
+                return Equals((FixedUtf8String)obj);
             }
             if (obj is string)
             {
@@ -64,49 +84,70 @@ namespace jemalloc
         #endregion
 
         #region Properties
-        public static NativeString Empty => s_empty;
+        public static FixedUtf8String Empty => s_empty;
 
         public bool IsEmpty => Bytes.Length == 0;
 
-        public ReadOnlySpan<byte> Bytes => buffer.WriteSpan;
-        
-        internal Utf8Span Span => new Utf8Span(Bytes);
+        public bool IsRetained => buffer.IsRetained;
+
+        public int Length => buffer.Length;
+
+        public ReadOnlySpan<byte> Bytes => buffer.Span;
+
+        internal Utf8Span Span
+        {
+            get
+            {
+                ThrowIfInvalid();
+                return new Utf8Span(this);
+            }
+        }
+
         #endregion
 
         #region Operators
-        public static bool operator ==(NativeString left, NativeString right) => left.Equals(right);
-        public static bool operator !=(NativeString left, NativeString right) => !left.Equals(right);
-        public static bool operator ==(NativeString left, Utf8Span right) => left.Equals(right);
-        public static bool operator !=(NativeString left, Utf8Span right) => !left.Equals(right);
-        public static bool operator ==(Utf8Span left, NativeString right) => right.Equals(left);
-        public static bool operator !=(Utf8Span left, NativeString right) => !right.Equals(left);
+        public ref byte this[int index]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref this.buffer[index];
+        }
+
+        public static bool operator ==(FixedUtf8String left, FixedUtf8String right) => left.Equals(right);
+        public static bool operator !=(FixedUtf8String left, FixedUtf8String right) => !left.Equals(right);
+        public static bool operator ==(FixedUtf8String left, Utf8Span right) => left.Equals(right);
+        public static bool operator !=(FixedUtf8String left, Utf8Span right) => !left.Equals(right);
+        public static bool operator ==(Utf8Span left, FixedUtf8String right) => right.Equals(left);
+        public static bool operator !=(Utf8Span left, FixedUtf8String right) => !right.Equals(left);
 
         // TODO: do we like all these O(N) operators? 
-        public static bool operator ==(NativeString left, string right) => left.Equals(right);
-        public static bool operator !=(NativeString left, string right) => !left.Equals(right);
-        public static bool operator ==(string left, NativeString right) => right.Equals(left);
-        public static bool operator !=(string left, NativeString right) => !right.Equals(left);
+        public static bool operator ==(FixedUtf8String left, string right) => left.Equals(right);
+        public static bool operator !=(FixedUtf8String left, string right) => !left.Equals(right);
+        public static bool operator ==(string left, FixedUtf8String right) => right.Equals(left);
+        public static bool operator !=(string left, FixedUtf8String right) => !right.Equals(left);
 
-        public static implicit operator ReadOnlySpan<byte>(NativeString utf8String) => utf8String.Bytes;
+        public static implicit operator ReadOnlySpan<byte>(FixedUtf8String utf8String) => utf8String.Bytes;
 
-        public static implicit operator Utf8Span(NativeString utf8String) => utf8String.Span;
+        public static implicit operator Utf8Span(FixedUtf8String utf8String) => utf8String.Span;
 
-        public static explicit operator NativeString(string utf16String) => new NativeString(utf16String);
+        public static explicit operator FixedUtf8String(string utf16String) => new FixedUtf8String(utf16String);
 
-        public static explicit operator string(NativeString utf8String) => utf8String.ToString();
+        public static explicit operator string(FixedUtf8String utf8String) => utf8String.ToString();
         #endregion
 
         #region Methods
-        public bool Equals(NativeString other) => Bytes.SequenceEqual(other.Bytes);
+        public void ThrowIfInvalid() => buffer.ThrowIfInvalid();
+
+        public bool Free() => buffer.Free();
+
+        public bool Equals(FixedUtf8String other) => Bytes.SequenceEqual(other.Bytes);
 
         public bool Equals(Utf8Span other) => Bytes.SequenceEqual(other.Bytes);
 
         public bool Equals(string other) => Span.Equals(other);
 
-
         public Utf8CodePointEnumerator GetEnumerator() => new Utf8CodePointEnumerator(buffer.Span);
 
-        public int CompareTo(NativeString other) => Span.CompareTo(other);
+        public int CompareTo(FixedUtf8String other) => Span.CompareTo(other);
 
         public int CompareTo(string other) => Span.CompareTo(other);
 
@@ -114,11 +155,11 @@ namespace jemalloc
 
         public bool StartsWith(uint codePoint) => Span.StartsWith(codePoint);
 
-        public bool StartsWith(NativeString value) => Span.StartsWith(value.Span);
+        public bool StartsWith(FixedUtf8String value) => Span.StartsWith(value.Span);
 
         public bool StartsWith(Utf8Span value) => Span.StartsWith(value);
 
-        public bool EndsWith(NativeString value) => Span.EndsWith(value.Span);
+        public bool EndsWith(FixedUtf8String value) => Span.EndsWith(value.Span);
 
         public bool EndsWith(Utf8Span value) => Span.EndsWith(value);
 
@@ -128,7 +169,7 @@ namespace jemalloc
         // TODO: should Utf8String slicing operations return Utf8Span? 
         // TODO: should we add slicing overloads that take char delimiters?
         // TODO: why do we even have Try versions? If the delimiter is not found, the result should be the original.
-        public bool TrySubstringFrom(NativeString value, out NativeString result)
+        public bool TrySubstringFrom(FixedUtf8String value, out FixedUtf8String result)
         {
             int idx = IndexOf(value);
 
@@ -142,7 +183,7 @@ namespace jemalloc
             return true;
         }
 
-        public bool TrySubstringFrom(uint codePoint, out NativeString result)
+        public bool TrySubstringFrom(uint codePoint, out FixedUtf8String result)
         {
             int idx = IndexOf(codePoint);
 
@@ -156,7 +197,7 @@ namespace jemalloc
             return true;
         }
 
-        public bool TrySubstringTo(NativeString value, out NativeString result)
+        public bool TrySubstringTo(FixedUtf8String value, out FixedUtf8String result)
         {
             int idx = IndexOf(value);
 
@@ -170,7 +211,7 @@ namespace jemalloc
             return true;
         }
 
-        public bool TrySubstringTo(uint codePoint, out NativeString result)
+        public bool TrySubstringTo(uint codePoint, out FixedUtf8String result)
         {
             int idx = IndexOf(codePoint);
 
@@ -189,9 +230,9 @@ namespace jemalloc
         // TODO: should we even have index based operations?
         // TODO: should we have search (e.g. IndexOf) overlaods that take char?
 
-        public NativeString Substring(int index) => index == 0 ? this : Substring(index, Bytes.Length - index);
+        public FixedUtf8String Substring(int index) => index == 0 ? this : Substring(index, Bytes.Length - index);
 
-        public NativeString Substring(int index, int length)
+        public FixedUtf8String Substring(int index, int length)
         {
             if (length == 0)
             {
@@ -199,14 +240,14 @@ namespace jemalloc
             }
             if (index == 0 && length == Bytes.Length) return this;
 
-            return new NativeString(buffer.Span.Slice(index, length));
+            return new FixedUtf8String(buffer.Span.Slice(index, length));
         }
 
-        public int IndexOf(NativeString value) => Bytes.IndexOf(value.Bytes);
+        public int IndexOf(FixedUtf8String value) => Bytes.IndexOf(value.Bytes);
 
         public int IndexOf(uint codePoint) => Span.IndexOf(codePoint);
 
-        public int LastIndexOf(NativeString value) => Span.LastIndexOf(value.Span);
+        public int LastIndexOf(FixedUtf8String value) => Span.LastIndexOf(value.Span);
 
         public int LastIndexOf(uint codePoint) => Span.LastIndexOf(codePoint);
 
@@ -339,6 +380,14 @@ namespace jemalloc
             return Substring(0, it.PositionInCodeUnits);
         }
         */
+
+        #region Disposer
+        private void Dispose(bool disposing)
+        {
+            buffer.Free();
+        }
+
+        #endregion
         #endregion
 
         #region Fields
@@ -347,7 +396,7 @@ namespace jemalloc
 
         private const int StringNotFound = -1;
 
-        static NativeString s_empty = new NativeString(string.Empty);
+        static FixedUtf8String s_empty = new FixedUtf8String(string.Empty);
         #endregion
 
     }

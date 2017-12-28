@@ -292,6 +292,10 @@ namespace jemalloc.Cli
             {
                 Benchmark<Double>();
             }
+            else if (o.Udt)
+            {
+                Benchmark<TestUDT>();
+            }
             else
             {
                 L.Error("You must select a data type to benchmark with: -b, -i, -h, -l, -d, -s, and -u.");

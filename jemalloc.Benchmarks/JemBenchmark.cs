@@ -117,6 +117,11 @@ namespace jemalloc.Benchmarks
             JemUtil.BenchmarkValues.Remove($"{Thread.CurrentThread.ManagedThreadId}_{name}", out object o);
         }
 
+        public void SetStatistic(string name, string value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        {
+            JemUtil.BenchmarkStatistics.AddOrUpdate(name, value, ((k, v) => value));
+        }
+
         #region Log
         public static void Info(string format, params object[] values) => Log.WriteLineInfo(string.Format(format, values));
 

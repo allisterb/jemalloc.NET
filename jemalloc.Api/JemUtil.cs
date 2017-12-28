@@ -19,7 +19,9 @@ namespace jemalloc
         #region Properties
         public static ConcurrentDictionary<string, object> BenchmarkValues { get; } = new ConcurrentDictionary<string, object>();
 
-        public static Process CurrentProcess { get; } = Process.GetCurrentProcess();
+        public static ConcurrentDictionary<string, string> BenchmarkStatistics { get; } = new ConcurrentDictionary<string, string>();
+
+        public static Process CurrentProcess { get; } =  Process.GetCurrentProcess();
 
         public static Random Rng { get; } = new Random();
 
@@ -55,6 +57,33 @@ namespace jemalloc
             {
                 CurrentProcess.Refresh();
                 return CurrentProcess.PeakPagedMemorySize64;
+            }
+        }
+
+        public static long ProcessVirtualMemory
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.VirtualMemorySize64;
+            }
+        }
+
+        public static long ProcessWorkingSet
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.WorkingSet64;
+            }
+        }
+
+        public static long ProcessPagedMemory
+        {
+            get
+            {
+                CurrentProcess.Refresh();
+                return CurrentProcess.PagedMemorySize64;
             }
         }
         #endregion
@@ -122,9 +151,13 @@ namespace jemalloc
             {
                 return string.Format("{0:N1} MB{1}", bytes / (1024 * 1024), suffix);
             }
-            else if (bytes >= (1024 * 1024 * 1024))
+            else if (bytes >= (1024 * 1024 * 1024) && (bytes < (1024f * 1024f * 1024f * 1024f)))
             {
                 return string.Format("{0:N1} GB{1}", bytes / (1024 * 1024 * 1024), suffix);
+            }
+            else if (bytes >= (1024f * 1024f * 1024f * 1024f) && (bytes < (1024f * 1024f * 1024f * 1024f * 1024f)))
+            {
+                return string.Format("{0:N1} TB{1}", bytes / (1024f * 1024f * 1024f * 1024f), suffix);
             }
             else throw new ArgumentOutOfRangeException();
 
@@ -135,7 +168,6 @@ namespace jemalloc
             string[] s = PrintBytes(bytes, suffix).Split(' ');
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
         }
-
         #endregion
 
         #region Fields
@@ -155,7 +187,7 @@ namespace jemalloc
         public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
         {
             Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType, CharCLRType, DecimalCLRType, IntPtrCLRType
+            SingleCLRType, DoubleCLRType, CharCLRType, IntPtrCLRType
         });
 
         #endregion

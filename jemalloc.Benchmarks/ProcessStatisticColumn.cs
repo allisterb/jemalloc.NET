@@ -9,10 +9,10 @@ using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Columns;
 namespace jemalloc.Benchmarks
 {
-    public class ProcessMemoryStatisticColumn : IColumn
+    public class ProcessStatisticColumn : IColumn
     {
         #region Constructors
-        public ProcessMemoryStatisticColumn(string columnName, Func<string> jemStatFunction, string legend)
+        public ProcessStatisticColumn(string columnName, Func<string> jemStatFunction, string legend)
         {
             ColumnName = columnName;
             JemStatFunction = jemStatFunction;
@@ -69,9 +69,15 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Available columns
-        public static readonly IColumn ProcessPrivateMemory = new JemStatisticColumn("Process allocated", () => JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory),
-            "Memory for entire process per single operation (native and managed, inclusive, 1KB = 1024B)");
-       
+        public static readonly IColumn PeakVirtualMemory = new JemStatisticColumn("PeakVirtualMem", () => JemUtil.PrintBytes(JemUtil.ProcessPeakVirtualMem),
+            "Peak virtual memory for entire process (native and managed, inclusive, 1KB = 1024B)");
+
+        public static readonly IColumn PeakWorkingSet = new JemStatisticColumn("PeakWorkingSet", () => JemUtil.ProcessPeakWorkingSet.ToString(),
+            "Peak working set for entire process per single operation (native and managed, inclusive, 1KB = 1024B)");
+
+        public static readonly IColumn VirtualMemory = new JemStatisticColumn("VirtualMemory", () => JemUtil.PrintBytes(JemUtil.ProcessVirtualMemory),
+            "Virtual memory allocated for entire process per single operation (native and managed, inclusive, 1KB = 1024B)");
+
         #endregion
     }
 }

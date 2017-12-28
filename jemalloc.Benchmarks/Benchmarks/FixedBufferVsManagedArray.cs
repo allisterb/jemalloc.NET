@@ -80,17 +80,20 @@ namespace jemalloc.Benchmarks
         }
 
         [GlobalCleanup(Target = nameof(FillFixedBufferWithCreate))]
-        public void CleanupFillArray()
+        public void ValidateAndCleanupFillArray()
         {
             InfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
             FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
             T fill = GetValue<T>("fill");
-            int index = GM<T>.Rng.Next(0, ArraySize);
-            if (!nativeArray[index].Equals(managedArray[index]))
+            for (int i = 0; i < ArraySize / 1000; i++)
             {
-                Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {fill}.");
-                throw new Exception();
+                int index = GM<T>.Rng.Next(0, ArraySize);
+                if (!nativeArray[index].Equals(fill))
+                {
+                    Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {fill}.");
+                    throw new Exception();
+                }
             }
             nativeArray.Release();
             nativeArray.Free();
