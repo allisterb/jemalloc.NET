@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace jemalloc
@@ -86,6 +87,16 @@ namespace jemalloc
                 return CurrentProcess.PagedMemorySize64;
             }
         }
+
+        public static Type CLRType<T>() => typeof(T);
+
+        public static uint ElementSizeInBytes<T>() where T: struct => (uint)JemUtil.SizeOfStruct<T>();
+
+        public static bool IsNumeric<T>() => JemUtil.IsNumericType<T>();
+
+        public static int VectorLength<T>() where T : struct => IsNumeric<T>() ? Vector<T>.Count : 0;
+
+        public static bool SIMD => Vector.IsHardwareAccelerated;
         #endregion
 
         #region Methods

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -234,9 +235,78 @@ namespace jemalloc
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe ReadOnlySpan<T> AcquireSpan()
+        {
+            Acquire();
+            return new ReadOnlySpan<T>((void*) _Ptr, (int)Length);
+        }
+
+
         public ReadOnlySpan<T> Slice(int start, int length)
         {
             return Span.Slice(start, length);
+        }
+
+        public Vector<T> AcquireAsSingleVector()
+        {
+            if (this.Length != Vector<T>.Count)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {JemUtil.CLRType<T>().Name}.");
+            }
+            ReadOnlySpan<T> span = AcquireSpan();
+            ReadOnlySpan<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
+            return vector[0];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe ReadOnlySpan<Vector<T>> AcquireVectorSpan()
+        {
+            ThrowIfNotVectorizable();
+            return AcquireSpan().NonPortableCast<T, Vector<T>>();
+        }
+
+        #region Arithmetic
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void VectorMultiply(T value)
+        {
+            ThrowIfNotVectorizable();
+            T[] fill = new T[JemUtil.VectorLength<T>()];
+            Span<T> fillSpan = new Span<T>(fill);
+            fillSpan.Fill(value);
+            Span<Vector<T>> vectorSpan = AcquireVectorWriteSpan();
+            Vector<T> mulVector = fillSpan.NonPortableCast<T, Vector<T>>()[0];
+            for (int i = 0; i < vectorSpan.Length; i++)
+            {
+                vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
+            }
+            Release();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void VectorSqrt()
+        {
+            ThrowIfNotVectorizable();
+            Span<Vector<T>> vector = AcquireVectorWriteSpan();
+            for (int i = 0; i < vector.Length; i++)
+            {
+                vector[i] = Vector.SquareRoot(vector[i]);
+            }
+            Release();
+        }
+
+        #endregion
+
+        private unsafe Span<T> AcquireWriteSpan()
+        {
+            Acquire();
+            return new Span<T>((void*)_Ptr, (int)Length);
+        }
+
+        public unsafe Span<Vector<T>> AcquireVectorWriteSpan()
+        {
+            ThrowIfNotVectorizable();
+            return AcquireWriteSpan().NonPortableCast<T, Vector<T>>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -301,6 +371,14 @@ namespace jemalloc
             if (!typeof(T).IsPrimitive)
             {
                 throw new ArgumentException($"The type {typeof(T).Name} is not a primitive type.");
+            }
+        }
+
+        internal void ThrowIfNotVectorizable()
+        {
+            if (Length == 0 || Length % JemUtil.VectorLength<T>() != 0)
+            {
+                throw new InvalidOperationException("Buffer is not vectorizable.");
             }
         }
 

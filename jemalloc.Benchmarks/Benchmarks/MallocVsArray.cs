@@ -20,7 +20,7 @@ namespace jemalloc.Benchmarks
         public override void GlobalSetup()
         {
             base.GlobalSetup();
-            Jem.Init("dirty_decay_ms:0,muzzy_decay_ms:0,junk:false");
+            //Jem.Init("dirty_decay_ms:0,muzzy_decay_ms:0,junk:false");
         }
 
         #region Create

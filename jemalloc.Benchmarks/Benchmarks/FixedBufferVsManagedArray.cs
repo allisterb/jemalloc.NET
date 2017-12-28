@@ -138,6 +138,7 @@ namespace jemalloc.Benchmarks
             {
                 m[i] = GM<T>.Multiply(m[i], mul);
             }
+            this.SetStatistic($"{nameof(ArithmeticMutiplyManagedArray)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
         }
 
         [Benchmark(Description = "Vector multiply all values of a native array with a single value.")]
@@ -146,33 +147,40 @@ namespace jemalloc.Benchmarks
         {
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
-            SafeArray<T> array = GetValue<SafeArray<T>>("nativeArray");
+            FixedBuffer<T> array = GetValue<FixedBuffer<T>>("nativeArray");
             array.Fill(fill);
-            array.VectorMultiply(mul);          
+            array.VectorMultiply(mul);
+            this.SetStatistic($"{nameof(ArithmeticMultiplyNativeArray)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
         }
 
         [GlobalCleanup(Target = nameof(ArithmeticMultiplyNativeArray))]
-        public void ArithmeticMultiplyCleanup()
+        public void ArithmeticMultiplyValidateAndCleanup()
         {
             InfoThis();
-            int index = GM<T>.Rng.Next(0, ArraySize);
-            SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
+            int index; 
+            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
             T[] managedArray = GetValue<T[]>("managedArray");
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
             T val = GM<T>.Multiply(fill, mul);
-            if (!nativeArray[index].Equals(val))
+            for (int i = 0; i < ArraySize % 100; i++)
             {
-                Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {val}.");
-                throw new Exception();
-            }
-            else if (!managedArray[index].Equals(val))
-            {
-                Log.WriteLineError($"Managed array at index {index} is {managedArray[index]} not {val}.");
-                throw new Exception();
+                index = GM<T>.Rng.Next(0, ArraySize);
+                if (!nativeArray[index].Equals(val))
+                {
+                    Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {val}.");
+                    throw new Exception();
+                }
+                else if (!managedArray[index].Equals(val))
+                {
+                    Log.WriteLineError($"Managed array at index {index} is {managedArray[index]} not {val}.");
+                    throw new Exception();
+                }
+
             }
             managedArray = null;
             nativeArray.Release();
+            nativeArray.Free();
             RemoveValue("managedArray");
             RemoveValue("nativeArray");
             RemoveValue("fill");
