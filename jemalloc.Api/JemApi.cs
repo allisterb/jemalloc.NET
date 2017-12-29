@@ -544,9 +544,11 @@ namespace jemalloc
         #endregion
 
         #region jemalloc Statistics
-        public static UInt64 AllocatedPages => GetMallCtlUInt64("stats.allocated");
-        public static UInt64 ActivePages => GetMallCtlUInt64("stats.active");
+        public static UInt64 AllocatedBytes => GetMallCtlUInt64("stats.allocated");
+        public static UInt64 ActiveBytes => GetMallCtlUInt64("stats.active");
         public static UInt64 MappedBytes => GetMallCtlUInt64("stats.mapped");
+        public static UInt64 ResidentBytes => GetMallCtlUInt64("stats.resident");
+
         #endregion
 
         #region Allocations ledgers

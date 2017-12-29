@@ -12,6 +12,7 @@ namespace jemalloc.Tests
         public void CanCreateFixedArray()
         {
             FixedBuffer<byte> buffer = new FixedBuffer<byte>(4096);
+            ref byte z = ref buffer[0];
             byte[] managedArray = new byte[4096];
             SafeArray<FixedBuffer<byte>> byteBuffer = new SafeArray<FixedBuffer<byte>>(1000);
             byteBuffer[0] = new FixedBuffer<byte>(100);
@@ -39,9 +40,9 @@ namespace jemalloc.Tests
             SafeArray<FixedBuffer<byte>> byteBuffer = new SafeArray<FixedBuffer<byte>>(100);
             for (int i = 0; i < 100; i++)
             {
-                ulong jem_before_alloc = Jem.AllocatedPages;
+                ulong jem_before_alloc = Jem.AllocatedBytes;
                 byteBuffer[i] = new FixedBuffer<byte>((i * 16) + (1024 * 1024));
-                ulong jem_after_alloc = Jem.AllocatedPages;
+                ulong jem_after_alloc = Jem.AllocatedBytes;
                 //Assert.True(jem_after_alloc > jem_before_alloc);
                 byteBuffer.Release();
                 long mem_after_free = JemUtil.ProcessPrivateMemory;

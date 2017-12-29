@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,7 +13,7 @@ using System.Text;
 
 namespace jemalloc
 {
-    public abstract class SafeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct, IEquatable<T>
+    public abstract class SafeBuffer<T> : SafeHandle, IRetainable, IDisposable, IEquatable<SafeBuffer<T>>, IEnumerable<T> where T : struct, IEquatable<T>
     {
         #region Constructors
         protected SafeBuffer(int length, params T[] values) : base(IntPtr.Zero, true)
@@ -45,6 +46,31 @@ namespace jemalloc
         public override bool IsInvalid => handle == IntPtr.Zero;
         #endregion
 
+        #region Implemented members
+        public void Retain() => Acquire();
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        public bool Release()
+        {
+            
+            if (IsNotAllocated || IsInvalid || RefCount == 0)
+            {
+                return false;
+            }
+            else
+            {
+                Jem.DecrementRefCount(handle);
+                DangerousRelease();
+                return true;
+            }
+        }
+
+        public bool Equals(SafeBuffer<T> other)
+        {
+            return this.handle == other.handle && this.Length == other.Length;
+        }
+        #endregion
+
         #region Properties
         public int Length { get; protected set; }
 
@@ -55,6 +81,17 @@ namespace jemalloc
         public bool IsAllocated => !IsNotAllocated;
 
         public bool IsValid => !IsInvalid;
+
+        public int RefCount
+        {
+            get
+            {
+                ThrowIfNotAllocatedOrInvalid();
+                return Jem.GetRefCount(handle);
+            }
+        }
+
+        public bool IsRetained => RefCount > 0;
 
         public bool IsVectorizable { get; protected set; }
         #endregion
@@ -72,15 +109,6 @@ namespace jemalloc
                 Jem.IncrementRefCount(handle);
             }
             return success;
-        }
-
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        public void Release()
-        {
-            if (IsNotAllocated || IsInvalid)
-                return;
-            Jem.DecrementRefCount(handle);
-            DangerousRelease();
         }
 
         protected unsafe ref T DangerousAsRef(int index)

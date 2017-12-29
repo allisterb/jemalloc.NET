@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-
+using System.Threading;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Loggers;
@@ -12,32 +12,42 @@ namespace jemalloc.Benchmarks
     public class SafeVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public int ArraySize  => Parameter;
-
+        public readonly T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
+        public readonly (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
+      
         [GlobalSetup]
         public override void GlobalSetup()
         {
+            DebugInfoThis();
             base.GlobalSetup();
             Info($"Array size is {ArraySize}.");
-        }
-
-        #region Fill
-        [GlobalSetup(Target = nameof(FillManagedArray))]
-        public void FillSetup()
-        {
-            InfoThis();
-            T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
-            Info($"Array fill value is {fill}.");
-            SetValue("fill", fill);
-            SetValue("managedArray", new T[ArraySize]);
+            T[] managedArray = new T[ArraySize];
+            SetValue("managedArray", managedArray);
             SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
             nativeArray.Acquire();
             SetValue("nativeArray", nativeArray);
-        }
+            if (Operation == Operation.FILL)
+            {
+                Info($"Array fill value is {fill}.");
+                SetValue("fill", fill);
+            }
+            else if (Operation == Operation.MATH)
+            {
+                Info($"Array fill value is {mul.max}.");
+                nativeArray.Fill(mul.max);
+                new Span<T>(managedArray).Fill(mul.max);
+                SetValue("fill", mul.max);
+                Info($"Array multiply factor is {mul.factor}.");
+                SetValue("mul", mul.factor);
+            }
+          }
 
+        #region Fill      
         [Benchmark(Description = "Fill a managed array with a single value.")]
         [BenchmarkCategory("Fill")]
         public void FillManagedArray()
         {
+            DebugInfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
             T fill = GetValue<T>("fill");
             for (int i = 0; i < managedArray.Length; i++)
@@ -50,6 +60,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillNativeArray()
         {
+            DebugInfoThis();
             SafeArray<T> nativeArray = GetValue<SafeArray<T>>("nativeArray");
             T fill = GetValue<T>("fill");
             nativeArray.Fill(fill);
@@ -59,6 +70,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillManagedArrayWithCreate()
         {
+            DebugInfoThis();
             T[] managedArray = new T[ArraySize];
             T fill = GetValue<T>("fill");
             for (int i = 0; i < managedArray.Length; i++)
@@ -72,6 +84,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillNativeArrayWithCreate()
         {
+            DebugInfoThis();
             SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
             T fill = GetValue<T>("fill");
             nativeArray.Fill(fill);
@@ -79,7 +92,7 @@ namespace jemalloc.Benchmarks
         }
 
         [GlobalCleanup(Target = nameof(FillNativeArrayWithCreate))]
-        public void CleanupFillArray()
+        public void FillArrayValidateAndCleanup()
         {
             InfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
@@ -92,6 +105,7 @@ namespace jemalloc.Benchmarks
                 throw new Exception();
             }
             nativeArray.Release();
+            nativeArray.Close();
             managedArray = null;
             RemoveValue("managedArray");
             RemoveValue("nativeArray");
@@ -100,27 +114,6 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Arithmetic
-        [GlobalSetup(Target = nameof(ArithmeticMutiplyManagedArray))]
-        public void ArithmeticMutiplyGlobalSetup()
-        {
-            InfoThis();
-            (T mul, T fill) = GM<T>.RandomMultiplyFactorAndValue();
-            SafeArray<T> na = new SafeArray<T>(ArraySize);
-            T[] ma = new T[ArraySize];
-            Info($"Array fill value is {fill}.");
-            Info($"Array mul value is {mul}.");
-            na.Fill(fill);
-            for (int i = 0; i < ma.Length; i++)
-            {
-                ma[i] = fill;
-            }
-            na.Acquire();
-            SetValue("fill", fill);
-            SetValue("mul", mul);
-            SetValue("managedArray", ma);
-            SetValue("nativeArray", na);
-        }       
-
         [Benchmark(Description = "Multiply all values of a managed array with a single value.")]
         [BenchmarkCategory("Arithmetic")]
         public void ArithmeticMutiplyManagedArray()
@@ -147,7 +140,7 @@ namespace jemalloc.Benchmarks
         }
 
         [GlobalCleanup(Target = nameof(ArithmeticMultiplyNativeArray))]
-        public void ArithmeticMultiplyCleanup()
+        public void ArithmeticMultiplyValidateAndCleanup()
         {
             InfoThis();
             int index = GM<T>.Rng.Next(0, ArraySize);
@@ -172,23 +165,6 @@ namespace jemalloc.Benchmarks
             RemoveValue("nativeArray");
             RemoveValue("fill");
             RemoveValue("mul");
-        }
-        #endregion
-
-        #region Create
-        [BenchmarkCategory("Create")]
-        [Benchmark(Description = "Create arrays on the .NET LOH", Baseline = true)]
-        public void CreateManagedArray()
-        {
-            T[] someData = new T[ArraySize];
-        }
-
-        [BenchmarkCategory("Create")]
-        [Benchmark(Description = "Create SafeArrays on the system unmanaged heap")]
-        public void CreateNativeArray()
-        {
-            SafeArray<T> array = new SafeArray<T>(ArraySize);
-
         }
         #endregion
     }

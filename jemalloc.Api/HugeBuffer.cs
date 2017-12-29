@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,7 +13,7 @@ using System.Threading;
 
 namespace jemalloc
 {
-    public abstract class HugeBuffer<T> : SafeHandle, IEnumerable<T> where T : struct
+    public abstract class HugeBuffer<T> : SafeHandle, IRetainable, IDisposable, IEquatable<HugeBuffer<T>>, IEnumerable<T> where T : struct, IEquatable<T>
     {
         #region Constructors
         protected HugeBuffer(ulong length, params T[] values) : base(IntPtr.Zero, true)
@@ -45,6 +46,32 @@ namespace jemalloc
         public override bool IsInvalid => handle == IntPtr.Zero;
         #endregion
 
+        #region Implemented members
+
+        public void Retain() => Acquire();
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        public bool Release()
+        {
+
+            if (IsNotAllocated || IsInvalid || RefCount == 0)
+            {
+                return false;
+            }
+            else
+            {
+                Jem.DecrementRefCount(handle);
+                DangerousRelease();
+                return true;
+            }
+        }
+
+        public bool Equals(HugeBuffer<T> other)
+        {
+            return this.handle == other.handle && this.Length == other.Length;
+        }
+        #endregion
+
         #region Properties
         public ulong Length { get; protected set; }
 
@@ -55,6 +82,17 @@ namespace jemalloc
         public bool IsAllocated => !IsNotAllocated;
 
         public bool IsValid => !IsInvalid;
+
+        public int RefCount
+        {
+            get
+            {
+                ThrowIfNotAllocatedOrInvalid();
+                return Jem.GetRefCount(handle);
+            }
+        }
+
+        public bool IsRetained => RefCount > 0;
 
         public bool IsVectorizable { get; protected set; }
 
@@ -73,15 +111,6 @@ namespace jemalloc
                 Jem.IncrementRefCount(handle);
             }
             return success;
-        }
-
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-        public void Release()
-        {
-            if (IsNotAllocated || IsInvalid)
-                return;
-            DangerousRelease();
-            Jem.DecrementRefCount(handle);
         }
 
         protected unsafe ref T DangerousAsRef(ulong index)
@@ -225,7 +254,10 @@ namespace jemalloc
                 Span<T> sFil = new Span<T>(fill);
                 sFil.Fill(value);
                 Vector<T> fillVector = sFil.NonPortableCast<T, Vector<T>>()[0];
-                segmentVectorSpan[0] = Vector.Multiply(segmentVectorSpan[0], fillVector);
+                for (int i = 0; i < segmentVectorSpan.Length; i++)
+                {
+                    segmentVectorSpan[i] = Vector.Multiply(segmentVectorSpan[i], fillVector);
+                }
             }
             Release();
         }

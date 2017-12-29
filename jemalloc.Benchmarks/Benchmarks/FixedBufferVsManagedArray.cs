@@ -12,29 +12,39 @@ namespace jemalloc.Benchmarks
     public class FixedBufferVsManagedArrayBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public int ArraySize  => Parameter;
+        public readonly T fill = typeof(T) == typeof(TestUDT) ? 
+            JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
+        public readonly (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
 
         [GlobalSetup]
         public override void GlobalSetup()
         {
+            DebugInfoThis();
             base.GlobalSetup();
             Info($"Array size is {ArraySize}.");
+            T[] managedArray = new T[ArraySize];
+            SetValue("managedArray", managedArray);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
+            nativeArray.Acquire();
+            SetValue("nativeArray", nativeArray);
+            if (Operation == Operation.FILL)
+            {
+                Info($"Array fill value is {fill}.");
+                SetValue("fill", fill);
+            }
+            else if (Operation == Operation.MATH)
+            {
+                Info($"Array fill value is {mul.max}.");
+                nativeArray.Fill(mul.max);
+                new Span<T>(managedArray).Fill(mul.max);
+                SetValue("fill", mul.max);
+                Info($"Array multiply factor is {mul.factor}.");
+                SetValue("mul", mul.factor);
+            }
         }
 
 
         #region Fill
-        [GlobalSetup(Target = nameof(FillManagedArray))]
-        public void FillSetup()
-        {
-            InfoThis();
-            T fill = GM<T>.Random();
-            Info($"Array fill value is {fill}.");
-            SetValue("fill", fill);
-            SetValue("managedArray", new T[ArraySize]);
-            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
-            nativeArray.Acquire();
-            SetValue("nativeArray", nativeArray);
-        }
-
         [Benchmark(Description = "Fill a managed array with a single value.")]
         [BenchmarkCategory("Fill")]
         public void FillManagedArray()
@@ -80,7 +90,7 @@ namespace jemalloc.Benchmarks
         }
 
         [GlobalCleanup(Target = nameof(FillFixedBufferWithCreate))]
-        public void ValidateAndCleanupFillArray()
+        public void FillValidateAndCleanup()
         {
             InfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
@@ -105,27 +115,6 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Arithmetic
-        [GlobalSetup(Target = nameof(ArithmeticMutiplyManagedArray))]
-        public void ArithmeticMutiplyGlobalSetup()
-        {
-            InfoThis();
-            (T mul, T fill) = GM<T>.RandomMultiplyFactorAndValue();
-            FixedBuffer<T> na = new FixedBuffer<T>(ArraySize);
-            T[] ma = new T[ArraySize];
-            Info($"Array fill value is {fill}.");
-            Info($"Array mul value is {mul}.");
-            na.Fill(fill);
-            for (int i = 0; i < ma.Length; i++)
-            {
-                ma[i] = fill;
-            }
-            na.Acquire();
-            SetValue("fill", fill);
-            SetValue("mul", mul);
-            SetValue("managedArray", ma);
-            SetValue("nativeArray", na);
-        }       
-
         [Benchmark(Description = "Multiply all values of a managed array with a single value.")]
         [BenchmarkCategory("Arithmetic")]
         public void ArithmeticMutiplyManagedArray()
@@ -145,6 +134,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Arithmetic")]
         public void ArithmeticMultiplyNativeArray()
         {
+            DebugInfoThis();
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
             FixedBuffer<T> array = GetValue<FixedBuffer<T>>("nativeArray");

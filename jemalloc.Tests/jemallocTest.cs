@@ -19,7 +19,7 @@ namespace jemalloc.Tests
             init_peakPagedMem = CurrentProcess.PeakPagedMemorySize64;
             init_peakWorkingSet = CurrentProcess.PeakWorkingSet64;
             init_peakVirtualMem = CurrentProcess.PeakVirtualMemorySize64;
-            init_allocated = Jem.AllocatedPages;
+            init_allocated = Jem.AllocatedBytes;
         }
 
         #region Fields

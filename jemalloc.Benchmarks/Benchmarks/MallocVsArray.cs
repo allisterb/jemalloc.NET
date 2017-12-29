@@ -13,14 +13,14 @@ namespace jemalloc.Benchmarks
     {
         public int ArraySize => Parameter;
         public const int InitialLargeBlockSize = 64 * 1024 * 1024; //64 MB
-        public const int SmallBlockSize = 900000;
+        public const int SmallBlockSize = 90000;
         public int LoopCount => Parameter;
 
         [GlobalSetup]
         public override void GlobalSetup()
         {
             base.GlobalSetup();
-            //Jem.Init("dirty_decay_ms:0,muzzy_decay_ms:0,junk:false");
+            Jem.Init("dirty_decay_ms:0,muzzy_decay_ms:0,junk:false,tcache:false");
         }
 
         #region Create
@@ -29,6 +29,7 @@ namespace jemalloc.Benchmarks
         public void CreateManagedArray()
         {
             T[] someData = new T[ArraySize];
+            SetMemoryStatistics();
             someData = null;
          }
 
@@ -42,6 +43,7 @@ namespace jemalloc.Benchmarks
             {
                 Span<T> s = new Span<T>(ptr.ToPointer(), ArraySize);
             }
+            SetMemoryStatistics();
             Jem.Free(ptr);
         }
         #endregion
@@ -89,7 +91,10 @@ namespace jemalloc.Benchmarks
                     T[] smallBlock = new T[SmallBlockSize];
                     largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }
+                this.SetStatistic($"{nameof(FragmentLOHBaseline)}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+                this.SetStatistic($"{nameof(FragmentLOHBaseline)}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
                 this.SetStatistic($"{nameof(FragmentLOHBaseline)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+                this.SetStatistic($"{nameof(FragmentLOHBaseline)}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
             }
             catch (OutOfMemoryException)
             {
@@ -119,7 +124,11 @@ namespace jemalloc.Benchmarks
                     largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
 
                 }
+                this.SetStatistic($"{nameof(FragmentLOH)}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+                this.SetStatistic($"{nameof(FragmentLOH)}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
                 this.SetStatistic($"{nameof(FragmentLOH)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+                this.SetStatistic($"{nameof(FragmentLOH)}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
+
             }
             catch (OutOfMemoryException)
             {
@@ -155,7 +164,11 @@ namespace jemalloc.Benchmarks
                     smallBlocks.Add(smallBlock);
                     largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }
+                this.SetStatistic($"{nameof(FragmentLOHWithCompact)}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+                this.SetStatistic($"{nameof(FragmentLOHWithCompact)}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
                 this.SetStatistic($"{nameof(FragmentLOHWithCompact)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+                this.SetStatistic($"{nameof(FragmentLOHWithCompact)}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
+
             }
             catch (OutOfMemoryException)
             {
@@ -168,7 +181,51 @@ namespace jemalloc.Benchmarks
                 GC.Collect();
             }
         }
-        
+
+        [Benchmark(Description = "Run an allocation pattern that won't fragment the unmanaged heap.")]
+        [BenchmarkCategory("Unmanaged", "Fragment")]
+        public void FragmentNativeHeapBaseline()
+        {
+
+            Info($"Dirty decay time: {Jem.GetMallCtlSInt64("arenas.dirty_decay_ms")} ms");
+            int largeBlockSize = InitialLargeBlockSize;
+            int i = 0;
+            FixedBuffer<T> bigBlock = default;
+            try
+            {
+                for (i = 0; i < LoopCount; i++)
+                {
+                    bigBlock = new FixedBuffer<T>(largeBlockSize);
+                    FixedBuffer<T> smallBlock = new FixedBuffer<T>(SmallBlockSize);
+                    int j = JemUtil.Rng.Next(0, ArraySize);
+                    T r = GM<T>.Random();
+                    smallBlock[j] = r;
+                    if (!smallBlock[j].Equals(r))
+                    {
+                        throw new Exception($"Cannot validate small block at index {i}.");
+                    }
+                    if (!smallBlock.Free()) throw new Exception("Cannot free smallBlock.");
+                    if (!bigBlock.Free()) throw new Exception("Cannot free bigBlock.");
+                    largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
+                }
+                this.SetStatistic($"{nameof(FragmentNativeHeapBaseline)}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+                this.SetStatistic($"{nameof(FragmentNativeHeapBaseline)}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
+                this.SetStatistic($"{nameof(FragmentNativeHeapBaseline)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+                this.SetStatistic($"{nameof(FragmentNativeHeapBaseline)}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
+
+            }
+            catch (OutOfMemoryException)
+            {
+                Info(Jem.MallocStats);
+                Error($"Out-of-Memory at index {i} with large block size {largeBlockSize}.");
+                throw;
+            }
+            finally
+            {
+                GC.Collect();
+            }
+        }
+
         [Benchmark(Description = "Run an allocation pattern that fragments the unmanaged heap.")]
         [BenchmarkCategory("Unmanaged", "Fragment")]
         public void FragmentNativeHeap()
@@ -196,7 +253,10 @@ namespace jemalloc.Benchmarks
                     if (!bigBlock.Free()) throw new Exception("Cannot free bigBlock.");
                     largeBlockSize = largeBlockSize + (1 * 1024 * 1024);
                 }
+                this.SetStatistic($"{nameof(FragmentNativeHeap)}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+                this.SetStatistic($"{nameof(FragmentNativeHeap)}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
                 this.SetStatistic($"{nameof(FragmentNativeHeap)}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+                this.SetStatistic($"{nameof(FragmentNativeHeap)}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
                 foreach (FixedBuffer<T> b in smallBlocks)
                 {
                     if (!b.Free()) throw new Exception($"Cannot free small block at index {i}.");
@@ -212,6 +272,10 @@ namespace jemalloc.Benchmarks
                     b.Free();
                 }
                 throw;
+            }
+            finally
+            {
+                GC.Collect();
             }
         }
 

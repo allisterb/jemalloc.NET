@@ -17,6 +17,24 @@ using BenchmarkDotNet.Loggers;
 
 namespace jemalloc.Benchmarks
 {
+    #region Enums
+    public enum Category
+    {
+        MALLOC,
+        NARRAY,
+        HUGEARRAY,
+        BUFFER
+    }
+
+    public enum Operation
+    {
+        CREATE,
+        FILL,
+        MATH,
+        FRAGMENT
+    }
+    #endregion
+
     [JemBenchmarkJob]
     [MemoryDiagnoser]
     public abstract class JemBenchmark<TData, TParam> where TData : struct, IEquatable<TData>, IComparable<TData>, IConvertible where TParam : struct
@@ -34,6 +52,14 @@ namespace jemalloc.Benchmarks
         public TParam Parameter;
 
         public static IEnumerable<TParam> BenchmarkParameters { get; set; }
+
+        public static Category Category { get; set; }
+
+        public static Operation Operation { get; set; }
+
+        public static bool Debug { get; set; }
+
+        public static bool Validate { get; set; }
 
         public static ILogger Log { get; } = new ConsoleLogger();
 
@@ -96,25 +122,22 @@ namespace jemalloc.Benchmarks
 
         public TValue GetValue<TValue>(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            if (JemUtil.BenchmarkValues.TryGetValue($"{Thread.CurrentThread.ManagedThreadId}_{name}", out object v))
+            if (JemUtil.BenchmarkValues.TryGetValue($"{name}", out object v))
             {
                 return (TValue) v;
             }
             else throw new Exception($"Could not get value {name}.");
         }
 
-        public TValue SetValue<TValue>(string name, TValue value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        public void SetValue<TValue>(string name, TValue value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            if (!JemUtil.BenchmarkValues.TryAdd($"{Thread.CurrentThread.ManagedThreadId}_{name}", value))
-            {
-                throw new Exception("Could not add value.");
-            }
-            return value;
+            JemUtil.BenchmarkValues.GetOrAdd($"{name}", value);
+         
         }
 
         public void RemoveValue(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkValues.Remove($"{Thread.CurrentThread.ManagedThreadId}_{name}", out object o);
+            JemUtil.BenchmarkValues.Remove($"{name}", out object o);
         }
 
         public void SetStatistic(string name, string value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
@@ -122,10 +145,34 @@ namespace jemalloc.Benchmarks
             JemUtil.BenchmarkStatistics.AddOrUpdate(name, value, ((k, v) => value));
         }
 
+        public void SetMemoryStatistics([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        {
+            this.SetStatistic($"{memberName}_WorkingSet", JemUtil.PrintBytes(JemUtil.ProcessWorkingSet));
+            this.SetStatistic($"{memberName}_JemResident", JemUtil.PrintBytes(Jem.ResidentBytes));
+            this.SetStatistic($"{memberName}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
+            this.SetStatistic($"{memberName}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
+        }
+
         #region Log
         public static void Info(string format, params object[] values) => Log.WriteLineInfo(string.Format(format, values));
 
-        public static void InfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => Info("Executing {0}().", memberName);
+        public static void DebugInfo(string format, params object[] values)
+        {
+            if (Debug)
+            {
+                Info(format, values);
+            }
+        }
+
+        public static void InfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => Info("Executing {0}() on thread {1}.", memberName, Thread.CurrentThread.ManagedThreadId);
+
+        public static void DebugInfoThis([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
+        {
+            if (Debug)
+            {
+                InfoThis(memberName, fileName, lineNumber);
+            }
+        }
 
         public static void Error(string text, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0) => 
             Log.WriteLineError(string.Format("Error : {0} At {1} in {2} on line {3}.", text, memberName, fileName, lineNumber));

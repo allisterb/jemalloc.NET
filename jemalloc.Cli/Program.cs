@@ -25,22 +25,7 @@ namespace jemalloc.Cli
             INVALID_OPTIONS = 2
         }
 
-        public enum Category
-        {
-            MALLOC,
-            NARRAY,
-            HUGEARRAY,
-            BUFFER
-        }
-
-        public enum Operation
-        {
-            CREATE,
-            FILL,
-            MATH,
-            FRAGMENT
-        }
-
+ 
         static Version Version = Assembly.GetExecutingAssembly().GetName().Version;
         static LoggerConfiguration LConfig;
         static ILogger L;
@@ -142,6 +127,11 @@ namespace jemalloc.Cli
                 if (o.TargetCount > 0)
                 {
                     JemBenchmarkJobAttribute.TargetCountOverride = o.TargetCount;
+                }
+                if (o.Once)
+                {
+                    JemBenchmarkJobAttribute.ColdStartOverride = true;
+                    JemBenchmarkJobAttribute.TargetCountOverride = 1;
                 }
             })
             .WithParsed<MallocBenchmarkOptions>(o =>
@@ -264,7 +254,7 @@ namespace jemalloc.Cli
             {
                 Benchmark<SByte>();
             }
-            if (o.Int16 && o.Unsigned)
+            else if (o.Int16 && o.Unsigned)
             {
                 Benchmark<UInt16>();
             }
@@ -310,11 +300,16 @@ namespace jemalloc.Cli
             IConfig config = ManualConfig
                          .Create(DefaultConfig.Instance);
             JemBenchmarkAttribute.CurrentConfig = config;
+            JemBenchmarkAttribute.Category = (Category)BenchmarkOptions["Category"];
+            JemBenchmarkAttribute.Operation = (Operation)BenchmarkOptions["Operation"];
             try
             {
                 switch ((Category)BenchmarkOptions["Category"])
                 {
                     case Category.MALLOC:
+                        MallocVsArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
+                        MallocVsArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
+                        MallocVsArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
                         MallocVsArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
@@ -347,6 +342,9 @@ namespace jemalloc.Cli
 
                     case Category.BUFFER:
                         FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        FixedBufferVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
+                        FixedBufferVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
+                        FixedBufferVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:
@@ -385,6 +383,9 @@ namespace jemalloc.Cli
 
                     case Category.NARRAY:
                         SafeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        SafeVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
+                        SafeVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
+                        SafeVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:
@@ -423,6 +424,9 @@ namespace jemalloc.Cli
 
                     case Category.HUGEARRAY:
                         HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<ulong>)BenchmarkOptions["Sizes"];
+                        HugeNativeVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
+                        HugeNativeVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
+                        HugeNativeVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:

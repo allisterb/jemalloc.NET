@@ -11,28 +11,40 @@ namespace jemalloc.Benchmarks
     public class HugeNativeVsManagedArrayBenchmark<T> : JemBenchmark<T, ulong> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         public ulong ArraySize => Parameter;
+        public readonly int MaxManagedArraySize = 2146435071;
+        public T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
+        public (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
 
         [GlobalSetup]
         public override void GlobalSetup()
         {
+            DebugInfoThis();
             base.GlobalSetup();
-            Info($"Array size is {ArraySize}.");
-        }
-
-        #region Fill
-        [GlobalSetup(Target = nameof(FillManagedArray))]
-        public void FillSetup()
-        {
-            InfoThis();
-            T fill = GM<T>.Random();
-            Info($"Array fill value is {fill}.");
-            SetValue("fill", fill);
-            SetValue("managedArray", new T[ArraySize]);
+            Info($"Unmanaged array size is {ArraySize}.");
+            Info($"Managed array size is {ArraySize}.");
+            T[] managedArray = new T[MaxManagedArraySize];
+            SetValue("managedArray", managedArray);
             HugeArray<T> hugeArray = new HugeArray<T>(ArraySize);
             hugeArray.Acquire();
             SetValue("hugeArray", hugeArray);
+            if (Operation == Operation.FILL)
+            {
+                SetValue("fill", fill);
+                Info($"Array fill value is {fill}.");
+                SetValue("fill", fill);
+            }
+            else if (Operation == Operation.MATH)
+            {
+                Info($"Array fill value is {mul.max}.");
+                new Span<T>(managedArray).Fill(mul.max);
+                hugeArray.Fill(mul.max);
+                SetValue("fill", mul.max);
+                Info($"Array multiply factor is {mul.factor}.");
+                SetValue("mul", mul.factor);
+            }
         }
 
+        #region Fill
         [Benchmark(Description = "Fill a managed array with the maximum size [2146435071] with a single value.")]
         [BenchmarkCategory("Fill")]
         public void FillManagedArray()
@@ -74,7 +86,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillHugeNativeArrayWithCreate()
         {
-            InfoThis();
+            DebugInfoThis();
             HugeArray<T> hugeArray = new HugeArray<T>(ArraySize);
             T fill = GetValue<T>("fill");
             hugeArray.Fill(fill);
@@ -122,30 +134,9 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Arithmetic
-        [GlobalSetup(Target = nameof(ArithmeticMutiplyManagedArray))]
-        public void ArithmeticMutiplyGlobalSetup()
-        {
-            InfoThis();
-            (T mul, T fill) = GM<T>.RandomMultiplyFactorAndValue();
-            HugeArray<T> ha = new HugeArray<T>(ArraySize);
-            T[] ma = new T[ArraySize];
-            Info($"Array fill value is {fill}.");
-            Info($"Array mul value is {mul}.");
-            ha.Fill(fill);
-            for (int i = 0; i < ma.Length; i++)
-            {
-                ma[i] = fill;
-            }
-            ha.Acquire();
-            SetValue("fill", fill);
-            SetValue("mul", mul);
-            SetValue("managedArray", ma);
-            SetValue("hugeArray", ha);
-        }
-
         [Benchmark(Description = "Multiply all values of a managed array with the maximum size [2146435071] with a single value.")]
         [BenchmarkCategory("Arithmetic")]
-        public void ArithmeticMutiplyManagedArray()
+        public void ArithmeticMultiplyManagedArray()
         {
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
@@ -170,7 +161,7 @@ namespace jemalloc.Benchmarks
         }
 
         [GlobalCleanup(Target = nameof(ArithmeticMultiplyHugeNativeArray))]
-        public void ArithmeticMultiplyCleanup()
+        public void ArithmeticMultiplyValidateAndCleanup()
         {
             InfoThis();
             ulong index = (ulong) (GM<T>.Rng.NextDouble() * ArraySize);
@@ -191,6 +182,7 @@ namespace jemalloc.Benchmarks
             }
             managedArray = null;
             hugeArray.Release();
+            hugeArray.Close();
             RemoveValue("managedArray");
             RemoveValue("hugeArray");
             RemoveValue("fill");

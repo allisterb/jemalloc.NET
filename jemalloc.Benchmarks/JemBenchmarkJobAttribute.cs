@@ -6,6 +6,7 @@ using BenchmarkDotNet.Engines;
 using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Toolchains.InProcess;
 
 namespace jemalloc.Benchmarks

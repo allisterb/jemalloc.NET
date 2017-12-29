@@ -93,13 +93,11 @@ namespace jemalloc.Benchmarks
         public override string ToString() => ColumnName;
         #endregion
 
-        #region Fields
-        
-        #endregion
-
         #region Available columns
-        public static readonly IColumn PrivateMemory = new BenchmarkStatisticColumn("PrivateMemory", "Private memory allocated (native and managed, inclusive, 1KB = 1024B)");
-
+        public static readonly IColumn PrivateMemory = new BenchmarkStatisticColumn("PrivateMemory", "Total memory allocated for process(native and managed, 1KB = 1024B)");
+        public static readonly IColumn WorkingSet = new BenchmarkStatisticColumn("WorkingSet", "Memory that is currently being used by process(native and managed, 1KB = 1024B)");
+        public static readonly IColumn JemAllocated = new BenchmarkStatisticColumn("JemAllocated", "Total memory allocated by jemalloc(native only, inclusive, 1KB = 1024B)");
+        public static readonly IColumn JemResident = new BenchmarkStatisticColumn("JemResident", "Resident memory allocated by jemalloc(native only, inclusive, 1KB = 1024B)");
         #endregion
     }
 }

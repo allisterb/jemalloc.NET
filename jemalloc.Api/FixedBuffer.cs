@@ -193,6 +193,10 @@ namespace jemalloc
             {
                 return false;
             }
+            if(IsRetained)
+            {
+                return false;
+            }
             IntPtr p = _Ptr;
        
             if (Interlocked.Exchange(ref p, IntPtr.Zero) != IntPtr.Zero)
@@ -300,7 +304,7 @@ namespace jemalloc
         private unsafe Span<T> AcquireWriteSpan()
         {
             Acquire();
-            return new Span<T>((void*)_Ptr, (int)Length);
+            return new Span<T>((void*)_Ptr, _Length);
         }
 
         public unsafe Span<Vector<T>> AcquireVectorWriteSpan()
@@ -310,7 +314,7 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe ref T Read(int index)
+        internal unsafe ref T Read(int index)
         {
             Retain();
             // return (T*) (_ptr + byteOffset);
@@ -320,7 +324,7 @@ namespace jemalloc
         }
 
 
-        private unsafe ref T Write(int index, ref T value)
+        internal unsafe ref T Write(int index, ref T value)
         {
             Retain();
             ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);

@@ -247,6 +247,8 @@ namespace jemalloc
 
         public int IndexOf(uint codePoint) => Span.IndexOf(codePoint);
 
+        public int IndexOf(string s) => Span.IndexOf(new Utf8Span(Encoding.UTF8.GetBytes(s)));
+
         public int LastIndexOf(FixedUtf8String value) => Span.LastIndexOf(value.Span);
 
         public int LastIndexOf(uint codePoint) => Span.LastIndexOf(codePoint);
