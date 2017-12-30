@@ -73,7 +73,7 @@ namespace jemalloc.Benchmarks
         public void FillManagedArrayWithCreate()
         {
             DebugInfoThis();
-            T[] managedArray = new T[ArraySize];
+            T[] managedArray = new T[MaxManagedArraySize];
             T fill = GetValue<T>("fill");
             for (int i = 0; i < managedArray.Length; i++)
             {

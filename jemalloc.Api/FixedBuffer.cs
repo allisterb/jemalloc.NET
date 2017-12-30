@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -9,7 +11,8 @@ using System.Threading;
 namespace jemalloc
 {
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct FixedBuffer<T> : IDisposable, IRetainable, IEquatable<FixedBuffer<T>> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
+    [DebuggerDisplay("{DebuggerDisplay(),nq}")]
+    public readonly struct FixedBuffer<T> : IDisposable, IRetainable, IEquatable<FixedBuffer<T>>, IEnumerable<T> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
         #region Constructors
         public FixedBuffer(int length)
@@ -84,6 +87,10 @@ namespace jemalloc
             return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp 
                 && this.AllocateThreadId == buffer.AllocateThreadId && this.Rid == buffer.Rid;
         }
+
+        public IEnumerator<T> GetEnumerator() => new FixedBufferEnumerator<T>(this);
+
+        IEnumerator IEnumerable.GetEnumerator() => new FixedBufferEnumerator<T>(this);
 
         #region Disposer
         void IDisposable.Dispose()
@@ -182,6 +189,7 @@ namespace jemalloc
             }
         }
 
+
         #endregion
 
         #region Methods
@@ -220,6 +228,12 @@ namespace jemalloc
         {
             Retain();
             WriteSpan.Fill(value);
+            Release();
+        }
+
+        public void CopyTo(T[] array)
+        {
+            AcquireSpan().CopyTo(new Span<T>(array));
             Release();
         }
 
@@ -388,6 +402,7 @@ namespace jemalloc
 
         internal string Name => $"{nameof(FixedBuffer<T>)}({this._Length})";
 
+        private string DebuggerDisplay() => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);
         #endregion
 
         #region Operators
