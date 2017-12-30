@@ -94,7 +94,7 @@ namespace jemalloc.Benchmarks
             hugeArray = null;
         }
 
-        [GlobalCleanup(Target = nameof(FillHugeNativeArrayWithCreate))]
+        [GlobalCleanup(Target = nameof(FillHugeNativeArray))]
         public void CleanupFillArray()
         {
             InfoThis();

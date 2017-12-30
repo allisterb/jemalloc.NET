@@ -89,7 +89,7 @@ namespace jemalloc.Benchmarks
             nativeArray.Free();
         }
 
-        [GlobalCleanup(Target = nameof(FillFixedBufferWithCreate))]
+        [GlobalCleanup(Target = nameof(FillFixedBuffer))]
         public void FillValidateAndCleanup()
         {
             InfoThis();

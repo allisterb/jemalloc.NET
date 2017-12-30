@@ -5,13 +5,17 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <AssemblyName>jemalloc.Cli</AssemblyName>
-    <AssemblyVersion>0.2.0.0</AssemblyVersion>
-    <FileVersion>0.2.0.0</FileVersion>
-    <Version>0.2.0-alpha</Version>
+    <AssemblyVersion>0.2.1.0</AssemblyVersion>
+    <FileVersion>0.2.1.0</FileVersion>
+    <Version>0.2.1-alpha</Version>
     <Authors>Allister Beharry</Authors>
     <Company />
     <Product>jemalloc.NET</Product>
     <PackageId>jemalloc CLI</PackageId>
+    <Description>Native memory manager for .NET</Description>
+    <PackageLicenseUrl>https://github.com/allisterb/jemalloc.NET/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/allisterb/jemalloc.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/allisterb/jemalloc.NET</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

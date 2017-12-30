@@ -8,12 +8,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>jemalloc.NET</PackageId>
-    <Version>0.2.0-alpha</Version>
+    <Version>0.2.1-alpha</Version>
     <Authors>Allister Beharry</Authors>
     <Company />
     <Product>jemalloc.NET</Product>
-    <AssemblyVersion>0.2.0.0</AssemblyVersion>
-    <FileVersion>0.2.0.0</FileVersion>
+    <AssemblyVersion>0.2.1.0</AssemblyVersion>
+    <FileVersion>0.2.1.0</FileVersion>
     <PackageProjectUrl>https://github.com/allisterb/jemalloc.NET</PackageProjectUrl>
     <PackageLicenseUrl>https://github.com/allisterb/jemalloc.NET/LICENSE</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/allisterb/jemalloc.NET</RepositoryUrl>
