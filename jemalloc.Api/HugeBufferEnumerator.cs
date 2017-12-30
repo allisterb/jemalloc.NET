@@ -7,7 +7,7 @@ using System.Text;
 namespace jemalloc
 {
     /// <summary>Enumerates the elements of a <see cref="HugeBuffer{T}"/>.</summary>
-    public class HugeBufferEnumerator<T> : IEnumerator, IEnumerator<T> where T : struct
+    public class HugeBufferEnumerator<T> : IEnumerator, IEnumerator<T> where T : struct, IEquatable<T>
     {
         /// <summary>The span being enumerated.</summary>
         private readonly HugeBuffer<T> _buffer;

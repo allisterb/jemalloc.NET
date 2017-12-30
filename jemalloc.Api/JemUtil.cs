@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace jemalloc
 {
@@ -178,6 +179,31 @@ namespace jemalloc
         {
             string[] s = PrintBytes(bytes, suffix).Split(' ');
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
+        }
+
+        public static ulong GetWindowsThreadCycles()
+        {
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                throw new PlatformNotSupportedException();
+            }
+
+            if (__Internal.QueryThreadCycleTime(__Internal.PseudoHandle, out ulong cycles))
+            {
+                return cycles;
+            }
+            else
+            {
+                throw new System.ComponentModel.Win32Exception();
+            }
+            
+        }
+
+        public partial struct __Internal
+        {
+            [DllImport("kernel32.dll", SetLastError = true)]
+            internal static extern bool QueryThreadCycleTime(in IntPtr hThread, out ulong cycles);
+            internal static readonly IntPtr PseudoHandle = (IntPtr)(-2);
         }
         #endregion
 

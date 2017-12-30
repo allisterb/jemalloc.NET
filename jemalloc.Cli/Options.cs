@@ -24,6 +24,9 @@ namespace jemalloc.Cli
         [Option('l', "int64", Required = false, HelpText = "Use Int64 long integer as the underlying data type.", SetName = "type")]
         public bool Int64 { get; set; }
 
+        [Option('f', "float", Required = false, HelpText = "Use single-precision floating point as the underlying data type.", SetName = "type")]
+        public bool Float { get; set; }
+
         [Option('m', "double", Required = false, HelpText = "Use double-precision floating point as the underlying data type.", SetName = "type")]
         public bool Double { get; set; }
 

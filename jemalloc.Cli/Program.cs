@@ -278,6 +278,10 @@ namespace jemalloc.Cli
             {
                 Benchmark<Int64>();
             }
+            else if (o.Float)
+            {
+                Benchmark<Single>();
+            }
             else if (o.Double)
             {
                 Benchmark<Double>();

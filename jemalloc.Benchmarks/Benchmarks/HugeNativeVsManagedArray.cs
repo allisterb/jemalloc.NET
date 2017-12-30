@@ -21,7 +21,7 @@ namespace jemalloc.Benchmarks
             DebugInfoThis();
             base.GlobalSetup();
             Info($"Unmanaged array size is {ArraySize}.");
-            Info($"Managed array size is {ArraySize}.");
+            Info($"Managed array size is {MaxManagedArraySize}.");
             T[] managedArray = new T[MaxManagedArraySize];
             SetValue("managedArray", managedArray);
             HugeArray<T> hugeArray = new HugeArray<T>(ArraySize);
@@ -49,7 +49,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillManagedArray()
         {
-            InfoThis();
+            DebugInfoThis();
             T[] managedArray = GetValue<T[]>("managedArray");
             T fill = GetValue<T>("fill");
             for (int i = 0; i < managedArray.Length; i++)
@@ -62,7 +62,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillHugeNativeArray()
         {
-            InfoThis();
+            DebugInfoThis();
             HugeArray<T> hugeArray = GetValue<HugeArray<T>>("hugeArray");
             T fill = GetValue<T>("fill");
             hugeArray.Fill(fill);
@@ -72,7 +72,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Fill")]
         public void FillManagedArrayWithCreate()
         {
-            InfoThis();
+            DebugInfoThis();
             T[] managedArray = new T[ArraySize];
             T fill = GetValue<T>("fill");
             for (int i = 0; i < managedArray.Length; i++)
@@ -138,6 +138,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Arithmetic")]
         public void ArithmeticMultiplyManagedArray()
         {
+            DebugInfoThis();
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
             T[] managedArray = GetValue<T[]>("managedArray");
@@ -153,6 +154,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Arithmetic")]
         public void ArithmeticMultiplyHugeNativeArray()
         {
+            DebugInfoThis();
             T mul = GetValue<T>("mul");
             T fill = GetValue<T>("fill");
             HugeArray<T> hugeArray = GetValue<HugeArray<T>>("hugeArray");
