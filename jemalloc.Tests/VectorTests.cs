@@ -15,11 +15,16 @@ namespace jemalloc.Tests
     {
         public const uint Mandelbrot_Width = 768, Mandelbrot_Height = 512;
         public const int Mandelbrot_Size = (int)Mandelbrot_Width * (int)Mandelbrot_Height;
-        public readonly int VectorWidth = Vector<float>.Count;
-        public readonly Vector<float> Limit = new Vector<float>(4f);
-        public readonly Vector<float> Zero = Vector<float>.Zero;
-        public readonly Vector<float> One = Vector<float>.One;
+        public int VectorWidth = Vector<double>.Count;
+        public readonly Vector<double> Limit = new Vector<double>(4f);
+        public readonly Vector<double> Zero = Vector<double>.Zero;
+        public readonly Vector<double> MinusOne = Vector.Negate(Vector<double>.One);
 
+
+        public VectorTests()
+        {
+           
+        }
 
         [Fact(DisplayName = "Buffer elements can be accessed as vector.")]
         public void CanConstructVectors()
@@ -31,39 +36,55 @@ namespace jemalloc.Tests
             Assert.True(v[2] == 94);
             NativeMemory<Vector<uint>> vectors = new NativeMemory<Vector<uint>>(4);
             vectors.Retain();
-            //vectors.Span[0]
+            
         }
 
-        [Fact(DisplayName = "Can correctly run Mandelbrot algoritm using Vector2.")]
-        public void CanVectorize2Mandelbrot()
+        [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and managed arrays.")]
+        public void CanVectorizeMandelbrotManaged()
         {
-            FixedBuffer<Int32> o = Vector2Mandelbrot();
+            FixedBuffer<long> o = VectorizeMandelbrotManaged();
+            Assert.Equal(0, o[0]);
+            Assert.Equal(2, o[1000]);
+            Assert.Equal(10, o[500]);
+
+
+        }
+
+        [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and unmanaged arrays.")]
+        public void CanVectorizeMandelbrotUnmanaged()
+        {
+            FixedBuffer<long> o = Mandelbrotv1Unmanaged();
             Assert.Equal(0, o[0]);
             Assert.Equal(2, o[1000]);
 
 
         }
 
-        [Fact(DisplayName = "Can correctly run real Mandelbrot algoritm using Vector2.")]
-        public void CanVectorizeDoubleMandelbrot()
+        #region Mandelbrot algorithms
+        private FixedBuffer<Int64> VectorizeMandelbrotManaged()
         {
-            FixedBuffer<int> o = VectorDoubleMandelbrot();
-            Assert.Equal(0, o[0]);
-            Assert.Equal(2, o[1000]);
-
-
-        }
-
-        private FixedBuffer<Int32> Vector2Mandelbrot()
-        {
-            FixedBuffer<Int32> output = new FixedBuffer<Int32>(((int)Mandelbrot_Width * (int)Mandelbrot_Height));
+            FixedBuffer<Int64> output = new FixedBuffer<Int64>(((int)Mandelbrot_Width * (int)Mandelbrot_Height));
             Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
             Vector2 C0 = new Vector2(-2, -1);
             Vector2 C1 = new Vector2(1, 1);
             Vector2 D = (C1 - C0) / B;
             Vector2 P;
             int index;
-            int GetValue(Vector2 c, int count)
+
+ 
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i++)
+                {
+                    P = new Vector2(i, j);
+                    index = unchecked(j * (int)Mandelbrot_Width + i);
+                    Vector2 V = C0 + (P * D);
+                    output[index] = GetByte(ref V, 256);
+                }
+            }
+            return output;
+
+            int GetByte(ref Vector2 c, int count)
             {
                 Vector2 z = c;
                 int i;
@@ -78,28 +99,85 @@ namespace jemalloc.Tests
                 }
                 return i;
             }
+
+        }
+
+        private unsafe FixedBuffer<long> Mandelbrotv1Unmanaged()
+        {
+            SafeArray<Vector<float>> Vectors = new SafeArray<Vector<float>>(8); // New unmanaged array of vectors
+            FixedBuffer<long> output = new FixedBuffer<long>(((int)Mandelbrot_Width * (int)Mandelbrot_Height)); //New unmanaged array for bitmap output
+            Span<float> VectorSpan = Vectors.AcquireSpan<float>(); //Lets us write to individual vector elements
+            Span<Vector2> Vector2Span = Vectors.AcquireSpan<Vector2>(); //Lets us read to individual vectors
+
+            
+            VectorSpan[0] = -2f;
+            VectorSpan[1] = -1f;
+            VectorSpan[2] = 1f;
+            VectorSpan[3] = 1f;
+            VectorSpan[4] = Mandelbrot_Width;
+            VectorSpan[5] = Mandelbrot_Height;
+
+            ref Vector2 C0 = ref Vector2Span[0];
+            ref Vector2 C1 = ref Vector2Span[1];
+            ref Vector2 B = ref Vector2Span[2];
+            ref Vector2 P = ref Vector2Span[3];
+            Vector2 D = (C1 - C0) / B;
+            /*
+            Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
+            Vector2 C0 = new Vector2(-2, -1);
+            Vector2 C1 = new Vector2(1, 1);
+            Vector2 D = (C1 - C0) / B;
+            Vector2 P;
+            */
+
+
+
+            int index;
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 for (int i = 0; i < Mandelbrot_Width; i++)
                 {
-                    P = new Vector2(i, j);
+                    VectorSpan[6] = i;
+                    VectorSpan[7] = j;
                     index = unchecked(j * (int)Mandelbrot_Width + i);
-                    output[index] = GetValue(C0 + (P * D), 256);
+                    Vector2 V = C0 + (P * D);
+                    output[index] = GetByte(ref V, 256);
                 }
             }
+            Vectors.Release(2);
+            Vectors.Close();
             return output;
+
+            int GetByte(ref Vector2 c, int max_iterations)
+            {
+                Vector2 z = c; //make a copy
+                int i;
+                for (i = 0; i < max_iterations; i++)
+                {
+                    if (z.LengthSquared() > 4f)
+                    {
+                        break;
+                    }
+                    Vector2 w = z * z;
+                    z = c + new Vector2(w.X - w.Y, 2f * z.X * z.Y);
+                }
+                return i;
+            }
+
         }
 
-        private unsafe FixedBuffer<int> VectorDoubleMandelbrot()
+
+        #region WIP
+        private unsafe FixedBuffer<long> VectorDoubleMandelbrot()
         {
             //Allocate heap and stack memory for our Vector constants and variables
-            FixedBuffer<int> output = new FixedBuffer<int>(Mandelbrot_Size); //Output bitmap on unmanaged heap
-            float* ptrC0 = stackalloc float[VectorWidth * 2]; 
-            float* ptrC1 = stackalloc float[VectorWidth * 2];
-            float* ptrB = stackalloc float[VectorWidth * 2];
-            float* ptrD = stackalloc float[VectorWidth * 2];
-            float* ptrP = stackalloc float[VectorWidth * 2];
-            float* ptrV = stackalloc float[VectorWidth * 2];
+            FixedBuffer<long> output = new FixedBuffer<long>(Mandelbrot_Size); //Output bitmap on unmanaged heap
+            double* ptrC0 = stackalloc double[VectorWidth * 2]; 
+            double* ptrC1 = stackalloc double[VectorWidth * 2];
+            double* ptrB = stackalloc double[VectorWidth * 2];
+            double* ptrD = stackalloc double[VectorWidth * 2];
+            double* ptrP = stackalloc double[VectorWidth * 2];
+            double* ptrV = stackalloc double[VectorWidth * 2];
 
             //Fill memory with the constant values for vectors C0, C1, B
             for (int i = 0; i < VectorWidth; i++)
@@ -113,14 +191,14 @@ namespace jemalloc.Tests
             }
 
             //Declare spans for reading and writing to memory locations of Vector constants and variables
-            Span<Vector<float>> C0 = new Span<Vector<float>>(ptrC0, 2);
-            Span<Vector<float>> C1 = new Span<Vector<float>>(ptrC1, 2);
-            Span<Vector<float>> B = new Span<Vector<float>>(ptrB, 2);
-            Span<Vector<float>> D = new Span<Vector<float>>(ptrD, 2);
-            Span<Vector<float>> P = new Span<Vector<float>>(ptrP, 2);
-            Span<Vector<float>> V = new Span<Vector<float>>(ptrV, 2);
+            Span<Vector<double>> C0 = new Span<Vector<double>>(ptrC0, 2);
+            Span<Vector<double>> C1 = new Span<Vector<double>>(ptrC1, 2);
+            Span<Vector<double>> B = new Span<Vector<double>>(ptrB, 2);
+            Span<Vector<double>> D = new Span<Vector<double>>(ptrD, 2);
+            Span<Vector<double>> P = new Span<Vector<double>>(ptrP, 2);
+            Span<Vector<double>> V = new Span<Vector<double>>(ptrV, 2);
 
-            Span<Vector<int>> O = output.AcquireVectorWriteSpan();
+            Span<Vector<long>> O = output.AcquireVectorWriteSpan();
 
             D[0] = (C1[0] - C0[0]) / B[0];
             D[1] = (C1[0] - C0[0]) / B[0];
@@ -138,7 +216,7 @@ namespace jemalloc.Tests
                     index = unchecked((int)Mandelbrot_Width * j + i);
                     V[0] = C0[0] + (P[0] * D[0]);
                     V[1] = C0[1] + (P[1] * D[1]);
-                    Vector<int> G = GetValue(V, 256);
+                    Vector<long> G = GetValue(V[0], V[1], 256);
                     O[index] = G;
                     
                 }
@@ -147,65 +225,57 @@ namespace jemalloc.Tests
 
             return output;
 
-            Vector<float> SquareAbs(Vector<float> Vre, Vector<float> Vim)
-            {
-                return (Vre * Vre) + (Vim * Vim);
-            }
-
-            Vector<int> GetValue(Span<Vector<float>> C, int count)
-            {
-                int* ptrCount = stackalloc int[VectorWidth]; //memory for Count vector
-                Span<int> sCount = new Span<int>(ptrCount, VectorWidth); //write to Count vector
-
-                Vector<int> Count = sCount.NonPortableCast<int, Vector<int>>()[0]; //Count vector
-
-                Span<Vector<float>> Z = C;
-
-                Span<float> sZ = Z.NonPortableCast<Vector<float>, float>(); //Write to individual components of Z
-
-                for (int i = 0; i < count; i++)
-                {
-                    Vector<float> S = SquareAbs(Z[0], Z[1]);
-                    if (Vector.GreaterThanAll(S, Limit))
-                    {
-                        sCount.Fill(i);
-                        break;
-                    }
-                    else
-                    {
-                        Vector<int> greaterThan = Vector.GreaterThan(S, Limit);
-                        Vector<float> complete = Vector.ConditionalSelect(greaterThan, S, Zero);
-                        bool stay = false;
-                        do
-                        {
-                            for (int z = 0; z < VectorWidth; z++)
-                            {
-                                if (complete[z] != 0)
-                                {
-                                    sCount[z] = i;
-                                }
-                                else
-                                {
-
-                                    stay = true;
-                                    sZ[z] = C[0][z] + sZ[z] * sZ[z] - (sZ[z + VectorWidth] * sZ[z + VectorWidth]); //Zre = Zre * Zre - Zim * Zim
-                                    sZ[z + VectorWidth] = C[1][z] + 2f * sZ[z] * sZ[z + VectorWidth];
-                                }
-                            }
-                            i += 1;
-                        }
-                        while (stay);
-                        
-                        Vector<float> Fre = Vector.ConditionalSelect(greaterThan, Z[0], Vector<float>.Zero);
-                        Vector<float> Fim = Vector.ConditionalSelect(greaterThan, Z[1], Vector<float>.Zero);
-               
-                    }
-                }
-                return new Vector<int>(sCount.ToArray());
-            }
-
+ 
         }
 
+        private Vector<double> SquareAbs(Vector<double> Vre, Vector<double> Vim)
+        {
+            return (Vre * Vre) + (Vim * Vim);
+        }
+
+        private unsafe Vector<long> GetValue(Vector<double> Cx, Vector<double> Cy, int maxIterations)
+        {
+            //int* ptrIterations = stackalloc int[VectorWidth];
+            double[] iterationsArr = new double[VectorWidth]; //memory for Iterations vector
+            Span<double> sIterations = new Span<double>(iterationsArr); //write to Iterations vector
+            Vector<double> Iterations = sIterations.NonPortableCast<double, Vector<double>>()[0];
+            Vector<double> MaxIterations = new Vector<double>(256);
+            double[] zArr = new double[VectorWidth * 2];
+            //double* ptrZ = stackalloc double[VectorWidth * 2];
+            Span<double> sZ = new Span<double>(zArr); //Write to individual components of Z
+            Span<Vector<double>> Z = sZ.NonPortableCast<double, Vector<double>>();
+            Z[0] = Cx;
+            Z[1] = Cy;
+            for (int i = 0; i < maxIterations; i++)
+            {
+                sIterations.Fill(i);
+                Vector<double> S = SquareAbs(Z[0], Z[1]);
+                if (Vector.GreaterThanAll(S, Limit))
+                {
+                    break;
+                }
+                else
+                {
+                    Vector<long> increment;
+                    do
+                    {
+                        Z[0] = Cx + (Z[0] * Z[0]) - (Z[0] * Z[1]);
+                        Z[1] = Cy + 2f * Z[0] * Z[1];
+                        S = SquareAbs(Z[0], Z[1]);
+                        Vector<long> greaterThanLimitMask = Vector.GreaterThan(S, Limit);
+                        Vector<long> lessThanOrEqualMaxIterationsMask = Vector.LessThanOrEqual(Iterations, MaxIterations);
+                        increment = greaterThanLimitMask & lessThanOrEqualMaxIterationsMask;
+                        i += 1;
+                    }
+                    while (increment != Vector<long>.Zero);
+
+                }
+            }
+            return Vector.ConvertToInt64(new Vector<double>(iterationsArr));
+        }
+        #endregion
+
+        #endregion
 
     }
 }

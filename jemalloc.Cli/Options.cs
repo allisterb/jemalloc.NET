@@ -98,8 +98,6 @@ namespace jemalloc.Cli
         public IEnumerable<int> Sizes { get; set; }
     }
 
-
-
     [Verb("huge", HelpText = "Benchmark HugeArray arrays backed by native memory allocated using jemalloc vs. .NET managed arrays.")]
     class HugeNativeArrayBenchmarkOptions : Options
     {
@@ -111,6 +109,16 @@ namespace jemalloc.Cli
 
         [Option("math", Required = false, HelpText = "Benchmark arithmetic and other math operations on native array vs managed arrays.")]
         public bool Math { get; set; }
+
+        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
+        public IEnumerable<ulong> Sizes { get; set; }
+    }
+
+    [Verb("vector", HelpText = "Benchmark SIMD vectorized algorithms on native memory data structures vs. SIMD using .NET managed arrays.")]
+    class VectorBenchmarkOptions : Options
+    {
+        [Option("mandel", Required = false, HelpText = "Benchmark Mandelbrot bitmap generation.")]
+        public bool Mandelbrot { get; set; }
 
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<ulong> Sizes { get; set; }

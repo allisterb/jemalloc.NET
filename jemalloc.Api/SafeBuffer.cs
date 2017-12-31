@@ -97,6 +97,8 @@ namespace jemalloc
         #endregion
 
         #region Methods
+
+        #region Memory management
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
         public bool Acquire()
         {
@@ -182,6 +184,11 @@ namespace jemalloc
             return new Span<T>((void*)handle, (int)Length);
         }
 
+        public unsafe Span<C> AcquireSpan<C>() where C : struct, IEquatable<C>
+        {
+            ThrowIfCannotAcquire();
+            return new Span<T>((void*)handle, (int)Length).NonPortableCast<T,C>();
+        }
         public void Fill(T value)
         {
             Span<T> s = AcquireSpan();
@@ -220,7 +227,27 @@ namespace jemalloc
             Span<T> span = AcquireSpan().Slice(index, VectorLength);
             return span.NonPortableCast<T, Vector<T>>()[0];
         }
-        
+
+        public bool Release(int n)
+        {
+            bool r = false;
+            for (int i = 0; i < n; i++)
+            {
+                r = Release();
+                if (r)
+                {
+                    continue;
+                }
+                else
+                {
+                    return r;
+                }
+            }
+            return r;
+        }
+        #endregion
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorMultiply(T value)
         {
