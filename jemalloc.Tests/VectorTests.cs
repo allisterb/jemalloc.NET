@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -42,12 +43,11 @@ namespace jemalloc.Tests
         [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and managed arrays.")]
         public void CanVectorizeMandelbrotManaged()
         {
-            FixedBuffer<long> o = VectorizeMandelbrotManaged();
+            long[] o = VectorizeMandelbrotManaged();
             Assert.Equal(0, o[0]);
             Assert.Equal(2, o[1000]);
             Assert.Equal(10, o[500]);
-
-
+            WriteMandelbrotPPM(o, "mandelbrot.ppm");
         }
 
         [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and unmanaged arrays.")]
@@ -56,27 +56,25 @@ namespace jemalloc.Tests
             FixedBuffer<long> o = Mandelbrotv1Unmanaged();
             Assert.Equal(0, o[0]);
             Assert.Equal(2, o[1000]);
-
-
+            Assert.Equal(10, o[500]);
         }
 
         #region Mandelbrot algorithms
-        private FixedBuffer<Int64> VectorizeMandelbrotManaged()
+        private Int64[] VectorizeMandelbrotManaged()
         {
-            FixedBuffer<Int64> output = new FixedBuffer<Int64>(((int)Mandelbrot_Width * (int)Mandelbrot_Height));
+            
+            long[] output = new long[((int)Mandelbrot_Width * (int)Mandelbrot_Height)];
             Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
             Vector2 C0 = new Vector2(-2, -1);
             Vector2 C1 = new Vector2(1, 1);
             Vector2 D = (C1 - C0) / B;
-            Vector2 P;
+            
             int index;
-
- 
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 for (int i = 0; i < Mandelbrot_Width; i++)
                 {
-                    P = new Vector2(i, j);
+                    Vector2 P = new Vector2(i, j);
                     index = unchecked(j * (int)Mandelbrot_Width + i);
                     Vector2 V = C0 + (P * D);
                     output[index] = GetByte(ref V, 256);
@@ -109,7 +107,6 @@ namespace jemalloc.Tests
             Span<float> VectorSpan = Vectors.AcquireSpan<float>(); //Lets us write to individual vector elements
             Span<Vector2> Vector2Span = Vectors.AcquireSpan<Vector2>(); //Lets us read to individual vectors
 
-            
             VectorSpan[0] = -2f;
             VectorSpan[1] = -1f;
             VectorSpan[2] = 1f;
@@ -122,14 +119,6 @@ namespace jemalloc.Tests
             ref Vector2 B = ref Vector2Span[2];
             ref Vector2 P = ref Vector2Span[3];
             Vector2 D = (C1 - C0) / B;
-            /*
-            Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
-            Vector2 C0 = new Vector2(-2, -1);
-            Vector2 C1 = new Vector2(1, 1);
-            Vector2 D = (C1 - C0) / B;
-            Vector2 P;
-            */
-
 
 
             int index;
@@ -166,6 +155,28 @@ namespace jemalloc.Tests
 
         }
 
+        private void WriteMandelbrotPPM(long[] output, string name)
+        {
+
+            using (StreamWriter sw = new StreamWriter(name))
+            {
+                sw.Write("P6\n");
+                sw.Write(string.Format("{0} {1}\n", Mandelbrot_Width, Mandelbrot_Height));
+                sw.Write("255\n");
+                sw.Close();
+            }
+            using (BinaryWriter bw = new BinaryWriter(new FileStream(name, FileMode.Append)))
+            {
+                for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
+                {
+                    byte b = output[i] > 128 ? (byte)240 : (byte)20;
+                    bw.Write(b);
+                    bw.Write(b);
+                    bw.Write(b);
+                }
+            }
+            
+        }
 
         #region WIP
         private unsafe FixedBuffer<long> VectorDoubleMandelbrot()
