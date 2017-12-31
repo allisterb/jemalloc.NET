@@ -237,6 +237,21 @@ namespace jemalloc
             Release();
         }
 
+        public T[] CopyToArray()
+        {
+            T[] array = new T[Length];
+            AcquireSpan().CopyTo(new Span<T>(array));
+            Release();
+            return array;
+        }
+
+        public T[] FreeAndCopyToArray()
+        {
+            T[] array = CopyToArray();
+            Free();
+            return array;
+        }
+
         public bool EqualTo(T[] array)
         {
             if (_Length != array.Length)
