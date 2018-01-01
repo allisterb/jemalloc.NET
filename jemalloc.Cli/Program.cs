@@ -238,7 +238,27 @@ namespace jemalloc.Cli
                 {
                     Benchmark(o);
                 }
-            }); 
+            })
+             .WithParsed<VectorBenchmarkOptions>(o =>
+             {
+                 BenchmarkOptions.Add("Category", Category.VECTOR);
+                 BenchmarkOptions.Add("Sizes", null);
+                 if (o.Mandelbrot)
+                 {
+                     BenchmarkOptions.Add("Operation", Operation.MANDELBROT);
+                     o.Float = true;
+                 }
+
+                 if (!BenchmarkOptions.ContainsKey("Operation"))
+                 {
+                     Log.Error("You must select an operation to benchmark with --create or --fill or --math.");
+                     Exit(ExitResult.SUCCESS);
+                 }
+                 else
+                 {
+                     Benchmark(o);
+                 }
+             }); 
         }
 
         static void Benchmark(Options o)
@@ -462,6 +482,24 @@ namespace jemalloc.Cli
                         }
                         BenchmarkSummary = BenchmarkRunner.Run<HugeNativeVsManagedArrayBenchmark<T>>(config);
                         break;
+                    case Category.VECTOR:
+                        VectorBenchmark.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Scales"];
+                        VectorBenchmark.Debug = (bool)BenchmarkOptions["Debug"];
+                        VectorBenchmark.Category = JemBenchmarkAttribute.Category;
+                        VectorBenchmark.Operation = JemBenchmarkAttribute.Operation;
+                        switch ((Operation)BenchmarkOptions["Operation"])
+                        {
+                            case Operation.MANDELBROT:
+                                config = config.With(new NameFilter(name => name.Contains("Mandelbrot")));
+                                L.Information("Starting vector Mandelbrot benchmarks with scale: {s}", VectorBenchmark.BenchmarkParameters);
+                                break;
+
+                            default:
+                                throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
+                        }
+                        BenchmarkSummary = BenchmarkRunner.Run<VectorBenchmark>(config);
+                        break;
+
                     default:
                         throw new InvalidOperationException($"Unknown category: {(Category)BenchmarkOptions["Category"]}.");
                 }

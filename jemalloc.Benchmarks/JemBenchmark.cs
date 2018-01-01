@@ -23,7 +23,8 @@ namespace jemalloc.Benchmarks
         MALLOC,
         NARRAY,
         HUGEARRAY,
-        BUFFER
+        BUFFER,
+        VECTOR
     }
 
     public enum Operation
@@ -31,7 +32,8 @@ namespace jemalloc.Benchmarks
         CREATE,
         FILL,
         MATH,
-        FRAGMENT
+        FRAGMENT,
+        MANDELBROT
     }
     #endregion
 
@@ -152,6 +154,7 @@ namespace jemalloc.Benchmarks
             this.SetStatistic($"{memberName}_PrivateMemory", JemUtil.PrintBytes(JemUtil.ProcessPrivateMemory));
             this.SetStatistic($"{memberName}_JemAllocated", JemUtil.PrintBytes(Jem.AllocatedBytes));
         }
+
 
         #region Log
         public static void Info(string format, params object[] values) => Log.WriteLineInfo(string.Format(format, values));

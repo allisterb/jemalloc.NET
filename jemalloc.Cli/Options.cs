@@ -120,7 +120,7 @@ namespace jemalloc.Cli
         [Option("mandel", Required = false, HelpText = "Benchmark Mandelbrot bitmap generation.")]
         public bool Mandelbrot { get; set; }
 
-        [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
-        public IEnumerable<ulong> Sizes { get; set; }
+        [Value(0, Required = false, HelpText = "The scales of operations on vectors.")]
+        public IEnumerable<int> Scales { get; set; }
     }
 }

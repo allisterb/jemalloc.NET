@@ -6,6 +6,9 @@ using System.Collections.Immutable;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.ConstrainedExecution;
+using System.Security;
+
 
 namespace jemalloc
 {
@@ -149,6 +152,32 @@ namespace jemalloc
             return hash1 + (hash2 * 1566083941);
         }
 
+        public static string PrintSize(double bytes, string suffix = "")
+        {
+            if (bytes >= 0 && bytes <= 1024)
+            {
+                return string.Format("{0:N0} {1}", bytes, suffix);
+            }
+            else if (bytes >= 1024 && bytes < (1024 * 1024))
+            {
+                return string.Format("{0:N1} K{1}", bytes / 1024, suffix);
+            }
+            else if (bytes >= (1024 * 1024) && bytes < (1024 * 1024 * 1024))
+            {
+                return string.Format("{0:N1} M{1}", bytes / (1024 * 1024), suffix);
+            }
+            else if (bytes >= (1024 * 1024 * 1024) && (bytes < (1024f * 1024f * 1024f * 1024f)))
+            {
+                return string.Format("{0:N1} G{1}", bytes / (1024 * 1024 * 1024), suffix);
+            }
+            else if (bytes >= (1024f * 1024f * 1024f * 1024f) && (bytes < (1024f * 1024f * 1024f * 1024f * 1024f)))
+            {
+                return string.Format("{0:N1} T{1}", bytes / (1024f * 1024f * 1024f * 1024f), suffix);
+            }
+            else throw new ArgumentOutOfRangeException();
+
+        }
+
         public static string PrintBytes(double bytes, string suffix = "")
         {
             if (bytes >= 0 && bytes <= 1024)
@@ -181,19 +210,27 @@ namespace jemalloc
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
         }
 
-        public static ulong GetWindowsThreadCycles()
+        public unsafe static ulong GetCurrentThreadCycles()
         {
             if (Environment.OSVersion.Platform != PlatformID.Win32NT)
             {
                 throw new PlatformNotSupportedException();
             }
-
-            if (__Internal.QueryThreadCycleTime(__Internal.PseudoHandle, out ulong cycles))
+            
+            if (!__Internal.DuplicateHandle(__Internal.GetCurrentProcess(), __Internal.GetCurrentThread(), __Internal.GetCurrentProcess(), out IntPtr* p,
+                0x0400, true, (uint) __Internal.DuplicateOptions.DUPLICATE_SAME_ACCESS))
             {
-                return cycles;
+                throw new System.ComponentModel.Win32Exception();
             }
+
+            if (__Internal.QueryThreadCycleTime(in *p, out ulong cycles))
+            {
+                //__Internal.CloseHandle(*p);
+                return cycles;
+            }    
             else
             {
+                //__Internal.CloseHandle(*p);
                 throw new System.ComponentModel.Win32Exception();
             }
             
@@ -201,9 +238,35 @@ namespace jemalloc
 
         public partial struct __Internal
         {
+            [Flags]
+            public enum DuplicateOptions : uint
+            {
+                DUPLICATE_CLOSE_SOURCE = (0x00000001),// Closes the source handle. This occurs regardless of any error status returned.
+                DUPLICATE_SAME_ACCESS = (0x00000002), //Ignores the dwDesiredAccess parameter. The duplicate handle has the same access as the source handle.
+            }
+
             [DllImport("kernel32.dll", SetLastError = true)]
+            [SuppressUnmanagedCodeSecurity]
             internal static extern bool QueryThreadCycleTime(in IntPtr hThread, out ulong cycles);
-            internal static readonly IntPtr PseudoHandle = (IntPtr)(-2);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            [SuppressUnmanagedCodeSecurity]
+            internal static extern IntPtr GetCurrentThread();
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            [SuppressUnmanagedCodeSecurity]
+            internal static extern IntPtr GetCurrentProcess();
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            [SuppressUnmanagedCodeSecurity]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static unsafe extern bool DuplicateHandle(IntPtr hSourceProcessHandle,IntPtr hSourceHandle, IntPtr hTargetProcessHandle, out IntPtr* lpTargetHandle, uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwOptions);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+            [SuppressUnmanagedCodeSecurity]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool CloseHandle(IntPtr hObject);
         }
         #endregion
 
