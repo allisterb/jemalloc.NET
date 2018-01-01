@@ -98,10 +98,9 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeMalloc(size);
             if (__ret != IntPtr.Zero)
             {
-                if (!ImmutableInterlocked.TryAdd(ref _Allocations, __ret, 0))
-                {
-                    throw new Exception($"Could not add pointer {__ret} to Allocations ledger.");
-                }
+                allocLock.EnterWriteLock();
+                _Allocations.Add(__ret, 0);
+                allocLock.ExitWriteLock();
                 return __ret;
             }
             else
@@ -117,10 +116,9 @@ namespace jemalloc
             IntPtr __ret = __Internal.JeCalloc(num, size);
             if (__ret != IntPtr.Zero)
             {
-                if (!ImmutableInterlocked.TryAdd(ref _Allocations, __ret, 0))
-                {
-                    throw new Exception($"Could not add pointer {__ret} to Allocationd ledger.");
-                }
+                allocLock.EnterWriteLock();
+                _Allocations.Add(__ret, 0);
+                allocLock.ExitWriteLock();
                 return __ret;
             }
             else
@@ -161,13 +159,11 @@ namespace jemalloc
             }
             finally
             {
-                if (ImmutableInterlocked.TryRemove(ref _Allocations, ptr, out int refCount))
-                {
-                    __Internal.JeFree(ptr);
-                        ret = true;
-                }
+                allocLock.EnterWriteLock();
+                _Allocations.Remove(ptr);
+                allocLock.ExitWriteLock();
             }
-            
+
             return ret;
         }
 
@@ -280,35 +276,37 @@ namespace jemalloc
             else return false;
         }
 
+        #region Memory life-time management
         public static int GetRefCount(IntPtr ptr)
         {
-            return Allocations[ptr];
+            allocLock.EnterReadLock();
+            int c = _Allocations[ptr];
+            allocLock.ExitReadLock();
+            return c;
         }
-
+        
         public static void IncrementRefCount(IntPtr ptr)
         {
-            int refCount;
-            do
-            {
-                refCount = Allocations[ptr];
-            }
-            while (!ImmutableInterlocked.TryUpdate(ref _Allocations, ptr, refCount + 1, refCount));
+            allocLock.EnterWriteLock();
+            _Allocations[ptr] = _Allocations[ptr] + 1;
+            allocLock.ExitWriteLock();
         }
 
         public static void DecrementRefCount(IntPtr ptr)
         {
-            int refCount;
-            do
-            {
-                refCount = Allocations[ptr];
-            }
-            while (!ImmutableInterlocked.TryUpdate(ref _Allocations, ptr, refCount - 1, refCount) && refCount > 0);
+            allocLock.EnterWriteLock();
+            _Allocations[ptr] = _Allocations[ptr] - 1;
+            allocLock.ExitWriteLock();
         }
 
         public static bool PtrIsAllocated(IntPtr ptr)
         {
-            return Allocations.ContainsKey(ptr);
+            allocLock.EnterReadLock();
+            bool r = _Allocations.ContainsKey(ptr);
+            allocLock.ExitReadLock();
+            return r;
         }
+        #endregion
 
         public static string MallocStats => GetMallocStats(string.Empty);
 
@@ -429,13 +427,14 @@ namespace jemalloc
 
         public static int TryFreeAll()
         {
-            int c = Allocations.Count;
-            foreach (IntPtr p in Allocations.Keys)
+            allocLock.EnterWriteLock();
+            int c = _Allocations.Count;
+            foreach (IntPtr p in _Allocations.Keys)
             {
                 Jem.Free(p);
-                ImmutableInterlocked.TryRemove(ref _Allocations, p, out int refCount);
+                _Allocations.Remove(p);
             }
-            
+            allocLock.ExitWriteLock();
             return c;
         }
 
@@ -451,45 +450,46 @@ namespace jemalloc
             IntPtr ptr = Jem.Calloc(length, size, memberName, fileName, lineNumber);
             if (ptr != IntPtr.Zero)
             {
-                
-                if (!ImmutableInterlocked.TryAdd(ref _FixedBufferAllocations, ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid)))
-                {
-                    throw new Exception($"Could not add allocation record for ptr {ptr} to fixed buffer allocations ledger.");
-                }
-                /*
-                ImmutableInterlocked.AddOrUpdate(ref _FixedBufferAllocations, ptr, (a) => new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid),
-                    (k, v) => new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid));
-                    */
+                fixedBufferLock.EnterWriteLock();
+                _FixedBufferAllocations.Add(ptr, new FixedBufferAllocation(ptr, length * size, timestamp, tid, rid));
+                fixedBufferLock.ExitWriteLock();
+
             }
             return ptr;
         }
 
         public static bool FreeFixedBuffer(IntPtr ptr)
         {
-            if (!ImmutableInterlocked.TryRemove(ref _FixedBufferAllocations, ptr, out FixedBufferAllocation a))
+            fixedBufferLock.EnterWriteLock();
+            bool r = _FixedBufferAllocations.Remove(ptr);
+            fixedBufferLock.ExitWriteLock();
+            if (!r)
             {
-                return false;
+                return r;
             }
-            else if (!Jem.Free(ptr))
+            else
             {
-                return false;
+                return Jem.Free(ptr);
             }
-            else return true;
             
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid, int rid)
         {
-            if (!Allocations.ContainsKey(ptr))
+            fixedBufferLock.EnterReadLock();
+            bool r1 = PtrIsAllocated(ptr);
+            if (!r1)
             {
+                fixedBufferLock.ExitReadLock();
                 return false;
             }
             else
             {
                 FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid, rid);
-                return FixedBufferAllocations.ContainsValue(a);
-               
+                bool r2 = _FixedBufferAllocations.ContainsValue(a);
+                fixedBufferLock.ExitReadLock();
+                return r2;
             }
         }
         #endregion
@@ -552,11 +552,6 @@ namespace jemalloc
         #endregion
 
         #region Allocations ledgers
-        public static ImmutableDictionary<IntPtr, int> Allocations => _Allocations;
-
-        public static ImmutableDictionary<IntPtr, FixedBufferAllocation> FixedBufferAllocations => _FixedBufferAllocations;
-
-        public static ConcurrentDictionary<IntPtr, int> FixedBufferRefCounts { get; private set; } = new ConcurrentDictionary<IntPtr, int>();
 
         public static List<Tuple<IntPtr, ulong, CallerInformation>> AllocationsDetails { get; private set; } = new List<Tuple<IntPtr, ulong, CallerInformation>>();
         #endregion
@@ -564,9 +559,11 @@ namespace jemalloc
 
         #region Fields
         private static StringBuilder mallocMessagesBuilder = new StringBuilder();
-        private static ImmutableDictionary<IntPtr, int> _Allocations = ImmutableDictionary.Create<IntPtr, int>();
-        private static ImmutableDictionary<IntPtr, FixedBufferAllocation> _FixedBufferAllocations = ImmutableDictionary.Create<IntPtr, FixedBufferAllocation>();
+        private static Dictionary<IntPtr, int> _Allocations = new Dictionary<IntPtr, int>(1024);
+        private static Dictionary<IntPtr, FixedBufferAllocation> _FixedBufferAllocations = new Dictionary<IntPtr, FixedBufferAllocation>(1024);
         private static FixedBufferComparator fixedBufferComparator = new FixedBufferComparator();
+        private static ReaderWriterLockSlim allocLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+        private static ReaderWriterLockSlim fixedBufferLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
         #endregion
     }
 }

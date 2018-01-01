@@ -127,18 +127,17 @@ namespace jemalloc.Benchmarks
 
         }
         
-        private FixedBuffer<byte> _Mandelbrotv1Unmanaged(ref FixedBuffer<byte> output)
+        private unsafe FixedBuffer<byte> _Mandelbrotv1Unmanaged(ref FixedBuffer<byte> output)
         {
-            SafeArray<Vector<float>> Vectors = new SafeArray<Vector<float>>(8); // New unmanaged array of vectors
-            Span<float> VectorSpan = Vectors.AcquireSpan<float>(); //Lets us write to individual vector elements
-            Span<Vector2> Vector2Span = Vectors.AcquireSpan<Vector2>(); //Lets us read to individual vectors
+            FixedBuffer<float> Vectors = new FixedBuffer<float>(10);
+            Span<Vector2> Vector2Span = Vectors.AcquireWriteSpan().NonPortableCast<float, Vector2>(); //Lets us read individual vectors
 
-            VectorSpan[0] = -2f;
-            VectorSpan[1] = -1f;
-            VectorSpan[2] = 1f;
-            VectorSpan[3] = 1f;
-            VectorSpan[4] = Mandelbrot_Width;
-            VectorSpan[5] = Mandelbrot_Height;
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
 
             ref Vector2 C0 = ref Vector2Span[0];
             ref Vector2 C1 = ref Vector2Span[1];
@@ -146,21 +145,19 @@ namespace jemalloc.Benchmarks
             ref Vector2 P = ref Vector2Span[3];
             Vector2 D = (C1 - C0) / B;
 
-
             int index;
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 for (int i = 0; i < Mandelbrot_Width; i++)
                 {
-                    VectorSpan[6] = i;
-                    VectorSpan[7] = j;
+                    Vectors[6] = i;
+                    Vectors[7] = j;
                     index = unchecked(j * Mandelbrot_Width + i);
                     Vector2 V = C0 + (P * D);
                     output[index] = GetByte(ref V, 256);
                 }
             }
-            Vectors.Release(2);
-            Vectors.Close();
+            Vectors.Release();
             return output;
 
             byte GetByte(ref Vector2 c, int max_iterations)

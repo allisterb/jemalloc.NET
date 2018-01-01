@@ -103,7 +103,7 @@ namespace jemalloc.Tests
 
         }
 
-        private unsafe FixedBuffer<int> Mandelbrotv1Unmanaged()
+        private FixedBuffer<int> Mandelbrotv1Unmanaged()
         {
             SafeArray<Vector<float>> Vectors = new SafeArray<Vector<float>>(8); // New unmanaged array of vectors
             FixedBuffer<int> output = new FixedBuffer<int>(((int)Mandelbrot_Width * (int)Mandelbrot_Height)); //New unmanaged array for bitmap output

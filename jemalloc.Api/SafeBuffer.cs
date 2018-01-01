@@ -315,12 +315,10 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe ref T Read(int index)
         {
+            ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            ThrowIfCannotAcquire();
-            
             // return (T*) (_ptr + byteOffset);
             ref T ret =  ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-            Release();
             return ref ret;
         }
 
@@ -329,10 +327,8 @@ namespace jemalloc
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            ThrowIfCannotAcquire();
             ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
             v = value;
-            Release();
             return value ;
          }
 

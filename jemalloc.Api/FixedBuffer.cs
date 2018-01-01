@@ -330,7 +330,7 @@ namespace jemalloc
 
         #endregion
 
-        private unsafe Span<T> AcquireWriteSpan()
+        public unsafe Span<T> AcquireWriteSpan()
         {
             Acquire();
             return new Span<T>((void*)_Ptr, _Length);
@@ -345,10 +345,10 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal unsafe ref T Read(int index)
         {
-            Retain();
+            //Retain();
             // return (T*) (_ptr + byteOffset);
             ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
-            Release();
+            //Release();
             return ref ret;
         }
 
