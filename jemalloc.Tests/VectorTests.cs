@@ -173,7 +173,7 @@ namespace jemalloc.Tests
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = output[i] == 256 ? (byte) 20 : (byte) 240;
+                    byte b = output[i] == 255 ? (byte) 20 : (byte) 240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
@@ -315,7 +315,9 @@ namespace jemalloc.Tests
         private unsafe FixedBuffer<byte> _Mandelbrotv2Unmanaged(ref FixedBuffer<byte> output)
         {
             VectorWidth = Vector<Single>.Count;
-     
+            Vector<int> One = Vector<int>.One;
+            Vector<int> Zero = Vector<int>.Zero;
+
             FixedBuffer<float> Vectors = new FixedBuffer<float>(6);
             FixedBuffer<float> P = new FixedBuffer<float>(VectorWidth * 2);
             Span<Vector2> Vector2Span = Vectors.AcquireWriteSpan().NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
@@ -349,11 +351,15 @@ namespace jemalloc.Tests
                     Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
                     for (int h = 0; h < VectorWidth; h++)
                     {
-                        output[index + h] = (byte)outputVector[h];
+                        output[index + h] = outputVector[h] < 255 ? (byte)outputVector[h] : (byte) 255;
                     }
                 }
             }
             Vectors.Release();
+            Vectors.Free();
+            P.Release();
+            P.Free();
+
             return output;
 
             Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
@@ -362,14 +368,14 @@ namespace jemalloc.Tests
                 Vector<float> Zim = Cim; //make a copy
 
                 Vector<float> Limit = new Vector<float>(4);
-                Vector<int> MaxIterations = new Vector<int>(256);
-                Vector<int> Increment = Vector<int>.One;
+                Vector<int> MaxIterations = new Vector<int>(max_iterations);
+                Vector<int> Increment = One;
                 Vector<int> I;
-                for (I = Vector<int>.Zero; Increment != Vector<int>.Zero; I += Vector.Abs(Increment))
+                for (I = Zero; Increment != Zero; I += Vector.Abs(Increment))
                 {
                     Vector<float> S = SquareAbs(Zre, Zim);
                     Increment = Vector.LessThanOrEqual(S, Limit) & Vector.LessThanOrEqual(I, MaxIterations);
-                    if (Increment == Vector<int>.Zero)
+                    if (Increment == Zero)
                     {
                         break;
                     }
