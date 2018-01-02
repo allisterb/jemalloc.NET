@@ -57,7 +57,7 @@ namespace jemalloc.Benchmarks
             managedArray = _MandelbrotManaged(managedArray);
             WriteMandelbrotPPM(managedArray, "mandlebrot_managed_bgnetcore8.ppm");
             ulong end = JemUtil.GetCurrentThreadCycles();
-            SetStatistic($"{nameof(MandelbrotManaged)}_ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"{nameof(MandelbrotBGNetCore8)}_ThreadCycles", JemUtil.PrintSize(end - start));
         }
 
         [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 using unmanaged memory.")]
@@ -73,6 +73,18 @@ namespace jemalloc.Benchmarks
             SetStatistic($"{nameof(Mandelbrotv1Unmanaged)}_ThreadCycles", JemUtil.PrintSize(end - start));
         }
 
+        [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 using unmanaged memory 2.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public unsafe void Mandelbrotv2Unmanaged()
+        {
+            FixedBuffer<byte> nativeArray = GetValue<FixedBuffer<byte>>("nativeArray");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            FixedBuffer<byte> o = _Mandelbrotv2Unmanaged(ref nativeArray);
+            WriteMandelbrotPPM(o.AcquireSpan(), "mandlebrot_unmanged.ppm");
+            o.Release();
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"{nameof(Mandelbrotv2Unmanaged)}_ThreadCycles", JemUtil.PrintSize(end - start));
+        }
 
         [GlobalCleanup(Target = nameof(Mandelbrotv1Unmanaged))]
         public void MandelbrotValidateAndCleanup()
@@ -178,10 +190,94 @@ namespace jemalloc.Benchmarks
 
         }
 
+        private unsafe FixedBuffer<byte> _Mandelbrotv2Unmanaged(ref FixedBuffer<byte> output)
+        {
+            Vector<int> Zero = Vector<int>.Zero;
+            Vector<int> One = Vector<int>.One;
+
+            FixedBuffer<float> Vectors = new FixedBuffer<float>(6);
+            FixedBuffer<float> P = new FixedBuffer<float>(VectorWidth * 2);
+            Span<Vector2> Vector2Span = Vectors.AcquireWriteSpan().NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
+            Span<Vector<float>> PSpan = P.AcquireWriteSpan().NonPortableCast<float, Vector<float>>(); //Lets us read individual Vectors
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
+
+            ref Vector2 C0 = ref Vector2Span[0];
+            ref Vector2 C1 = ref Vector2Span[1];
+            ref Vector2 B = ref Vector2Span[2];
+            Vector2 D = (C1 - C0) / B;
+
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
+                {
+
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        P[h] = C0.X + (D.X * (i + h));
+                        P[h + VectorWidth] = C0.Y + (D.Y * j);
+                    }
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    Vector<float> Vre = PSpan[0];
+                    Vector<float> Vim = PSpan[1]; ;
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        output[index + h] = (byte)outputVector[h];
+                    }
+                }
+            }
+            Vectors.Release();
+            return output;
+
+            Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
+            {
+                Vector<float> Zre = Cre; //make a copy
+                Vector<float> Zim = Cim; //make a copy
+
+                Vector<float> Limit = new Vector<float>(4);
+                Vector<int> MaxIterations = new Vector<int>(256);
+                Vector<int> Increment = One;
+                Vector<int> I;
+                for (I = Zero; Increment != Zero; I+=Increment)
+                {
+                    Vector<float> S = SquareAbs(Zre, Zim);
+                    Increment = Vector.GreaterThan(S, Limit) & Vector.LessThan(I, MaxIterations);
+                    if (Increment == One)
+                    {
+                        return I;
+                    }
+                    else
+                    {
+                        Zre &= Vector.ConvertToSingle(Increment);
+                        Zim &= Vector.ConvertToSingle(Increment);
+                        Limit &= Vector.ConvertToSingle(Increment);
+                        MaxIterations &= Increment;
+                        Vector<float> Tre = Zre;
+                        Vector<float> Tim = Zim;
+                        Zre = Cre + (Tre * Tre - Tim * Tim);
+                        Zim = Cim + 2f * Tre * Tim;
+                    }
+                }
+                return I;
+            }
+
+            Vector<float> SquareAbs(Vector<float> Vre, Vector<float> Vim)
+            {
+                return (Vre * Vre) + (Vim * Vim);
+            }
+
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private unsafe byte[] _MandelbrotManagedBGNetCore8(int[] output)
         {
-            var size = 512;
+            var size = Mandelbrot_Width;
             var Crb = new double[size + 2];
             var lineLength = size >> 3;
             var data = new byte[size * lineLength];

@@ -478,7 +478,7 @@ namespace jemalloc
         public static bool FixedBufferIsAllocatedWith(IntPtr ptr, ulong size, long timestamp, int tid, int rid)
         {
             fixedBufferLock.EnterReadLock();
-            bool r1 = PtrIsAllocated(ptr);
+            bool r1 = _FixedBufferAllocations.ContainsKey(ptr);
             if (!r1)
             {
                 fixedBufferLock.ExitReadLock();
@@ -486,8 +486,7 @@ namespace jemalloc
             }
             else
             {
-                FixedBufferAllocation a = new FixedBufferAllocation(ptr, size, timestamp, tid, rid);
-                bool r2 = _FixedBufferAllocations.ContainsValue(a);
+                bool r2 = _FixedBufferAllocations[ptr].Equals(new FixedBufferAllocation(ptr, size, timestamp, tid, rid));
                 fixedBufferLock.ExitReadLock();
                 return r2;
             }
