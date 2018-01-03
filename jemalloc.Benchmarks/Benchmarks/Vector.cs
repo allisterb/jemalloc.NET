@@ -8,6 +8,7 @@ using System.Text;
 
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
+using BenchmarkDotNet.Diagnosers;
 
 
 namespace jemalloc.Benchmarks
@@ -33,7 +34,8 @@ namespace jemalloc.Benchmarks
             SetValue("managedArray", managedArray);
             byte[] managed3Array = new byte[ArraySize];
             SetValue("managed3Array", managed3Array);
-         
+            int[] managed5Array = new int[ArraySize];
+            SetValue("managed5Array", managed5Array);
             FixedBuffer<byte> nativeArray = new FixedBuffer<byte>(ArraySize);
             SetValue("nativeArray", nativeArray);
             FixedBuffer<byte> native2Array = new FixedBuffer<byte>(ArraySize);
@@ -77,6 +79,7 @@ namespace jemalloc.Benchmarks
             SetStatistic($"{nameof(MandelbrotManagedv2)}_ThreadCycles", JemUtil.PrintSize(end - start));
         }
         */
+
         
         [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 single-threaded using managed memory v3.")]
         [BenchmarkCategory("Mandelbrot")]
@@ -100,7 +103,7 @@ namespace jemalloc.Benchmarks
             SetStatistic($"{nameof(MandelbrotUnmanagedv2)}_ThreadCycles", JemUtil.PrintSize(end - start));
         }
 
-        [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 multi-threaded using managed memory v1.")]
+        [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 multi-threaded using managed memory v4.")]
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotManagedv4()
         {
@@ -112,13 +115,26 @@ namespace jemalloc.Benchmarks
             SetStatistic($"{nameof(MandelbrotManagedv4)}_ThreadCycles", JemUtil.PrintSize(end - start));
         }
 
-        [GlobalCleanup(Target = nameof(MandelbrotManagedv4))]
+        [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 single-threaded using managed memory v5.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public void MandelbrotManagedv5()
+        {
+            int[] managedArray = GetValue<int[]>("managed5Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotManagedv5(ref managedArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"{nameof(MandelbrotManagedv5)}_ThreadCycles", JemUtil.PrintSize(end - start));
+        }
+
+
+        [GlobalCleanup(Target = nameof(MandelbrotManagedv5))]
         public void MandelbrotValidateAndCleanup()
         {
             byte[] managedArray = GetValue<byte[]>("managedArray");
             //byte[] managed2Array = GetValue<byte[]>("managed2Array");
             byte[] managed3Array = GetValue<byte[]>("managed3Array");
             byte[] managed4Array = GetValue<byte[]>("managed4Array");
+            int[] managed5Array = GetValue<int[]>("managed5Array");
             FixedBuffer<byte> nativeArray = GetValue<FixedBuffer<byte>>("nativeArray");
             FixedBuffer<byte> native2Array = GetValue<FixedBuffer<byte>>("native2Array");
             for (int i = 0; i < ArraySize; i++)
@@ -156,13 +172,21 @@ namespace jemalloc.Benchmarks
                     Error($"Managed4 array at index {i} is {managed4Array[i]} not {managedArray[i]}.");
                     throw new Exception();
                 }
+
+                /*
+                if (!managedArray[i].Equals(managed5Array[i]))
+                {
+                    Error($"Managed5 array at index {i} is {managed5Array[i]} not {managedArray[i]}.");
+                    throw new Exception();
+                }*/
                 
-                
+
             }
             WriteMandelbrotPPM(managedArray, "mandelbrot-managed-v1.ppm");
             //WriteMandelbrotPPM(managed2Array, "mandelbrot-managed2.ppm");
             WriteMandelbrotPPM(managed3Array, "mandelbrot-managed-v3.ppm");
             WriteMandelbrotPPM(managed4Array, "mandelbrot-managed-v4.ppm");
+            WriteMandelbrotPPM(managed5Array, "mandelbrot-managed-v5.ppm");
             WriteMandelbrotPPM(nativeArray.AcquireSpan(), "mandelbrot-unmanaged-v1.ppm");
             WriteMandelbrotPPM(native2Array.AcquireSpan(), "mandelbrot-unmanaged-v2.ppm");
             
@@ -273,7 +297,7 @@ namespace jemalloc.Benchmarks
             }
         }
 
-        private byte[] _MandelbrotManagedv3(ref byte[] output)
+        private unsafe byte[] _MandelbrotManagedv3(ref byte[] output)
         {
             Vector<int> One = Vector<int>.One;
             Vector<int> Zero = Vector<int>.Zero;
@@ -283,6 +307,7 @@ namespace jemalloc.Benchmarks
 
             float[] Vectors = new float[6];
             float[] P = new float[VectorWidth * 2];
+            
             Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
             Span<Vector<float>> PSpan = new Span<float>(P).NonPortableCast<float, Vector<float>>(); //Lets us read individual Vectors
             Vectors[0] = -2f;
@@ -319,8 +344,9 @@ namespace jemalloc.Benchmarks
                 }
             }
             return output;
-
-            Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
+            
+            
+            Vector<int> GetByte(ref Vector<float> Cre,  ref Vector<float> Cim, int max_iterations)
             {
                 Vector<float> Zre = Cre; //make a copy
                 Vector<float> Zim = Cim; //make a copy
@@ -431,6 +457,85 @@ namespace jemalloc.Benchmarks
             }
 
         }
+
+        private unsafe int[] _MandelbrotManagedv5(ref int[] output)
+        {
+
+            Vector<int> One = Vector<int>.One;
+            Vector<int> Zero = Vector<int>.Zero;
+            Vector<float> Limit = new Vector<float>(4);
+
+            float[] Vectors = new float[6];
+            float[] P = new float[VectorWidth * 2];
+
+            Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
+            Span<Vector<float>> PSpan = new Span<float>(P).NonPortableCast<float, Vector<float>>(); //Lets us read individual Vectors
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
+
+            ref Vector2 C0 = ref Vector2Span[0];
+            ref Vector2 C1 = ref Vector2Span[1];
+            ref Vector2 B = ref Vector2Span[2];
+            Vector2 D = (C1 - C0) / B;
+
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
+                {
+
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        P[h] = C0.X + (D.X * (i + h));
+                        P[h + VectorWidth] = C0.Y + (D.Y * j);
+                    }
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    Vector<float> Vre = PSpan[0];
+                    Vector<float> Vim = PSpan[1]; ;
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    outputVector.CopyTo(output, index);
+                }
+            }
+            return output;
+
+
+            Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
+            {
+                Vector<float> Zre = Cre; //make a copy
+                Vector<float> Zim = Cim; //make a copy
+
+                Vector<int> Increment = One;
+                Vector<int> MaxIterations = new Vector<int>(max_iterations);
+                Vector<int> I;
+                for (I = Zero; Increment != Zero; I += Vector.Abs(Increment))
+                {
+                    Vector<float> S = SquareAbs(Zre, Zim);
+                    Increment = Vector.LessThanOrEqual(S, Limit) & Vector.LessThan(I, MaxIterations);
+                    if (Increment == Zero)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Vector<float> Tre = Zre;
+                        Vector<float> Tim = Zim;
+                        Zre = Cre + (Tre * Tre - Tim * Tim);
+                        Zim = Cim + 2f * Tre * Tim;
+                    }
+                }
+                return I;
+            }
+
+            Vector<float> SquareAbs(Vector<float> Vre, Vector<float> Vim)
+            {
+                return (Vre * Vre) + (Vim * Vim);
+            }
+        }
+
 
 
         private FixedBuffer<byte> _MandelbrotUnmanagedv1(ref FixedBuffer<byte> output)
@@ -584,6 +689,29 @@ namespace jemalloc.Benchmarks
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
                     byte b = output[i] == 255 ? (byte) 20 : (byte) 240;
+                    bw.Write(b);
+                    bw.Write(b);
+                    bw.Write(b);
+                }
+            }
+
+        }
+        
+        private void WriteMandelbrotPPM(int[] output, string name)
+        {
+
+            using (StreamWriter sw = new StreamWriter(name))
+            {
+                sw.Write("P6\n");
+                sw.Write(string.Format("{0} {1}\n", Mandelbrot_Width, Mandelbrot_Height));
+                sw.Write("255\n");
+                sw.Close();
+            }
+            using (BinaryWriter bw = new BinaryWriter(new FileStream(name, FileMode.Append)))
+            {
+                for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
+                {
+                    byte b = output[i] >= 255 ? (byte)20 : (byte)240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);

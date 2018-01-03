@@ -52,6 +52,17 @@ namespace jemalloc.Tests
             WriteMandelbrotPPM(o, "mandelbrot-managed-v4.ppm");
         }
 
+        [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and managed arrays.")]
+        public void CanVectorizeMandelbrotManaged5()
+        {
+            int[] o = new int[Mandelbrot_Height * Mandelbrot_Width];
+            _MandelbrotManagedv5(ref o);
+            Assert.Equal(0, o[0]);
+            Assert.Equal(2, o[1000]);
+            Assert.Equal(10, o[500]);
+            WriteMandelbrotPPM(o, "mandelbrot-managed-v5.ppm");
+        }
+
         [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and unmanaged arrays.")]
         public void CanVectorizeMandelbrotUnmanaged()
         {
@@ -174,7 +185,7 @@ namespace jemalloc.Tests
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = output[i] == 255 ? (byte) 20 : (byte) 240;
+                    byte b = output[i] == 256 ? (byte) 20 : (byte) 240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
@@ -486,6 +497,134 @@ namespace jemalloc.Tests
             }
         }
 
+        private unsafe int[] _MandelbrotManagedv5(ref int[] output)
+        {
+
+            Vector<int> One = Vector<int>.One;
+            Vector<int> Zero = Vector<int>.Zero;
+            Vector<float> Limit = new Vector<float>(4);
+
+            float[] Vectors = new float[6];
+            float[] P = new float[VectorWidth * 2];
+
+            Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
+            Span<Vector<float>> PSpan = new Span<float>(P).NonPortableCast<float, Vector<float>>(); //Lets us read individual Vectors
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
+
+            ref Vector2 C0 = ref Vector2Span[0];
+            ref Vector2 C1 = ref Vector2Span[1];
+            ref Vector2 B = ref Vector2Span[2];
+            Vector2 D = (C1 - C0) / B;
+
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
+                {
+
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        P[h] = C0.X + (D.X * (i + h));
+                        P[h + VectorWidth] = C0.Y + (D.Y * j);
+                    }
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    Vector<float> Vre = PSpan[0];
+                    Vector<float> Vim = PSpan[1]; ;
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    outputVector.CopyTo(output, index);
+                }
+            }
+            return output;
+
+
+            Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
+            {
+                Vector<float> Zre = Cre; //make a copy
+                Vector<float> Zim = Cim; //make a copy
+
+                Vector<int> Increment = One;
+                Vector<int> MaxIterations = new Vector<int>(max_iterations);
+                Vector<int> I;
+                for (I = Zero; Increment != Zero; I += Vector.Abs(Increment))
+                {
+                    Vector<float> S = SquareAbs(Zre, Zim);
+                    Increment = Vector.LessThanOrEqual(S, Limit) & Vector.LessThan(I, MaxIterations);
+                    if (Increment == Zero)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Vector<float> Tre = Zre;
+                        Vector<float> Tim = Zim;
+                        Zre = Cre + (Tre * Tre - Tim * Tim);
+                        Zim = Cim + 2f * Tre * Tim;
+                    }
+                }
+                return I;
+            }
+
+            Vector<float> SquareAbs(Vector<float> Vre, Vector<float> Vim)
+            {
+                return (Vre * Vre) + (Vim * Vim);
+            }
+        }
+
+        private FixedBuffer<byte> _MandelbrotUnmanagedv1(ref FixedBuffer<byte> output)
+        {
+            FixedBuffer<float> Vectors = new FixedBuffer<float>(10);
+            Span<Vector2> Vector2Span = Vectors.AcquireWriteSpan().NonPortableCast<float, Vector2>(); //Lets us read individual vectors
+
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
+
+            ref Vector2 C0 = ref Vector2Span[0];
+            ref Vector2 C1 = ref Vector2Span[1];
+            ref Vector2 B = ref Vector2Span[2];
+            ref Vector2 P = ref Vector2Span[3];
+            Vector2 D = (C1 - C0) / B;
+
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i++)
+                {
+                    Vectors[6] = i;
+                    Vectors[7] = j;
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    Vector2 V = C0 + (P * D);
+                    output[index] = GetByte(ref V, 256);
+                }
+            }
+            Vectors.Release();
+            return output;
+
+            byte GetByte(ref Vector2 c, int max_iterations)
+            {
+                Vector2 z = c; //make a copy
+                int i;
+                for (i = 0; i < max_iterations; i++)
+                {
+                    if (z.LengthSquared() > 4f)
+                    {
+                        return (byte)i;
+                    }
+                    Vector2 w = z * z;
+                    z = c + new Vector2(w.X - w.Y, 2f * z.X * z.Y);
+                }
+                return (byte)(i - 1);
+            }
+
+        }
 
         #endregion
 
