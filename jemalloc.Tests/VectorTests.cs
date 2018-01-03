@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 
 using Xunit;
 
@@ -17,7 +18,7 @@ namespace jemalloc.Tests
     {
         public const int Mandelbrot_Width = 768, Mandelbrot_Height = 512;
         public const int Mandelbrot_Size = (int)Mandelbrot_Width * (int)Mandelbrot_Height;
-        public int VectorWidth = Vector<double>.Count;
+        public int VectorWidth = Vector<float>.Count;
         public readonly Vector<double> Limit = new Vector<double>(4f);
         public readonly Vector<double> Zero = Vector<double>.Zero;
         public readonly Vector<double> MinusOne = Vector.Negate(Vector<double>.One);
@@ -44,11 +45,11 @@ namespace jemalloc.Tests
         [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and managed arrays.")]
         public void CanVectorizeMandelbrotManaged()
         {
-            int[] o = VectorizeMandelbrotManaged();
+            byte[] o = _MandelbrotManagedv4();
             Assert.Equal(0, o[0]);
             Assert.Equal(2, o[1000]);
             Assert.Equal(10, o[500]);
-            WriteMandelbrotPPM(o, "mandelbrot.ppm");
+            WriteMandelbrotPPM(o, "mandelbrot-managed-v4.ppm");
         }
 
         [Fact(DisplayName = "Can correctly run Mandelbrot algorithm using Vector2 and unmanaged arrays.")]
@@ -396,6 +397,96 @@ namespace jemalloc.Tests
             }
 
         }
+
+        private byte[] _MandelbrotManagedv4()
+        {
+            byte[] output = new byte[Mandelbrot_Height * Mandelbrot_Width];
+            Vector<int> One = Vector<int>.One;
+            Vector<int> Zero = Vector<int>.Zero;
+            float[] Vectors = new float[6];
+            Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
+
+            Vectors[0] = -2f;
+            Vectors[1] = -1f;
+            Vectors[2] = 1f;
+            Vectors[3] = 1f;
+            Vectors[4] = Mandelbrot_Width;
+            Vectors[5] = Mandelbrot_Height;
+
+            Vector2 C0 = Vector2Span[0];
+            Vector2 C1 = Vector2Span[1];
+            Vector2 B = Vector2Span[2];
+            Vector2 D = (C1 - C0) / B;
+
+            
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                Parallel.ForEach(MandelbrotBitmapLocation(j), (p) =>
+                {
+                    int i = p.Item1;
+                    float[] Pre = new float[VectorWidth];
+                    float[] Pim = new float[VectorWidth];
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        Pre[h] = C0.X + (D.X * (i + h));
+                        Pim[h] = C0.Y + (D.Y * p.Item2);
+                    }
+                    int index = unchecked(p.Item2 * Mandelbrot_Width + i);
+                    Vector<float> Vre = new Vector<float>(Pre);
+                    Vector<float> Vim = new Vector<float>(Pim);
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 255);
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        output[index + h] = outputVector[h] < 255 ? (byte)outputVector[h] : (byte)255;
+                    }
+                });
+
+            }
+            return output;
+
+            Vector<int> GetByte(ref Vector<float> Cre, ref Vector<float> Cim, int max_iterations)
+            {
+                Vector<float> Limit = new Vector<float>(4);
+                Vector<int> MaxIterations = new Vector<int>(max_iterations);
+                Vector<float> Zre = Cre; //make a copy
+                Vector<float> Zim = Cim; //make a copy
+
+                Vector<int> Increment = One;
+                Vector<int> I;
+                for (I = Zero; Increment != Zero; I += Vector.Abs(Increment))
+                {
+                    Vector<float> S = SquareAbs(Zre, Zim);
+                    Increment = Vector.LessThanOrEqual(S, Limit) & Vector.LessThan(I, MaxIterations);
+                    if (Increment == Zero)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Vector<float> Tre = Zre;
+                        Vector<float> Tim = Zim;
+                        Zre = Cre + (Tre * Tre - Tim * Tim);
+                        Zim = Cim + 2f * Tre * Tim;
+                    }
+                }
+                return I;
+            }
+
+            Vector<float> SquareAbs(Vector<float> Vre, Vector<float> Vim)
+            {
+                return (Vre * Vre) + (Vim * Vim);
+            }
+
+            IEnumerable<ValueTuple<int, int>> MandelbrotBitmapLocation(int j)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
+                {
+                    yield return (i, j);
+                }
+            }
+        }
+
+
         #endregion
 
         #endregion
