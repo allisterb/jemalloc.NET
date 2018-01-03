@@ -7,8 +7,8 @@ namespace jemalloc.Benchmarks
     public struct TestUDT : IEquatable<TestUDT>, IComparable<TestUDT>, IConvertible
     {
         public Guid ID { get; set; }               
-        public FixedUtf8String FirstName { get; set; }      
-        public FixedUtf8String LastName { get; set; }       
+        public Utf8Buffer FirstName { get; set; }      
+        public Utf8Buffer LastName { get; set; }       
         public DateTime? DOB { get; set; }         
         public decimal Balance { get; set; }       
         public FixedBuffer<float> Data { get; set; }          
@@ -23,8 +23,8 @@ namespace jemalloc.Benchmarks
             return new TestUDT()
             {
                 ID = _id,
-                FirstName = new FixedUtf8String("Gavial-" + _id.ToString("D").Substring(0, 4)),
-                LastName = new FixedUtf8String("Buxarinovich-" + _id.ToString("D").Substring(0, 4)),
+                FirstName = new Utf8Buffer("Gavial-" + _id.ToString("D").Substring(0, 4)),
+                LastName = new Utf8Buffer("Buxarinovich-" + _id.ToString("D").Substring(0, 4)),
                 DOB = _ids.StartsWith("7") ? (DateTime?)null : DateTime.UtcNow,
                 Balance = 2131m,
                 Photo = new FixedBuffer<byte>(photo)

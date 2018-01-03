@@ -312,7 +312,7 @@ namespace jemalloc.Tests
             return Vector.ConvertToInt64(new Vector<double>(iterationsArr));
         }
 
-        private unsafe FixedBuffer<byte> _Mandelbrotv2Unmanaged(ref FixedBuffer<byte> output)
+        private FixedBuffer<byte> _Mandelbrotv2Unmanaged(ref FixedBuffer<byte> output)
         {
             VectorWidth = Vector<Single>.Count;
             Vector<int> One = Vector<int>.One;
