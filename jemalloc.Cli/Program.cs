@@ -487,6 +487,7 @@ namespace jemalloc.Cli
                         VectorBenchmark.Debug = (bool)BenchmarkOptions["Debug"];
                         VectorBenchmark.Category = JemBenchmarkAttribute.Category;
                         VectorBenchmark.Operation = JemBenchmarkAttribute.Operation;
+                        config = config.With(BenchmarkStatisticColumn.ISPCResult);
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.MANDELBROT:

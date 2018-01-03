@@ -99,7 +99,7 @@ namespace jemalloc.Benchmarks
         public static readonly IColumn JemAllocated = new BenchmarkStatisticColumn("JemAllocated", "Total memory allocated by jemalloc(native only, inclusive, 1KB = 1024B)");
         public static readonly IColumn JemResident = new BenchmarkStatisticColumn("JemResident", "Resident memory allocated by jemalloc(native only, inclusive, 1KB = 1024B)");
         public static readonly IColumn ThreadCycles = new BenchmarkStatisticColumn("ThreadCycles", "RDTSC time elapsed.");
-
+        public static readonly IColumn ISPCResult = new BenchmarkStatisticColumn("ISPCResult", "Result obtained with Intel ISPC compiler on a AVX2 CPU.");
         #endregion
     }
 }

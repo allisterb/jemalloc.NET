@@ -234,6 +234,7 @@ namespace jemalloc
                 throw new System.ComponentModel.Win32Exception();
             }
             
+
         }
 
         public partial struct __Internal
@@ -267,6 +268,9 @@ namespace jemalloc
             [SuppressUnmanagedCodeSecurity]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool CloseHandle(IntPtr hObject);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            public static extern bool QueryPerformanceCounter(out long lpPerformanceCount);
         }
         #endregion
 
