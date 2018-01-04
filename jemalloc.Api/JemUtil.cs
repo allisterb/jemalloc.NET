@@ -288,10 +288,11 @@ namespace jemalloc
         public static readonly Type CharCLRType = typeof(Char);
         public static readonly Type DecimalCLRType = typeof(Decimal);
         public static readonly Type IntPtrCLRType = typeof(IntPtr);
+        public static readonly Type BoolCLRType = typeof(Boolean);
         public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
         {
             Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType, CharCLRType, IntPtrCLRType
+            SingleCLRType, DoubleCLRType, CharCLRType, IntPtrCLRType, BoolCLRType
         });
 
         #endregion

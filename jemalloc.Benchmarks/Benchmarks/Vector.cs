@@ -36,6 +36,8 @@ namespace jemalloc.Benchmarks
             DebugInfoThis();
             base.GlobalSetup();
 
+            //byte[] managed0Array = new byte[ArraySize];
+            //SetValue("managed0Array", managed0Array);
             byte[] managedArray = new byte[ArraySize];
             SetValue("managedArray", managedArray);
             byte[] managed3Array = new byte[ArraySize];
@@ -57,7 +59,7 @@ namespace jemalloc.Benchmarks
         {
             byte[] managedArray = GetValue<byte[]>("managedArray");
             ulong start = JemUtil.GetCurrentThreadCycles();
-            _MandelbrotManaged(ref managedArray);
+            _MandelbrotManagedv1(ref managedArray);
             ulong end = JemUtil.GetCurrentThreadCycles();
             SetStatistic($"{nameof(MandelbrotManaged)}_ThreadCycles", JemUtil.PrintSize(end - start));
             SetStatistic($"{nameof(MandelbrotManaged)}_ISPCResult", GetISPCResult());
@@ -74,6 +76,19 @@ namespace jemalloc.Benchmarks
             SetStatistic($"{nameof(MandelbrotUnmanagedv1)}_ThreadCycles", JemUtil.PrintSize(end - start));
             SetStatistic($"{nameof(MandelbrotUnmanagedv1)}_ISPCResult", GetISPCResult());
         }
+        /*
+        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded linear.", Baseline = true)]
+        [BenchmarkCategory("Mandelbrot")]
+        public unsafe void MandelbrotManagedv0()
+        {
+            byte[] managedArray = GetValue<byte[]>("managed0Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotManagedv0(ref managedArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"{nameof(MandelbrotManagedv0)}_ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"{nameof(MandelbrotManagedv0)}_ISPCResult", GetISPCResult());
+        }
+        */
 
         /*
         [Benchmark(Description = "Create Mandelbrot plot bitmap with dimensions 768 x 512 single-threaded using managed memory vBGNetCore8.")]
@@ -88,7 +103,7 @@ namespace jemalloc.Benchmarks
         }
         */
 
-        
+
         [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v3.")]
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotManagedv3()
@@ -196,7 +211,6 @@ namespace jemalloc.Benchmarks
                     Error($"Native array at index {i} is {nativeArray[i]} not {managedArray[i]}.");
                     throw new Exception();
                 }
-                
                 /*
                 if (!managedArray[i].Equals(managed2Array[i]))
                 {
@@ -204,7 +218,7 @@ namespace jemalloc.Benchmarks
                     throw new Exception();
                 }
                 */
-                
+
                 if (!managedArray[i].Equals(managed3Array[i]))
                 {
                     Error($"Managed3 array at index {i} is {managed3Array[i]} not {managedArray[i]}.");
@@ -264,6 +278,7 @@ namespace jemalloc.Benchmarks
 
             }
             WriteMandelbrotPPM(managedArray, "mandelbrot-managed-v1.ppm");
+            //WriteMandelbrotPPM(managed0Array, "mandelbrot-managed-v0.ppm");
             //WriteMandelbrotPPM(managed2Array, "mandelbrot-managed2.ppm");
             WriteMandelbrotPPM(managed3Array, "mandelbrot-managed-v3.ppm");
             WriteMandelbrotPPM(managed4Array, "mandelbrot-managed-v4.ppm");
@@ -282,8 +297,31 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Implementations
-        
-        private byte[] _MandelbrotManaged(ref byte[] output)
+        private byte[] _MandelbrotManagedv0(ref byte[] output)
+        {
+            float[] B = new float[2] { Mandelbrot_Width, Mandelbrot_Height };
+            float[] C0 = new float[2] { -2, -1 };
+            float[] C1 = new float[2] { 1, 1 };
+            float[] D = new float[2] { (C1[0] - C0[0]) / B[0], (C1[1] - C0[1]) / B[1] };
+            float[] P = new float[2];
+            float[] V = new float[2];
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i++)
+                {
+                    P[0] = i;
+                    P[1] = j ;
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    V[0] = C0[0] + (P[0] * D[0]);
+                    V[1] = C0[1] + (P[1] * D[1]);
+                    output[index] = GetByte(V, 256);
+                }
+            }
+            return output;
+        }
+
+        private byte[] _MandelbrotManagedv1(ref byte[] output)
         {
             Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
             Vector2 C0 = new Vector2(-2, -1);
@@ -722,6 +760,26 @@ namespace jemalloc.Benchmarks
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        byte GetByte(float[] c, int maxIterations)
+        {
+            float[] Z = new float[] { c[0], c[1] }; // make a copy
+            int i;
+            for (i = 0; i < maxIterations; i++)
+            {
+                if ((Z[0] * Z[0]) + (Z[1] * Z[1]) > 4f)
+                {
+                    return (byte)i;
+                }
+                float z0 = Z[0];
+                float z1 = Z[1];
+                float[] w = new float[] { (z0 * z0), (z1 * z1) };
+                Z[0] = c[0] + w[0] - w[1];
+                Z[1] = c[1] + 2f * z0 * z1;
+            }
+            return (byte)(i - 1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         byte GetByte(ref Vector2 c, int max_iterations)
         {
             Vector2 z = c; //make a copy
@@ -785,7 +843,7 @@ namespace jemalloc.Benchmarks
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = output[i] == 255 ? (byte) 20 : (byte) 240;
+                    byte b = (output[i] & 0x01) == 1 ? (byte) 20 : (byte) 240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
@@ -797,7 +855,6 @@ namespace jemalloc.Benchmarks
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void WriteMandelbrotPPM(int[] output, string name)
         {
-
             using (StreamWriter sw = new StreamWriter(name))
             {
                 sw.Write("P6\n");
@@ -809,13 +866,12 @@ namespace jemalloc.Benchmarks
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = output[i] >= 255 ? (byte)20 : (byte)240;
+                    byte b = (output[i] & 0x01) == 1 ? (byte) 20 : (byte) 240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
                 }
             }
-
         }
         #endregion
 
@@ -833,6 +889,8 @@ namespace jemalloc.Benchmarks
             {
                 case 1:
                     return "26.8 M";
+                case 6:
+                    return "907 M"; 
                 default:
                     return string.Empty;
             }
