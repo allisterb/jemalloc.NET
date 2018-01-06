@@ -420,43 +420,35 @@ namespace jemalloc
 
         public unsafe bool VectorLessThanAll(T value, out int index)
         {
-            index = 0;
+            index = -1;
             bool r = true;
             Vector<T> v = new Vector<T>(value);
-            var c = Vector<T>.Count;
-            var o = Vector<T>.One;
-            for (int i = 0; i < Length; i+=c)
+            for (int i = 0; i < _Length; i+=JemUtil.VectorLength<T>())
             {
-                Vector<T> s = Unsafe.Read<Vector<T>>(Unsafe.AsPointer(ref this[i]));
+                Vector<T> s = Unsafe.Read<Vector<T>>(BufferHelpers.Add<T>(_Ptr, i).ToPointer());
                 Vector<T> cmp = Vector.LessThan(s, v);
-                if (cmp == o)
+                if (cmp.Equals(Vector<T>.One))
                 {
                     continue;
                 }
                 else
                 { 
                     r = false;
-                    for (int j = 0; j < c; j++)
+                    for (int j = 0; j < JemUtil.VectorLength<T>(); j++)
                     {
                         if (cmp[j].Equals(default))                      
                         {
                             index = i  + j;
-                            return r;
-
+                            break;
                         }
                     }
+                    break;
 
                 }
             }
             return r;
         }
             
-            
-        
-
-
-
-
         #endregion
 
         #endregion

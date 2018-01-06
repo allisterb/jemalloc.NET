@@ -861,24 +861,15 @@ namespace jemalloc.Benchmarks
             {
                 Vector<float> S = SquareAbs(Zre, Zim);
                 Increment = Vector.LessThanOrEqual(S, Limit) & Vector.LessThan(I, MaxIterations);
-                if (Increment == Zero)
+                if (Increment.Equals(Zero))
                 {
                     break;
                 }
                 else
                 {
-                    /*
-                    Cre = Vector.ConditionalSelect(Increment, Cre, Vector<float>.Zero);
-                    Cim = Vector.ConditionalSelect(Increment, Cim, Vector<float>.Zero);
-                    Vector<float> Tre = Vector.ConditionalSelect(Increment, Zre, Vector<float>.Zero);
-                    Vector<float> Tim = Vector.ConditionalSelect(Increment, Zim, Vector<float>.Zero);
-                    */
                     Vector<float> Tre = Zre;
-                    Vector<float> Tim = Zim;
-                    Zre = Cre + (Tre * Tre - Tim * Tim);
-                    Zim = Cim + 2f * Tre * Tim;
-                    Zre = Cre + (Tre * Tre - Tim * Tim);
-                    Zim = Cim + 2f * Tre * Tim;
+                    Zre = Cre + (Zre * Zre - Zim * Zim);
+                    Zim = Cim + 2f * Tre * Zim;
                 }
             }
             return I;
@@ -1066,7 +1057,7 @@ namespace jemalloc.Benchmarks
             SetValue("cmp", GM<T>.Random());
         }
 
-        [Benchmark(Description = "Serial test managed memory array less than.")]
+        [Benchmark(Description = "Vector test managed memory array less than.")]
         [BenchmarkCategory("Test")]
         public void TestManagedArrayLessThan()
         {
@@ -1075,7 +1066,39 @@ namespace jemalloc.Benchmarks
             int lessThanResult = Array.FindIndex(managedArray, (a) => a.CompareTo(cmp) >= 0);
             SetValue("managedLessThanResult", lessThanResult);
         }
-        
+
+        [Benchmark(Description = "Serial test managed memory array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestVectorManagedArrayLessThan()
+        {
+            int lessThanResult = -1;
+            T cmp = GetValue<T>("cmp");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Vector<T> c = new Vector<T>(cmp);
+            for (int i =0; i < managedArray.Length; i+=JemUtil.VectorLength<T>())
+            {
+                Vector<T> v = new Vector<T>(managedArray, i);
+                Vector<T> vcmp = Vector.LessThan(v, c);
+                if (vcmp == Vector<T>.One)
+                {
+                    continue;
+                }
+                else
+                {
+                    for (int j = 0; j < JemUtil.VectorLength<T>(); j++)
+                    {
+                        if (vcmp[j].Equals(default))
+                        {
+                            lessThanResult = i + j;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            SetValue("managedVectorLessThanResult", lessThanResult);
+        }
+
         [Benchmark(Description = "Vector test native array less than.")]
         [BenchmarkCategory("Test")]
         public void TestNativeArrayLessThan()
@@ -1091,10 +1114,10 @@ namespace jemalloc.Benchmarks
         public void _TestGlobalValidateAndCleanup()
         {
             var m = GetValue<int>("managedLessThanResult");
-            //var mv = GetValue<int>("managedVectorLessThanResult");
+            var mv = GetValue<int>("managedVectorLessThanResult");
             var n = GetValue<int>("nativeLessThanResult");
             Info("{0}, {1}", m, n);
-            /*
+            
             if (m != mv)
             {
                 Error("{0}, {1}", m, mv);
@@ -1105,7 +1128,7 @@ namespace jemalloc.Benchmarks
                 Error("{0}, {1}", mv, n);
                 throw new Exception();
             }
-            */
+            
             if (!m.Equals(n))
             {
                 Error("{0}, {1}", m, n);
