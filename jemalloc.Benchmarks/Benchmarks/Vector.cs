@@ -13,46 +13,46 @@ using BenchmarkDotNet.Diagnosers;
 
 namespace jemalloc.Benchmarks
 {
-    public class VectorBenchmark : JemBenchmark<float, int>
+    [OrderProvider(methodOrderPolicy: MethodOrderPolicy.Declared)]
+    public class VectorBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
+        public int ArraySize => Parameter;
         public int Scale => Parameter;
        
         private const int _Mandelbrot_Width = 768 , _Mandelbrot_Height = 512;
 
         public int Mandelbrot_Width => _Mandelbrot_Width * Scale;
         public int Mandelbrot_Height => _Mandelbrot_Height * Scale;
-        public int ArraySize => (Mandelbrot_Width * Mandelbrot_Height);
+        public int MandelbrotArraySize => (Mandelbrot_Width * Mandelbrot_Height);
 
-
-        public readonly int VectorWidth = Vector<float>.Count;
         Vector<int> One = Vector<int>.One;
         Vector<int> Zero = Vector<int>.Zero;
         Vector<float> Limit = new Vector<float>(4);
-        Vector<int> MaxIterations = new Vector<int>(255);
+        
 
-        [GlobalSetup]
-        public override void GlobalSetup()
+        #region Mandelbrot
+        [GlobalSetup(Target = nameof(MandelbrotManaged))]
+        public void MandelbrotSetup()
         {
-            DebugInfoThis();
-            base.GlobalSetup();
 
             //byte[] managed0Array = new byte[ArraySize];
             //SetValue("managed0Array", managed0Array);
-            byte[] managedArray = new byte[ArraySize];
+            byte[] managedArray = new byte[MandelbrotArraySize];
             SetValue("managedArray", managedArray);
-            byte[] managed3Array = new byte[ArraySize];
+            int[] managed3Array = new int[MandelbrotArraySize];
             SetValue("managed3Array", managed3Array);
-            int[] managed5Array = new int[ArraySize];
+            int[] managed5Array = new int[MandelbrotArraySize];
             SetValue("managed5Array", managed5Array);
-            int[] managed7Array = new int[ArraySize];
+            int[] managed7Array = new int[MandelbrotArraySize];
             SetValue("managed7Array", managed5Array);
-            FixedBuffer<byte> nativeArray = new FixedBuffer<byte>(ArraySize);
+            FixedBuffer<byte> nativeArray = new FixedBuffer<byte>(MandelbrotArraySize);
             SetValue("nativeArray", nativeArray);
-            FixedBuffer<byte> native2Array = new FixedBuffer<byte>(ArraySize);
+            FixedBuffer<int> native2Array = new FixedBuffer<int>(MandelbrotArraySize);
             SetValue("native2Array", native2Array);
+            FixedBuffer<int> native3Array = new FixedBuffer<int>(MandelbrotArraySize);
+            SetValue("native3Array", native3Array);
         }
 
-        #region Mandelbrot
         [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v1.", Baseline = true)]
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotManaged()
@@ -108,7 +108,7 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotManagedv3()
         {
-            byte[] managedArray = GetValue<byte[]>("managed3Array");
+            int[] managedArray = GetValue<int[]>("managed3Array");
             ulong start = JemUtil.GetCurrentThreadCycles();
             _MandelbrotManagedv3(ref managedArray);
             ulong end = JemUtil.GetCurrentThreadCycles();
@@ -120,12 +120,24 @@ namespace jemalloc.Benchmarks
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotUnmanagedv2()
         {
-            FixedBuffer<byte> nativeArray = GetValue<FixedBuffer<byte>>("native2Array");
+            FixedBuffer<int> nativeArray = GetValue<FixedBuffer<int>>("native2Array");
             ulong start = JemUtil.GetCurrentThreadCycles();
             _MandelbrotUnmanagedv2(ref nativeArray);
             ulong end = JemUtil.GetCurrentThreadCycles();
             SetStatistic($"{nameof(MandelbrotUnmanagedv2)}_ThreadCycles", JemUtil.PrintSize(end - start));
             SetStatistic($"{nameof(MandelbrotUnmanagedv2)}_ISPCResult", GetISPCResult());
+        }
+
+        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using unmanaged memory v3.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public unsafe void MandelbrotUnmanagedv3()
+        {
+            FixedBuffer<int> nativeArray = GetValue<FixedBuffer<int>>("native3Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotUnmanagedv3(ref nativeArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"{nameof(MandelbrotUnmanagedv3)}_ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"{nameof(MandelbrotUnmanagedv3)}_ISPCResult", GetISPCResult());
         }
 
         [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using managed memory v4.")]
@@ -134,7 +146,7 @@ namespace jemalloc.Benchmarks
         {
             
             ulong start = JemUtil.GetCurrentThreadCycles();
-            byte[] managedArray = _MandelbrotManagedv4();
+            int[] managedArray = _MandelbrotManagedv4();
             ulong end = JemUtil.GetCurrentThreadCycles();
             SetValue("managed4Array", managedArray);
             SetStatistic($"{nameof(MandelbrotManagedv4)}_ThreadCycles", JemUtil.PrintSize(end - start));
@@ -196,21 +208,42 @@ namespace jemalloc.Benchmarks
         {
             byte[] managedArray = GetValue<byte[]>("managedArray");
             //byte[] managed2Array = GetValue<byte[]>("managed2Array");
-            byte[] managed3Array = GetValue<byte[]>("managed3Array");
-            byte[] managed4Array = GetValue<byte[]>("managed4Array");
+            int[] managed3Array = GetValue<int[]>("managed3Array");
+            int[] managed4Array = GetValue<int[]>("managed4Array");
             int[] managed5Array = GetValue<int[]>("managed5Array");
             int[] managed6Array = GetValue<int[]>("managed6Array");
             int[] managed7Array = GetValue<int[]>("managed7Array");
             int[] managed8Array = GetValue<int[]>("managed8Array");
             FixedBuffer<byte> nativeArray = GetValue<FixedBuffer<byte>>("nativeArray");
-            FixedBuffer<byte> native2Array = GetValue<FixedBuffer<byte>>("native2Array");
-            for (int i = 0; i < ArraySize; i++)
+            FixedBuffer<int> native2Array = GetValue<FixedBuffer<int>>("native2Array");
+            FixedBuffer<int> native3Array = GetValue<FixedBuffer<int>>("native3Array");
+
+            for (int i = 0; i < MandelbrotArraySize; i++)
             {
                 if (!nativeArray[i].Equals(managedArray[i]))
                 {
                     Error($"Native array at index {i} is {nativeArray[i]} not {managedArray[i]}.");
                     throw new Exception();
                 }
+                
+                if (native2Array[i] <= 255)
+                {
+                    if (!managedArray[i].Equals((byte)native2Array[i]))
+                    {
+                        Error($"Native array 2 at index {i} is {native2Array[i]} not {managedArray[i]}.");
+                        throw new Exception();
+                    }
+                }
+                
+                if (native3Array[i] <= 255)
+                {
+                    if (!managedArray[i].Equals((byte)native3Array[i]))
+                    {
+                        Error($"Native array 3 at index {i} is {native3Array[i]} not {managedArray[i]}.");
+                        throw new Exception();
+                    }
+                }
+                
                 /*
                 if (!managedArray[i].Equals(managed2Array[i]))
                 {
@@ -218,25 +251,22 @@ namespace jemalloc.Benchmarks
                     throw new Exception();
                 }
                 */
-
-                if (!managedArray[i].Equals(managed3Array[i]))
+                if (managed3Array[i] <= 255)
                 {
-                    Error($"Managed3 array at index {i} is {managed3Array[i]} not {managedArray[i]}.");
-                    throw new Exception();
+                    if (!managedArray[i].Equals((byte) managed3Array[i]))
+                    {
+                        Error($"Managed3 array at index {i} is {managed3Array[i]} not {managedArray[i]}.");
+                        throw new Exception();
+                    }
                 }
-
                 
-                if (!managedArray[i].Equals(native2Array[i]))
+                if (managed4Array[i] <= 255)
                 {
-                    Error($"Native2 array at index {i} is {native2Array[i]} not {managedArray[i]}.");
-                    throw new Exception();
-                }
-
-                
-                if (!managedArray[i].Equals(managed4Array[i]))
-                {
-                    Error($"Managed4 array at index {i} is {managed4Array[i]} not {managedArray[i]}.");
-                    throw new Exception();
+                    if (!managedArray[i].Equals((byte) managed4Array[i]))
+                    {
+                        Error($"Managed4 array at index {i} is {managed4Array[i]} not {managedArray[i]}.");
+                        throw new Exception();
+                    }
                 }
 
                 
@@ -288,11 +318,11 @@ namespace jemalloc.Benchmarks
             WriteMandelbrotPPM(managed8Array, "mandelbrot-managed-v8.ppm");
             WriteMandelbrotPPM(nativeArray.AcquireSpan(), "mandelbrot-unmanaged-v1.ppm");
             WriteMandelbrotPPM(native2Array.AcquireSpan(), "mandelbrot-unmanaged-v2.ppm");
-            
+            WriteMandelbrotPPM(native3Array.AcquireSpan(), "mandelbrot-unmanaged-v3.ppm");
             nativeArray.Release();
             native2Array.Release();
-     
-            
+            native3Array.Release();
+
         }
         #endregion
 
@@ -419,11 +449,9 @@ namespace jemalloc.Benchmarks
             }
         }
 
-        private unsafe byte[] _MandelbrotManagedv3(ref byte[] output)
+        private int[] _MandelbrotManagedv3(ref int[] output)
         {
-        
-            Span<Byte> outputSpan = new Span<byte>(output);
-
+            int VectorWidth = Vector<float>.Count;
             float[] Vectors = new float[6];
             float[] P = new float[VectorWidth * 2];
 
@@ -455,20 +483,19 @@ namespace jemalloc.Benchmarks
                     index = unchecked(j * Mandelbrot_Width + i);
                     Vector<float> Vre = PSpan[0];
                     Vector<float> Vim = PSpan[1]; ;
-                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 255);
-                    for (int h = 0; h < VectorWidth; h++)
-                    {
-                        output[index + h] = outputVector[h] > 255 ? (byte)255 : (byte)outputVector[h];
-                    }
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    outputVector.CopyTo(output, index);
+
                 }
             }
             return output;
         }
 
 
-        private byte[] _MandelbrotManagedv4()
+        private int[] _MandelbrotManagedv4()
         {
-            byte[] output = new byte[ArraySize];
+            int VectorWidth = Vector<float>.Count;
+            int[] output = new int[MandelbrotArraySize];
             float[] Vectors = new float[6];
             Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
            
@@ -488,7 +515,6 @@ namespace jemalloc.Benchmarks
             {
                 Parallel.ForEach(MandelbrotBitmapLocation(j), (p) =>
                 {
-                    int i = p.Item1;
                     float[] Pre = new float[VectorWidth];
                     float[] Pim = new float[VectorWidth];
                     for (int h = 0; h < VectorWidth; h++)
@@ -499,11 +525,8 @@ namespace jemalloc.Benchmarks
                     int index = unchecked(p.Item2 * Mandelbrot_Width + p.Item1);
                     Vector<float> Vre = new Vector<float>(Pre);
                     Vector<float> Vim = new Vector<float>(Pim);
-                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 255);
-                    for (int h = 0; h < VectorWidth; h++)
-                    {
-                        output[index + h] = outputVector[h] < 255 ? (byte) outputVector[h] : (byte) 255;
-                    }
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    outputVector.CopyTo(output, index);
                 });
                 
             }
@@ -512,6 +535,7 @@ namespace jemalloc.Benchmarks
 
         private unsafe int[] _MandelbrotManagedv5(ref int[] output)
         {
+            int VectorWidth = Vector<float>.Count;
             Vector<float> C0re = new Vector<float>(-2);
             Vector<float> C0im = new Vector<float>(-1);
             Vector<float> C1re = Vector<float>.One;
@@ -548,7 +572,8 @@ namespace jemalloc.Benchmarks
 
         private int[] _MandelbrotManagedv6()
         {
-            int[] output = new int[ArraySize];
+            int VectorWidth = Vector<float>.Count;
+            int[] output = new int[MandelbrotArraySize];
  
             Vector<float> C0re = new Vector<float>(-2);
             Vector<float> C0im = new Vector<float>(-1);
@@ -579,7 +604,7 @@ namespace jemalloc.Benchmarks
                     }
                     Vector<float> Pim = C0im + (Dy * p.Item2);
                     int index = unchecked(p.Item2 * Mandelbrot_Width + p.Item1);
-                    Vector<int> outputVector = GetByte(ref Pre, ref Pim, 255);
+                    Vector<int> outputVector = GetByte(ref Pre, ref Pim, 256);
                     outputVector.CopyTo(output, index);
 
                 });
@@ -589,7 +614,8 @@ namespace jemalloc.Benchmarks
         }
 
         private unsafe int[] _MandelbrotManagedv7(ref int[] output)
-        {        
+        {
+            int VectorWidth = Vector<float>.Count;
             float[] Vectors = new float[6];
             Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
 
@@ -631,7 +657,8 @@ namespace jemalloc.Benchmarks
 
         private int[] _MandelbrotManagedv8()
         {
-            int[] output = new int[ArraySize];
+            int VectorWidth = Vector<float>.Count;
+            int[] output = new int[MandelbrotArraySize];
 
             float[] Vectors = new float[6];
             Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
@@ -665,7 +692,7 @@ namespace jemalloc.Benchmarks
                     Vector<float> Pre = new Vector<float>(PreArray);
                     Vector<float> Pim = new Vector<float>(PimArray);
                     int index = unchecked(p.Item2 * Mandelbrot_Width + p.Item1);
-                    Vector<int> outputVector = GetByte(ref Pre, ref Pim, 255);
+                    Vector<int> outputVector = GetByte(ref Pre, ref Pim, 256);
                     outputVector.CopyTo(output, index);
 
                 });
@@ -709,8 +736,10 @@ namespace jemalloc.Benchmarks
             return output;
         }
 
-        private FixedBuffer<byte> _MandelbrotUnmanagedv2(ref FixedBuffer<byte> output)
+        private FixedBuffer<int> _MandelbrotUnmanagedv2(ref FixedBuffer<int> output)
         {
+            int VectorWidth = Vector<float>.Count;
+            Span<Vector<int>> outputVectorSpan = output.AcquireVectorWriteSpan();
             Vector<int> One = Vector<int>.One;
             Vector<int> Zero = Vector<int>.Zero;
 
@@ -735,26 +764,50 @@ namespace jemalloc.Benchmarks
             {
                 for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
                 {
-
                     for (int h = 0; h < VectorWidth; h++)
                     {
                         P[h] = C0.X + (D.X * (i + h));
-                        P[h + VectorWidth] = C0.Y + (D.Y * j);
                     }
                     index = unchecked(j * Mandelbrot_Width + i);
                     Vector<float> Vre = PSpan[0];
-                    Vector<float> Vim = PSpan[1]; ;
+                    Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
                     Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
-                    for (int h = 0; h < VectorWidth; h++)
-                    {
-                        output[index + h] = outputVector[h] < 255 ? (byte)outputVector[h] : (byte)255;
-                    }
+                    outputVectorSpan[index / Vector<int>.Count] = outputVector;
                 }
             }
 
             Vectors.Release();
             Vectors.Free();
             P.Release();
+            P.Free();
+            output.Release();
+            return output;
+        }
+
+        private FixedBuffer<int> _MandelbrotUnmanagedv3(ref FixedBuffer<int> output)
+        {
+            int VectorWidth = Vector<float>.Count;
+            FixedBuffer<float> P = new FixedBuffer<float>(VectorWidth);
+            Vector2 C0 = new Vector2(-2, -1);
+            Vector2 C1 = new Vector2(1, 1);
+            Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
+            Vector2 D = (C1 - C0) / B;
+            int index;
+            for (int j = 0; j < Mandelbrot_Height; j++)
+            {
+                for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
+                {
+                    for (int h = 0; h < VectorWidth; h++)
+                    {
+                        P[h] = C0.X + (D.X * (i + h));
+                    }
+                    index = unchecked(j * Mandelbrot_Width + i);
+                    Vector<float> Vre = P.Read<Vector<float>>(0);
+                    Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
+                    output.Write(index, ref outputVector);
+                }
+            }
             P.Free();
             return output;
         }
@@ -801,7 +854,7 @@ namespace jemalloc.Benchmarks
         {
             Vector<float> Zre = Cre; //make a copy
             Vector<float> Zim = Cim; //make a copy
-
+            Vector<int> MaxIterations = new Vector<int>(max_iterations);
             Vector<int> Increment = One;
             Vector<int> I;
             for (I = Zero; Increment != Zero; I += Vector.Abs(Increment))
@@ -814,8 +867,16 @@ namespace jemalloc.Benchmarks
                 }
                 else
                 {
+                    /*
+                    Cre = Vector.ConditionalSelect(Increment, Cre, Vector<float>.Zero);
+                    Cim = Vector.ConditionalSelect(Increment, Cim, Vector<float>.Zero);
+                    Vector<float> Tre = Vector.ConditionalSelect(Increment, Zre, Vector<float>.Zero);
+                    Vector<float> Tim = Vector.ConditionalSelect(Increment, Zim, Vector<float>.Zero);
+                    */
                     Vector<float> Tre = Zre;
                     Vector<float> Tim = Zim;
+                    Zre = Cre + (Tre * Tre - Tim * Tim);
+                    Zim = Cim + 2f * Tre * Tim;
                     Zre = Cre + (Tre * Tre - Tim * Tim);
                     Zim = Cim + 2f * Tre * Tim;
                 }
@@ -853,6 +914,29 @@ namespace jemalloc.Benchmarks
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void WriteMandelbrotPPM(ReadOnlySpan<int> output, string name)
+        {
+            using (StreamWriter sw = new StreamWriter(name))
+            {
+                sw.Write("P6\n");
+                sw.Write(string.Format("{0} {1}\n", Mandelbrot_Width, Mandelbrot_Height));
+                sw.Write("255\n");
+                sw.Close();
+            }
+            using (BinaryWriter bw = new BinaryWriter(new FileStream(name, FileMode.Append)))
+            {
+                for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
+                {
+                    byte b = (output[i] & 0x01) == 1 ? (byte)20 : (byte)240;
+                    bw.Write(b);
+                    bw.Write(b);
+                    bw.Write(b);
+                }
+            }
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void WriteMandelbrotPPM(int[] output, string name)
         {
             using (StreamWriter sw = new StreamWriter(name))
@@ -873,10 +957,10 @@ namespace jemalloc.Benchmarks
                 }
             }
         }
-        #endregion
 
         public IEnumerable<ValueTuple<int, int>> MandelbrotBitmapLocation(int j)
         {
+            int VectorWidth = Vector<float>.Count;
             for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
             {
                 yield return (i, j);
@@ -890,7 +974,7 @@ namespace jemalloc.Benchmarks
                 case 1:
                     return "26.8 M";
                 case 6:
-                    return "907 M"; 
+                    return "907 M";
                 default:
                     return string.Empty;
             }
@@ -906,5 +990,129 @@ namespace jemalloc.Benchmarks
                     return string.Empty;
             }
         }
+        #endregion
+
+        #region Fill
+        [GlobalSetup(Target = nameof(FillManagedArray))]
+        public void FillGlobalSetup()
+        {
+            Info("Vector width is {0}.", Vector<T>.Count);
+            T[] mArray = new T[ArraySize];
+            SetValue("managedArray", mArray);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
+            SetValue("nativeArray", nativeArray);
+            T fill = GM<T>.Random();
+            SetValue("fill", fill);
+            Info("Fill value is {0}.", fill);
+        }
+
+        [Benchmark(Description = "Serial fill managed memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillManagedArray()
+        {
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Array.Fill(managedArray, GetValue<T>("fill"));
+        }
+
+        [Benchmark(Description = "Vector fill managed memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillManagedArrayUsingVector()
+        {
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Span<Vector<T>> s = new Span<T>(managedArray).NonPortableCast<T, Vector<T>>();
+            Vector<T> fill = new Vector<T>(GetValue<T>("fill"));
+            for (int i = 0; i < s.Length; i ++)
+            {
+                s[i] = fill;
+            }
+        }
+
+        [Benchmark(Description = "Vector fill unmanaged memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillUnmanagedArray()
+        {
+            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
+            nativeBuffer.VectorFill(GetValue<T>("fill"));
+        }
+
+
+        [GlobalCleanup(Target = nameof(FillUnmanagedArray))]
+        public void _FillGlobalValidateAndCleanup()
+        {
+            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            for (int i =0; i < managedArray.Length; i++)           
+            if (!managedArray[i].Equals(nativeBuffer[i]))
+            {
+                throw new Exception($"Native array at index {i} is {nativeBuffer[i]} not {managedArray[i]}.");
+            }
+        }
+        #endregion
+
+        #region Test
+        [GlobalSetup(Target = nameof(TestManagedArrayLessThan))]
+        public void TestGlobalSetup()
+        {
+            Info("Vector width is {0}.", Vector<T>.Count);
+            T[] mArray = new T[ArraySize];
+            SetValue("managedArray", mArray);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
+            SetValue("nativeArray", nativeArray);
+            for (int i = 0; i < ArraySize / 100; i++)
+            {
+                mArray[i] = GM<T>.Random();
+                nativeArray[i] = mArray[i];
+            }
+            SetValue("cmp", GM<T>.Random());
+        }
+
+        [Benchmark(Description = "Serial test managed memory array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestManagedArrayLessThan()
+        {
+            T cmp = GetValue<T>("cmp");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            int lessThanResult = Array.FindIndex(managedArray, (a) => a.CompareTo(cmp) >= 0);
+            SetValue("managedLessThanResult", lessThanResult);
+        }
+        
+        [Benchmark(Description = "Vector test native array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestNativeArrayLessThan()
+        {
+            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
+            T cmp = GetValue<T>("cmp");
+            nativeArray.VectorLessThanAll(cmp, out int lessThanResult);
+            SetValue("nativeLessThanResult", lessThanResult);
+        }
+
+   
+        [GlobalCleanup(Target = nameof(TestNativeArrayLessThan))]
+        public void _TestGlobalValidateAndCleanup()
+        {
+            var m = GetValue<int>("managedLessThanResult");
+            //var mv = GetValue<int>("managedVectorLessThanResult");
+            var n = GetValue<int>("nativeLessThanResult");
+            Info("{0}, {1}", m, n);
+            /*
+            if (m != mv)
+            {
+                Error("{0}, {1}", m, mv);
+                throw new Exception();
+            }
+            else if (n != mv)
+            {
+                Error("{0}, {1}", mv, n);
+                throw new Exception();
+            }
+            */
+            if (!m.Equals(n))
+            {
+                Error("{0}, {1}", m, n);
+                throw new Exception();
+            }
+ 
+        }
+        #endregion
     }
 }

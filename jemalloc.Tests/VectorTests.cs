@@ -23,7 +23,6 @@ namespace jemalloc.Tests
         public readonly Vector<double> Zero = Vector<double>.Zero;
         public readonly Vector<double> MinusOne = Vector.Negate(Vector<double>.One);
 
-
         public VectorTests()
         {
            

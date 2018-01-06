@@ -196,6 +196,13 @@ namespace jemalloc
             Release();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<Vector<byte>> AcquireByteSpan()
+        {
+            ThrowIfNotVectorisable();
+            return AcquireSpan().AsBytes().NonPortableCast<byte, Vector<byte>>();
+        }
+
         public Vector<T> AcquireAsSingleVector()
         {
             ThrowIfNotNumeric();
@@ -209,7 +216,7 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Span<Vector<T>> AcquireVectorSpan()
+        public Span<Vector<T>> AcquireVectorSpan()
         {
             ThrowIfNotVectorisable();
             return AcquireSpan().NonPortableCast<T, Vector<T>>();
@@ -228,6 +235,12 @@ namespace jemalloc
             return span.NonPortableCast<T, Vector<T>>()[0];
         }
 
+        public void CopyFrom(Vector<T> v, int index)
+        {
+
+            Vector<T> dest = AcquireSliceAsVector(index);
+
+        }
         public bool Release(int n)
         {
             bool r = false;
@@ -246,35 +259,6 @@ namespace jemalloc
             return r;
         }
         #endregion
-
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void VectorMultiply(T value)
-        {
-            ThrowIfNotVectorisable();
-            T[] fill = new T[VectorLength];
-            Span<T> fillSpan = new Span<T>(fill);
-            fillSpan.Fill(value);
-            Span <Vector<T>> vectorSpan = AcquireSpan().NonPortableCast<T, Vector<T>>();
-            Vector<T> mulVector = fillSpan.NonPortableCast<T, Vector<T>>()[0];
-            for (int i = 0; i < vectorSpan.Length; i++)
-            {
-                vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
-            }
-            Release();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void VectorSqrt()
-        {  
-            ThrowIfNotVectorisable();
-            Span<Vector<T>> vector = AcquireVectorSpan();
-            for (int i = 0; i < vector.Length; i++)
-            {
-                vector[i] = Vector.SquareRoot(vector[i]);
-            }
-            Release();
-        }
 
         protected unsafe virtual IntPtr Allocate(int length)
         {
@@ -440,6 +424,44 @@ namespace jemalloc
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
             return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
         }
+
+        #region Arithmetic
+        public void VectorFill(T value)
+        {
+            Span<Vector<T>> s = AcquireVectorSpan();
+            Vector<T> fill = new Vector<T>(value);
+            for (int i = 0; i < s.Length; i++)
+            {
+                s[i] = fill;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void VectorMultiply(T value)
+        {
+            ThrowIfNotVectorisable();
+            Span<Vector<T>> vectorSpan = AcquireVectorSpan();
+            Vector<T> mulVector = new Vector<T>(value);
+            for (int i = 0; i < vectorSpan.Length; i++)
+            {
+                vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
+            }
+            Release();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void VectorSqrt()
+        {
+            ThrowIfNotVectorisable();
+            Span<Vector<T>> vector = AcquireVectorSpan();
+            for (int i = 0; i < vector.Length; i++)
+            {
+                vector[i] = Vector.SquareRoot(vector[i]);
+            }
+            Release();
+        }
+        #endregion
+
         #endregion
 
         #region Operators

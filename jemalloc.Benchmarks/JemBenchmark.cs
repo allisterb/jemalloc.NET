@@ -33,7 +33,8 @@ namespace jemalloc.Benchmarks
         FILL,
         MATH,
         FRAGMENT,
-        MANDELBROT
+        MANDELBROT,
+        TEST
     }
     #endregion
 
@@ -96,8 +97,11 @@ namespace jemalloc.Benchmarks
             return typeof(TBench).GenericTypeArguments.First().GetMethods(BindingFlags.Public).Count();
         }
 
+        [GlobalSetup]
         public virtual void GlobalSetup()
         {
+            DebugInfoThis();
+            Info("Data type is {0}.", typeof(TData).Name);
             CurrentProcess.Refresh();
             InitialPrivateMemorySize = CurrentProcess.PeakWorkingSet64;
         }

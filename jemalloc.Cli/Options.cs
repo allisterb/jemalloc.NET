@@ -27,7 +27,7 @@ namespace jemalloc.Cli
         [Option('f', "float", Required = false, HelpText = "Use single-precision floating point as the underlying data type.", SetName = "type")]
         public bool Float { get; set; }
 
-        [Option('m', "double", Required = false, HelpText = "Use double-precision floating point as the underlying data type.", SetName = "type")]
+        [Option('d', "double", Required = false, HelpText = "Use double-precision floating point as the underlying data type.", SetName = "type")]
         public bool Double { get; set; }
 
         [Option('s', "string", Required = false, HelpText = "Use String as the underlying data type.", SetName = "type")]
@@ -45,7 +45,7 @@ namespace jemalloc.Cli
         [Option('t', "target-count", Required = false, HelpText = "Set the target count of benchmark runs.", Default = 0)]
         public int TargetCount { get; set; }
 
-        [Option('d', "debug", Required = false, HelpText = "Run benchmarks in debug mode.")]
+        [Option("debug", Required = false, HelpText = "Run benchmarks in debug mode.")]
         public bool Debug { get; set; }
 
     }
@@ -119,6 +119,12 @@ namespace jemalloc.Cli
     {
         [Option("mandel", Required = false, HelpText = "Benchmark Mandelbrot bitmap generation.")]
         public bool Mandelbrot { get; set; }
+
+        [Option("fill", Required = false, HelpText = "Benchmark Vector fill.")]
+        public bool Fill { get; set; }
+
+        [Option("test", Required = false, HelpText = "Benchmark Vector logical comparison and test.")]
+        public bool Test { get; set; }
 
         [Value(0, Required = false, HelpText = "The scales of operations on vectors.")]
         public IEnumerable<int> Scales { get; set; }

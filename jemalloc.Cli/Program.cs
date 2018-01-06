@@ -242,16 +242,29 @@ namespace jemalloc.Cli
              .WithParsed<VectorBenchmarkOptions>(o =>
              {
                  BenchmarkOptions.Add("Category", Category.VECTOR);
-                 BenchmarkOptions.Add("Sizes", null);
+                 if (!BenchmarkOptions.ContainsKey("sizes"))
+                 {
+                     BenchmarkOptions.Add("Sizes", null);
+                 }
                  if (o.Mandelbrot)
                  {
                      BenchmarkOptions.Add("Operation", Operation.MANDELBROT);
                      o.Float = true;
+                     o.Int8 = o.Int16 = o.Int32 = o.Int64 = o.String = o.Udt = false;
+                 }
+                 else if (o.Fill)
+                 {
+                     BenchmarkOptions.Add("Operation", Operation.FILL);
+                 }
+
+                 else if (o.Test)
+                 {
+                     BenchmarkOptions.Add("Operation", Operation.TEST);
                  }
 
                  if (!BenchmarkOptions.ContainsKey("Operation"))
                  {
-                     Log.Error("You must select an operation to benchmark with --create or --fill or --math.");
+                     Log.Error("You must select an operation to benchmark with --mandel or --fill.");
                      Exit(ExitResult.SUCCESS);
                  }
                  else
@@ -482,23 +495,34 @@ namespace jemalloc.Cli
                         }
                         BenchmarkSummary = BenchmarkRunner.Run<HugeNativeVsManagedArrayBenchmark<T>>(config);
                         break;
+
                     case Category.VECTOR:
-                        VectorBenchmark.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Scales"];
-                        VectorBenchmark.Debug = (bool)BenchmarkOptions["Debug"];
-                        VectorBenchmark.Category = JemBenchmarkAttribute.Category;
-                        VectorBenchmark.Operation = JemBenchmarkAttribute.Operation;
+                        VectorBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Scales"];
+                        VectorBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
+                        VectorBenchmark<T>.Category = JemBenchmarkAttribute.Category;
+                        VectorBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
                         config = config.With(BenchmarkStatisticColumn.ISPCResult);
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.MANDELBROT:
                                 config = config.With(new NameFilter(name => name.Contains("Mandelbrot")));
-                                L.Information("Starting vector Mandelbrot benchmarks with scale: {s}", VectorBenchmark.BenchmarkParameters);
+                                L.Information("Starting vector Mandelbrot benchmarks with scale: {s}", VectorBenchmark<T>.BenchmarkParameters);
+                                break;
+
+                            case Operation.FILL:
+                                config = config.With(new NameFilter(name => name.Contains("Fill")));
+                                L.Information("Starting vector fill benchmarks with array sizes: {s}", VectorBenchmark<T>.BenchmarkParameters);
+                                break;
+
+                            case Operation.TEST:
+                                config = config.With(new NameFilter(name => name.Contains("Test")));
+                                L.Information("Starting vector logical comparison and test benchmarks with array sizes: {s}", VectorBenchmark<T>.BenchmarkParameters);
                                 break;
 
                             default:
                                 throw new InvalidOperationException($"Unknown operation: {(Operation)BenchmarkOptions["Operation"]} for category {(Category)BenchmarkOptions["Category"]}.");
                         }
-                        BenchmarkSummary = BenchmarkRunner.Run<VectorBenchmark>(config);
+                        BenchmarkSummary = BenchmarkRunner.Run<VectorBenchmark<T>>(config);
                         break;
 
                     default:
