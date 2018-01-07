@@ -47,7 +47,10 @@ namespace jemalloc.Benchmarks
         {
 
         }
-        public JemBenchmark() { }
+        public JemBenchmark()
+        {
+            _BenchmarkParameters = BenchmarkParameters;
+        }
         #endregion
 
         #region Properties
@@ -55,6 +58,8 @@ namespace jemalloc.Benchmarks
         public TParam Parameter;
 
         public static IEnumerable<TParam> BenchmarkParameters { get; set; }
+
+        public static IEnumerable<TParam> _BenchmarkParameters { get; set; }
 
         public static Category Category { get; set; }
 
@@ -90,7 +95,7 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Methods
-        public IEnumerable<IParam> GetParameters() => BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
+        public IEnumerable<IParam> GetParameters() => _BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
 
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
         {
@@ -148,7 +153,7 @@ namespace jemalloc.Benchmarks
 
         public void SetStatistic(string name, string value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkStatistics.AddOrUpdate(name, value, ((k, v) => value));
+            JemUtil.BenchmarkStatistics.AddOrUpdate($"{name}", value, ((k, v) => value));
         }
 
         public void SetMemoryStatistics([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)

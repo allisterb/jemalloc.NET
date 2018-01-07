@@ -242,9 +242,9 @@ namespace jemalloc.Cli
              .WithParsed<VectorBenchmarkOptions>(o =>
              {
                  BenchmarkOptions.Add("Category", Category.VECTOR);
-                 if (!BenchmarkOptions.ContainsKey("sizes"))
+                 if (!BenchmarkOptions.ContainsKey("Sizes"))
                  {
-                     BenchmarkOptions.Add("Sizes", null);
+                     BenchmarkOptions.Add("Sizes", o.Scales);
                  }
                  if (o.Mandelbrot)
                  {
@@ -501,21 +501,21 @@ namespace jemalloc.Cli
                         VectorBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         VectorBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         VectorBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
-                        config = config.With(BenchmarkStatisticColumn.ISPCResult);
+                        //config = config.With(BenchmarkStatisticColumn.ISPCResult);
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.MANDELBROT:
-                                config = config.With(new NameFilter(name => name.Contains("Mandelbrot")));
+                                config = config.With(new NameFilter(name => name.StartsWith("Mandelbrot")));
                                 L.Information("Starting vector Mandelbrot benchmarks with scale: {s}", VectorBenchmark<T>.BenchmarkParameters);
                                 break;
 
                             case Operation.FILL:
-                                config = config.With(new NameFilter(name => name.Contains("Fill")));
+                                config = config.With(new NameFilter(name => name.StartsWith("Fill")));
                                 L.Information("Starting vector fill benchmarks with array sizes: {s}", VectorBenchmark<T>.BenchmarkParameters);
                                 break;
 
                             case Operation.TEST:
-                                config = config.With(new NameFilter(name => name.Contains("Test")));
+                                config = config.With(new NameFilter(name => name.StartsWith("Test")));
                                 L.Information("Starting vector logical comparison and test benchmarks with array sizes: {s}", VectorBenchmark<T>.BenchmarkParameters);
                                 break;
 

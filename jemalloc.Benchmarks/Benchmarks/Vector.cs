@@ -16,8 +16,8 @@ namespace jemalloc.Benchmarks
     [OrderProvider(methodOrderPolicy: MethodOrderPolicy.Declared)]
     public class VectorBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
-        public int ArraySize => Parameter;
-        public int Scale => Parameter;
+        public int ArraySize { get; protected set; }
+        public int Scale { get; protected set; }
        
         private const int _Mandelbrot_Width = 768 , _Mandelbrot_Height = 512;
 
@@ -28,15 +28,16 @@ namespace jemalloc.Benchmarks
         Vector<int> One = Vector<int>.One;
         Vector<int> Zero = Vector<int>.Zero;
         Vector<float> Limit = new Vector<float>(4);
-        
+        public VectorBenchmark()
+        {
+            ArraySize = Parameter;
+            Scale = Parameter;
+        }
 
         #region Mandelbrot
         [GlobalSetup(Target = nameof(MandelbrotManaged))]
         public void MandelbrotSetup()
         {
-
-            //byte[] managed0Array = new byte[ArraySize];
-            //SetValue("managed0Array", managed0Array);
             byte[] managedArray = new byte[MandelbrotArraySize];
             SetValue("managedArray", managedArray);
             int[] managed3Array = new int[MandelbrotArraySize];
@@ -326,6 +327,172 @@ namespace jemalloc.Benchmarks
         }
         #endregion
 
+        #region Fill
+        [GlobalSetup(Target = nameof(FillManagedArray))]
+        public void FillGlobalSetup()
+        {
+            Info("Vector width is {0}.", Vector<T>.Count);
+            T[] mArray = new T[ArraySize];
+            SetValue("managedArray", mArray);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
+            SetValue("nativeArray", nativeArray);
+            T fill = GM<T>.Random();
+            SetValue("fill", fill);
+            Info("Fill value is {0}.", fill);
+        }
+
+        [Benchmark(Description = "Serial fill managed memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillManagedArray()
+        {
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Array.Fill(managedArray, GetValue<T>("fill"));
+        }
+
+        [Benchmark(Description = "Vector fill managed memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillManagedArrayUsingVector()
+        {
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Span<Vector<T>> s = new Span<T>(managedArray).NonPortableCast<T, Vector<T>>();
+            Vector<T> fill = new Vector<T>(GetValue<T>("fill"));
+            for (int i = 0; i < s.Length; i ++)
+            {
+                s[i] = fill;
+            }
+        }
+
+        [Benchmark(Description = "Vector fill unmanaged memory array.")]
+        [BenchmarkCategory("Fill")]
+        public void FillUnmanagedArray()
+        {
+            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
+            nativeBuffer.VectorFill(GetValue<T>("fill"));
+        }
+
+
+        [GlobalCleanup(Target = nameof(FillUnmanagedArray))]
+        public void _FillGlobalValidateAndCleanup()
+        {
+            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            for (int i =0; i < managedArray.Length; i++)           
+            if (!managedArray[i].Equals(nativeBuffer[i]))
+            {
+                throw new Exception($"Native array at index {i} is {nativeBuffer[i]} not {managedArray[i]}.");
+            }
+        }
+        #endregion
+
+        #region Test
+        [GlobalSetup(Target = nameof(TestManagedArrayLessThan))]
+        public void TestGlobalSetup()
+        {
+            Info("Vector width is {0}.", Vector<T>.Count);
+            T[] mArray = new T[ArraySize];
+            SetValue("managedArray", mArray);
+            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
+            SetValue("nativeArray", nativeArray);
+            for (int i = 0; i < ArraySize / 100; i++)
+            {
+                mArray[i] = GM<T>.Random();
+                nativeArray[i] = mArray[i];
+            }
+            SetValue("cmp", GM<T>.Random());
+        }
+
+        [Benchmark(Description = "Serial test managed memory array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestManagedArrayLessThan()
+        {
+            T cmp = GetValue<T>("cmp");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            int lessThanResult = Array.FindIndex(managedArray, (a) => a.CompareTo(cmp) >= 0);
+            SetValue("managedLessThanResult", lessThanResult);
+        }
+
+        [Benchmark(Description = "Vector test managed memory array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestVectorManagedArrayLessThan()
+        {
+            int lessThanResult = -1;
+            int c = JemUtil.VectorLength<T>();
+            int i;
+            T cmp = GetValue<T>("cmp");
+            T[] managedArray = GetValue<T[]>("managedArray");
+            Vector<T> O = Vector<T>.One;
+            Vector<T> _cmp = new Vector<T>(cmp);
+            for (i = 0; i < managedArray.Length - c; i+= c)
+            {
+                Vector<T> v = new Vector<T>(managedArray, i);
+                Vector<T> vcmp = Vector.LessThan(v, _cmp);
+                if (vcmp == O)
+                {
+                    continue;
+                }
+                else
+                {
+                    for (int j = 0; j < c; j++)
+                    {
+                        if (vcmp[j].Equals(default))
+                        {
+                            lessThanResult = i + j;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            for (; i < c; ++i)
+            {
+                if (managedArray[i].CompareTo(cmp) >= 0)
+                {
+                    lessThanResult = i;
+                    break;
+                }
+            }
+            SetValue("managedVectorLessThanResult", lessThanResult);
+        }
+
+        [Benchmark(Description = "Vector test native array less than.")]
+        [BenchmarkCategory("Test")]
+        public void TestNativeArrayLessThan()
+        {
+            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
+            T cmp = GetValue<T>("cmp");
+            nativeArray.VectorLessThanAll(cmp, out int lessThanResult);
+            SetValue("nativeLessThanResult", lessThanResult);
+        }
+
+   
+        [GlobalCleanup(Target = nameof(TestNativeArrayLessThan))]
+        public void _TestGlobalValidateAndCleanup()
+        {
+            var m = GetValue<int>("managedLessThanResult");
+            var mv = GetValue<int>("managedVectorLessThanResult");
+            var n = GetValue<int>("nativeLessThanResult");
+            Info("{0}, {1}, {2}", m, n, mv);
+            
+            if (m != mv)
+            {
+                Error("{0}, {1}", m, mv);
+                throw new Exception();
+            }
+            else if (n != mv)
+            {
+                Error("{0}, {1}", mv, n);
+                throw new Exception();
+            }
+            
+            if (m != n)
+            {
+                Error("{0}, {1}", m, n);
+                throw new Exception();
+            }
+ 
+        }
+        #endregion
+
         #region Implementations
         private byte[] _MandelbrotManagedv0(ref byte[] output)
         {
@@ -333,18 +500,16 @@ namespace jemalloc.Benchmarks
             float[] C0 = new float[2] { -2, -1 };
             float[] C1 = new float[2] { 1, 1 };
             float[] D = new float[2] { (C1[0] - C0[0]) / B[0], (C1[1] - C0[1]) / B[1] };
-            float[] P = new float[2];
             float[] V = new float[2];
             int index;
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 for (int i = 0; i < Mandelbrot_Width; i++)
                 {
-                    P[0] = i;
-                    P[1] = j ;
+                  
                     index = unchecked(j * Mandelbrot_Width + i);
-                    V[0] = C0[0] + (P[0] * D[0]);
-                    V[1] = C0[1] + (P[1] * D[1]);
+                    V[0] = C0[0] + (i * D[0]);
+                    V[1] = C0[1] + (j * D[1]);
                     output[index] = GetByte(V, 256);
                 }
             }
@@ -379,12 +544,12 @@ namespace jemalloc.Benchmarks
                 {
                     if (z.LengthSquared() > 4f)
                     {
-                        return (byte) i;
+                        return (byte)i;
                     }
                     Vector2 w = z * z;
                     z = c + new Vector2(w.X - w.Y, 2f * z.X * z.Y);
                 }
-                return (byte) (i - 1);
+                return (byte)(i - 1);
             }
 
         }
@@ -498,7 +663,7 @@ namespace jemalloc.Benchmarks
             int[] output = new int[MandelbrotArraySize];
             float[] Vectors = new float[6];
             Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
-           
+
             Vectors[0] = -2f;
             Vectors[1] = -1f;
             Vectors[2] = 1f;
@@ -528,7 +693,7 @@ namespace jemalloc.Benchmarks
                     Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
                     outputVector.CopyTo(output, index);
                 });
-                
+
             }
             return output;
         }
@@ -555,12 +720,12 @@ namespace jemalloc.Benchmarks
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 for (int i = 0; i < Mandelbrot_Width; i += VectorWidth)
-                {                        
+                {
                     for (int h = 0; h < VectorWidth; h++)
                     {
                         sPre[h] = C0re[0] + (Dx[0] * (i + h));
                     }
-                    
+
                     Pim = C0im + (Dy * j);
                     index = unchecked(j * Mandelbrot_Width + i);
                     Vector<int> outputVector = GetByte(ref Pre, ref Pim, 256);
@@ -574,7 +739,7 @@ namespace jemalloc.Benchmarks
         {
             int VectorWidth = Vector<float>.Count;
             int[] output = new int[MandelbrotArraySize];
- 
+
             Vector<float> C0re = new Vector<float>(-2);
             Vector<float> C0im = new Vector<float>(-1);
             Vector<float> C1re = Vector<float>.One;
@@ -585,13 +750,13 @@ namespace jemalloc.Benchmarks
             Vector<float> Dx = (C1re - C0re) / Bx;
             Vector<float> Dy = (C1im - C0im) / By;
 
-            
+
             for (int j = 0; j < Mandelbrot_Height; j++)
             {
                 Parallel.ForEach(MandelbrotBitmapLocation(j), (p) =>
                 {
                     int i = p.Item1;
-          
+
                     Vector<float> Pre = new Vector<float>();
                     unsafe
                     {
@@ -880,7 +1045,7 @@ namespace jemalloc.Benchmarks
         {
             return (Vre * Vre) + (Vim * Vim);
         }
-    
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void WriteMandelbrotPPM(ReadOnlySpan<byte> output, string name)
         {
@@ -895,7 +1060,7 @@ namespace jemalloc.Benchmarks
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = (output[i] & 0x01) == 1 ? (byte) 20 : (byte) 240;
+                    byte b = (output[i] & 0x01) == 1 ? (byte)20 : (byte)240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
@@ -941,7 +1106,7 @@ namespace jemalloc.Benchmarks
             {
                 for (int i = 0; i < Mandelbrot_Width * Mandelbrot_Height; i++)
                 {
-                    byte b = (output[i] & 0x01) == 1 ? (byte) 20 : (byte) 240;
+                    byte b = (output[i] & 0x01) == 1 ? (byte)20 : (byte)240;
                     bw.Write(b);
                     bw.Write(b);
                     bw.Write(b);
@@ -980,172 +1145,6 @@ namespace jemalloc.Benchmarks
                 default:
                     return string.Empty;
             }
-        }
-        #endregion
-
-        #region Fill
-        [GlobalSetup(Target = nameof(FillManagedArray))]
-        public void FillGlobalSetup()
-        {
-            Info("Vector width is {0}.", Vector<T>.Count);
-            T[] mArray = new T[ArraySize];
-            SetValue("managedArray", mArray);
-            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
-            SetValue("nativeArray", nativeArray);
-            T fill = GM<T>.Random();
-            SetValue("fill", fill);
-            Info("Fill value is {0}.", fill);
-        }
-
-        [Benchmark(Description = "Serial fill managed memory array.")]
-        [BenchmarkCategory("Fill")]
-        public void FillManagedArray()
-        {
-            T[] managedArray = GetValue<T[]>("managedArray");
-            Array.Fill(managedArray, GetValue<T>("fill"));
-        }
-
-        [Benchmark(Description = "Vector fill managed memory array.")]
-        [BenchmarkCategory("Fill")]
-        public void FillManagedArrayUsingVector()
-        {
-            T[] managedArray = GetValue<T[]>("managedArray");
-            Span<Vector<T>> s = new Span<T>(managedArray).NonPortableCast<T, Vector<T>>();
-            Vector<T> fill = new Vector<T>(GetValue<T>("fill"));
-            for (int i = 0; i < s.Length; i ++)
-            {
-                s[i] = fill;
-            }
-        }
-
-        [Benchmark(Description = "Vector fill unmanaged memory array.")]
-        [BenchmarkCategory("Fill")]
-        public void FillUnmanagedArray()
-        {
-            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
-            nativeBuffer.VectorFill(GetValue<T>("fill"));
-        }
-
-
-        [GlobalCleanup(Target = nameof(FillUnmanagedArray))]
-        public void _FillGlobalValidateAndCleanup()
-        {
-            FixedBuffer<T> nativeBuffer = GetValue<FixedBuffer<T>>("nativeArray");
-            T[] managedArray = GetValue<T[]>("managedArray");
-            for (int i =0; i < managedArray.Length; i++)           
-            if (!managedArray[i].Equals(nativeBuffer[i]))
-            {
-                throw new Exception($"Native array at index {i} is {nativeBuffer[i]} not {managedArray[i]}.");
-            }
-        }
-        #endregion
-
-        #region Test
-        [GlobalSetup(Target = nameof(TestManagedArrayLessThan))]
-        public void TestGlobalSetup()
-        {
-            Info("Vector width is {0}.", Vector<T>.Count);
-            T[] mArray = new T[ArraySize];
-            SetValue("managedArray", mArray);
-            FixedBuffer<T> nativeArray = new FixedBuffer<T>(ArraySize);
-            SetValue("nativeArray", nativeArray);
-            for (int i = 0; i < ArraySize / 100; i++)
-            {
-                mArray[i] = GM<T>.Random();
-                nativeArray[i] = mArray[i];
-            }
-            SetValue("cmp", GM<T>.Random());
-        }
-
-        [Benchmark(Description = "Serial test managed memory array less than.")]
-        [BenchmarkCategory("Test")]
-        public void TestManagedArrayLessThan()
-        {
-            T cmp = GetValue<T>("cmp");
-            T[] managedArray = GetValue<T[]>("managedArray");
-            int lessThanResult = Array.FindIndex(managedArray, (a) => a.CompareTo(cmp) >= 0);
-            SetValue("managedLessThanResult", lessThanResult);
-        }
-
-        [Benchmark(Description = "Vector test managed memory array less than.")]
-        [BenchmarkCategory("Test")]
-        public void TestVectorManagedArrayLessThan()
-        {
-            int lessThanResult = -1;
-            int c = JemUtil.VectorLength<T>();
-            int i;
-            T cmp = GetValue<T>("cmp");
-            T[] managedArray = GetValue<T[]>("managedArray");
-            Vector<T> O = Vector<T>.One;
-            Vector<T> _cmp = new Vector<T>(cmp);
-            for (i = 0; i < managedArray.Length - c; i+= c)
-            {
-                Vector<T> v = new Vector<T>(managedArray, i);
-                Vector<T> vcmp = Vector.LessThan(v, _cmp);
-                if (vcmp == O)
-                {
-                    continue;
-                }
-                else
-                {
-                    for (int j = 0; j < c; j++)
-                    {
-                        if (vcmp[j].Equals(default))
-                        {
-                            lessThanResult = i + j;
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-            for (; i < c; ++i)
-            {
-                if (managedArray[i].CompareTo(cmp) >= 0)
-                {
-                    lessThanResult = i;
-                    break;
-                }
-            }
-            SetValue("managedVectorLessThanResult", lessThanResult);
-        }
-
-        [Benchmark(Description = "Vector test native array less than.")]
-        [BenchmarkCategory("Test")]
-        public void TestNativeArrayLessThan()
-        {
-            FixedBuffer<T> nativeArray = GetValue<FixedBuffer<T>>("nativeArray");
-            T cmp = GetValue<T>("cmp");
-            nativeArray.VectorLessThanAll(cmp, out int lessThanResult);
-            SetValue("nativeLessThanResult", lessThanResult);
-        }
-
-   
-        [GlobalCleanup(Target = nameof(TestNativeArrayLessThan))]
-        public void _TestGlobalValidateAndCleanup()
-        {
-            var m = GetValue<int>("managedLessThanResult");
-            var mv = GetValue<int>("managedVectorLessThanResult");
-            var n = GetValue<int>("nativeLessThanResult");
-            Info("{0}, {1}, {2}", m, n, mv);
-            
-            if (m != mv)
-            {
-                Error("{0}, {1}", m, mv);
-                throw new Exception();
-            }
-            else if (n != mv)
-            {
-                Error("{0}, {1}", mv, n);
-                throw new Exception();
-            }
-            
-            if (m != n)
-            {
-                Error("{0}, {1}", m, n);
-                throw new Exception();
-            }
- 
         }
         #endregion
     }
