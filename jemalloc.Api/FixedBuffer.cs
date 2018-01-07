@@ -24,6 +24,10 @@ namespace jemalloc
             IsReadOnly = false;
             AllocateThreadId = 0;
             Rid = JemUtil.Rng.Next(0, 4096);
+            if (length == 0)
+            {
+                throw new ArgumentException("FixedBuffer Length cannot be zero.");
+            }
             ThrowIfTypeNotPrimitive();
             long t = DateTime.UtcNow.Ticks;
             int th = Thread.CurrentThread.ManagedThreadId;
@@ -387,7 +391,7 @@ namespace jemalloc
 
         internal void ThrowIfNotVectorizable()
         {
-            if (Length == 0 || Length % JemUtil.VectorLength<T>() != 0)
+            if (!JemUtil.IsNumericType<T>() || _Length == 0 || (_Length % JemUtil.VectorLength<T>() != 0))
             {
                 throw new InvalidOperationException("Buffer is not vectorizable.");
             }
@@ -401,7 +405,7 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorFill(T value)
         {
-            Acquire();
+            ThrowIfInvalid();
             int c = JemUtil.VectorLength<T>();
             int i;
             Vector<T> fill = new Vector<T>(value);
@@ -414,7 +418,6 @@ namespace jemalloc
             {
                 Write(i, ref value);
             }
-            Release();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -462,6 +465,7 @@ namespace jemalloc
 
         public unsafe bool VectorLessThanAll(T value, out int index)
         {
+            ThrowIfInvalid();
             index = -1;
             bool r = true;
             int c = Vector<T>.Count;

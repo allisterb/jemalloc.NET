@@ -16,23 +16,19 @@ namespace jemalloc.Benchmarks
     [OrderProvider(methodOrderPolicy: MethodOrderPolicy.Declared)]
     public class VectorBenchmark<T> : JemBenchmark<T, int> where T : struct, IEquatable<T>, IComparable<T>, IConvertible
     {
-        public int ArraySize { get; protected set; }
-        public int Scale { get; protected set; }
-       
-        private const int _Mandelbrot_Width = 768 , _Mandelbrot_Height = 512;
+        private const int _Mandelbrot_Width = 768, _Mandelbrot_Height = 512;
+
+        public int ArraySize => Parameter;
+        public int Scale => Parameter;
+
 
         public int Mandelbrot_Width => _Mandelbrot_Width * Scale;
         public int Mandelbrot_Height => _Mandelbrot_Height * Scale;
-        public int MandelbrotArraySize => (Mandelbrot_Width * Mandelbrot_Height);
+        public int MandelbrotArraySize => Mandelbrot_Width * Mandelbrot_Height;
 
-        Vector<int> One = Vector<int>.One;
-        Vector<int> Zero = Vector<int>.Zero;
-        Vector<float> Limit = new Vector<float>(4);
-        public VectorBenchmark()
-        {
-            ArraySize = Parameter;
-            Scale = Parameter;
-        }
+        readonly Vector<int> One = Vector<int>.One;
+        readonly Vector<int> Zero = Vector<int>.Zero;
+        readonly Vector<float> Limit = new Vector<float>(4);
 
         #region Mandelbrot
         [GlobalSetup(Target = nameof(MandelbrotManaged))]
@@ -329,7 +325,7 @@ namespace jemalloc.Benchmarks
 
         #region Fill
         [GlobalSetup(Target = nameof(FillManagedArray))]
-        public void FillGlobalSetup()
+        public void _FillGlobalSetup()
         {
             Info("Vector width is {0}.", Vector<T>.Count);
             T[] mArray = new T[ArraySize];

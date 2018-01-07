@@ -96,9 +96,7 @@ namespace jemalloc
 
         public static uint ElementSizeInBytes<T>() where T: struct => (uint)JemUtil.SizeOfStruct<T>();
 
-        public static bool IsNumeric<T>() => JemUtil.IsNumericType<T>();
-
-        public static int VectorLength<T>() where T : struct => IsNumeric<T>() ? Vector<T>.Count : 0;
+        public static int VectorLength<T> () where T : struct => Vector<T>.Count;
 
         public static bool SIMD => Vector.IsHardwareAccelerated;
         #endregion

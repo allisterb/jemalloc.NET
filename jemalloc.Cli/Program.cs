@@ -205,7 +205,7 @@ namespace jemalloc.Cli
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
                     Log.Error("You must select an operation to benchmark with --create or --fill.");
-                    Exit(ExitResult.SUCCESS);
+                    Exit(ExitResult.INVALID_OPTIONS);
                 }
                 else
                 {
@@ -232,7 +232,7 @@ namespace jemalloc.Cli
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
                     Log.Error("You must select an operation to benchmark with --create or --fill or --math.");
-                    Exit(ExitResult.SUCCESS);
+                    Exit(ExitResult.INVALID_OPTIONS);
                 }
                 else
                 {
@@ -242,15 +242,11 @@ namespace jemalloc.Cli
              .WithParsed<VectorBenchmarkOptions>(o =>
              {
                  BenchmarkOptions.Add("Category", Category.VECTOR);
-                 if (!BenchmarkOptions.ContainsKey("Sizes"))
-                 {
-                     BenchmarkOptions.Add("Sizes", o.Scales);
-                 }
                  if (o.Mandelbrot)
                  {
                      BenchmarkOptions.Add("Operation", Operation.MANDELBROT);
                      o.Float = true;
-                     o.Int8 = o.Int16 = o.Int32 = o.Int64 = o.String = o.Udt = false;
+                     o.Int8 = o.Int16 = o.Int32 = o.Int64 = o.Double = o.String = o.Udt = false;
                  }
                  else if (o.Fill)
                  {
@@ -265,7 +261,7 @@ namespace jemalloc.Cli
                  if (!BenchmarkOptions.ContainsKey("Operation"))
                  {
                      Log.Error("You must select an operation to benchmark with --mandel or --fill.");
-                     Exit(ExitResult.SUCCESS);
+                     Exit(ExitResult.INVALID_OPTIONS);
                  }
                  else
                  {
@@ -278,7 +274,7 @@ namespace jemalloc.Cli
         {
             Contract.Requires(BenchmarkOptions.ContainsKey("Operation"));
             Contract.Requires(BenchmarkOptions.ContainsKey("Category"));
-            Contract.Requires(BenchmarkOptions.ContainsKey("Sizes"));
+            Contract.Requires(BenchmarkOptions.ContainsKey("Sizes") || BenchmarkOptions.ContainsKey("Scales"));
             if (o.Int8 && o.Unsigned)
             {
                 Benchmark<Byte>();
@@ -347,7 +343,7 @@ namespace jemalloc.Cli
                         MallocVsArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         MallocVsArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         MallocVsArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
-                        MallocVsArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        MallocVsArrayBenchmark<T>.BenchmarkParameters = ((IEnumerable<int>)BenchmarkOptions["Sizes"]).ToList();
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.CREATE:
@@ -378,7 +374,7 @@ namespace jemalloc.Cli
                         break;
 
                     case Category.BUFFER:
-                        FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        FixedBufferVsManagedArrayBenchmark<T>.BenchmarkParameters = ((IEnumerable<int>)BenchmarkOptions["Sizes"]).ToList();
                         FixedBufferVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         FixedBufferVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         FixedBufferVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
@@ -419,7 +415,7 @@ namespace jemalloc.Cli
                         break;
 
                     case Category.NARRAY:
-                        SafeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Sizes"];
+                        SafeVsManagedArrayBenchmark<T>.BenchmarkParameters = ((IEnumerable<int>)BenchmarkOptions["Sizes"]).ToList();
                         SafeVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         SafeVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         SafeVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
@@ -460,7 +456,7 @@ namespace jemalloc.Cli
                         break;
 
                     case Category.HUGEARRAY:
-                        HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters = (IEnumerable<ulong>)BenchmarkOptions["Sizes"];
+                        HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters = ((IEnumerable<ulong>)BenchmarkOptions["Sizes"]).ToList();
                         HugeNativeVsManagedArrayBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         HugeNativeVsManagedArrayBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         HugeNativeVsManagedArrayBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
@@ -497,11 +493,11 @@ namespace jemalloc.Cli
                         break;
 
                     case Category.VECTOR:
-                        VectorBenchmark<T>.BenchmarkParameters = (IEnumerable<int>)BenchmarkOptions["Scales"];
+                        VectorBenchmark<T>.BenchmarkParameters = ((IEnumerable<int>)BenchmarkOptions["Scales"]).ToList();
                         VectorBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         VectorBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         VectorBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
-                        //config = config.With(BenchmarkStatisticColumn.ISPCResult);
+                        config = config.With(BenchmarkStatisticColumn.ISPCResult);
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.MANDELBROT:

@@ -16,7 +16,7 @@ namespace jemalloc.Benchmarks
             JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
         public readonly (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
 
-        [GlobalSetup]
+        
         public override void GlobalSetup()
         {
             DebugInfoThis();

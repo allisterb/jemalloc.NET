@@ -49,7 +49,7 @@ namespace jemalloc.Benchmarks
         }
         public JemBenchmark()
         {
-            _BenchmarkParameters = BenchmarkParameters;
+            
         }
         #endregion
 
@@ -57,9 +57,7 @@ namespace jemalloc.Benchmarks
         [ParamsSource(nameof(GetParameters))]
         public TParam Parameter;
 
-        public static IEnumerable<TParam> BenchmarkParameters { get; set; }
-
-        public static IEnumerable<TParam> _BenchmarkParameters { get; set; }
+        public static List<TParam> BenchmarkParameters { get; set; }
 
         public static Category Category { get; set; }
 
@@ -95,8 +93,15 @@ namespace jemalloc.Benchmarks
         #endregion
 
         #region Methods
-        public IEnumerable<IParam> GetParameters() => _BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
-
+        public IEnumerable<IParam> GetParameters() 
+        {
+            IEnumerable<IParam> param;
+            lock (benchmarkLock)
+            {
+                param = BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
+            }
+            return param;
+        }
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
         {
             return typeof(TBench).GenericTypeArguments.First().GetMethods(BindingFlags.Public).Count();
@@ -133,7 +138,7 @@ namespace jemalloc.Benchmarks
 
         public TValue GetValue<TValue>(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            if (JemUtil.BenchmarkValues.TryGetValue($"{name}", out object v))
+            if (JemUtil.BenchmarkValues.TryGetValue($"{name}_{Parameter.GetHashCode()}", out object v))
             {
                 return (TValue) v;
             }
@@ -142,18 +147,18 @@ namespace jemalloc.Benchmarks
 
         public void SetValue<TValue>(string name, TValue value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkValues.GetOrAdd($"{name}", value);
+            JemUtil.BenchmarkValues.GetOrAdd($"{name}_{Parameter.GetHashCode()}", value);
          
         }
 
         public void RemoveValue(string name, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkValues.Remove($"{name}", out object o);
+            JemUtil.BenchmarkValues.Remove($"{name}_{Parameter.GetHashCode()}", out object o);
         }
 
         public void SetStatistic(string name, string value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkStatistics.AddOrUpdate($"{name}", value, ((k, v) => value));
+            JemUtil.BenchmarkStatistics.AddOrUpdate($"{name}_{Parameter.GetHashCode()}", value, ((k, v) => value));
         }
 
         public void SetMemoryStatistics([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
@@ -220,6 +225,7 @@ namespace jemalloc.Benchmarks
             return new Tuple<double, string>(Double.Parse(s[0]), s[1]);
         }
 
+        private static object benchmarkLock = new object();
         #endregion
     }
 }
