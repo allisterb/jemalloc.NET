@@ -11,7 +11,7 @@ namespace jemalloc
         {
             if (!JemUtil.IsNumericType<TData>())
             {
-                throw new ArithmeticException();
+                throw new InvalidOperationException($"Type {typeof(TData).Name} is not a numeric type.");
             }
 
         }
@@ -61,12 +61,16 @@ namespace jemalloc
 
                 case Tuple<Double, Double> v:
                     return (TData)Convert.ChangeType(checked(v.Item1 * v.Item2), typeof(TData));
+
+                case Tuple<bool, bool> v:
+                    throw new ArgumentException($"Cannot multiply 2 bools.");
+
                 default:
-                    throw new Exception($"Unsupported type: {typeof(TData).Name}");
+                    throw new Exception($"Unsupported math type: {typeof(TData).Name}");
             }
         }
         
-        public unsafe static double Sqrt(TData n)
+        public static double Sqrt(TData n)
         {
             switch (n)
             {
@@ -90,12 +94,15 @@ namespace jemalloc
                     return checked(Math.Sqrt(v));
                 case Double v:
                     return checked(Math.Sqrt(v));
+                case bool v:
+                    throw new ArgumentException($"Cannot get the square root of a bool.");
                 default:
                     throw new ArithmeticException();
             }
         }
 
-        public unsafe static double F(Func<double, double> f, TData n)
+       
+        public static double F(Func<double, double> f, TData n)
         {
             switch (n)
             {
@@ -119,6 +126,8 @@ namespace jemalloc
                     return checked(f(v));
                 case Double v:
                     return checked(f(v));
+                case Boolean v:
+                    throw new ArgumentException($"Cannot apply math functions to a bool.");
                 default:
                     throw new ArithmeticException();
             }
@@ -149,6 +158,8 @@ namespace jemalloc
                     return Const(checked(((Single)(Rng.NextDouble() * Int64.MaxValue))));
                 case Double v:
                     return Const(checked((((double)Rng.NextDouble() * Int64.MaxValue))));
+                case Boolean v:
+                    return Const(Convert.ToBoolean(Rng.Next(0, 1)));
 
                 default:
                     throw new ArithmeticException();
@@ -198,7 +209,7 @@ namespace jemalloc
                     max = Random((Single)(long.MaxValue / 4));
                     break;
                 default:
-                    throw new ArithmeticException();
+                    throw new ArgumentException($"Cannot multiply type {nameof(TData)}.");
             }
             return (Const(factor), Const(max));
 

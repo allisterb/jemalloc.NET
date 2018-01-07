@@ -1057,7 +1057,7 @@ namespace jemalloc.Benchmarks
             SetValue("cmp", GM<T>.Random());
         }
 
-        [Benchmark(Description = "Vector test managed memory array less than.")]
+        [Benchmark(Description = "Serial test managed memory array less than.")]
         [BenchmarkCategory("Test")]
         public void TestManagedArrayLessThan()
         {
@@ -1067,25 +1067,28 @@ namespace jemalloc.Benchmarks
             SetValue("managedLessThanResult", lessThanResult);
         }
 
-        [Benchmark(Description = "Serial test managed memory array less than.")]
+        [Benchmark(Description = "Vector test managed memory array less than.")]
         [BenchmarkCategory("Test")]
         public void TestVectorManagedArrayLessThan()
         {
             int lessThanResult = -1;
+            int c = JemUtil.VectorLength<T>();
+            int i;
             T cmp = GetValue<T>("cmp");
             T[] managedArray = GetValue<T[]>("managedArray");
-            Vector<T> c = new Vector<T>(cmp);
-            for (int i =0; i < managedArray.Length; i+=JemUtil.VectorLength<T>())
+            Vector<T> O = Vector<T>.One;
+            Vector<T> _cmp = new Vector<T>(cmp);
+            for (i = 0; i < managedArray.Length - c; i+= c)
             {
                 Vector<T> v = new Vector<T>(managedArray, i);
-                Vector<T> vcmp = Vector.LessThan(v, c);
-                if (vcmp == Vector<T>.One)
+                Vector<T> vcmp = Vector.LessThan(v, _cmp);
+                if (vcmp == O)
                 {
                     continue;
                 }
                 else
                 {
-                    for (int j = 0; j < JemUtil.VectorLength<T>(); j++)
+                    for (int j = 0; j < c; j++)
                     {
                         if (vcmp[j].Equals(default))
                         {
@@ -1093,6 +1096,14 @@ namespace jemalloc.Benchmarks
                             break;
                         }
                     }
+                    break;
+                }
+            }
+            for (; i < c; ++i)
+            {
+                if (managedArray[i].CompareTo(cmp) >= 0)
+                {
+                    lessThanResult = i;
                     break;
                 }
             }
@@ -1116,7 +1127,7 @@ namespace jemalloc.Benchmarks
             var m = GetValue<int>("managedLessThanResult");
             var mv = GetValue<int>("managedVectorLessThanResult");
             var n = GetValue<int>("nativeLessThanResult");
-            Info("{0}, {1}", m, n);
+            Info("{0}, {1}, {2}", m, n, mv);
             
             if (m != mv)
             {
@@ -1129,7 +1140,7 @@ namespace jemalloc.Benchmarks
                 throw new Exception();
             }
             
-            if (!m.Equals(n))
+            if (m != n)
             {
                 Error("{0}, {1}", m, n);
                 throw new Exception();

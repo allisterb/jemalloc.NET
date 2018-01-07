@@ -24,12 +24,14 @@ namespace jemalloc.Tests
             Span<byte> s = Employees.AcquireSpan().AsBytes();
             
             int size = JemUtil.SizeOfStruct<TestUDT>();
+            /*
             for (int i = 0; i < Employees.Length; i+= size * Employees[i].)
             {
                
                 //s.Slice
                 
             }
+            */
         }
 
     }

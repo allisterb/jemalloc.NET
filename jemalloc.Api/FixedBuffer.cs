@@ -37,7 +37,6 @@ namespace jemalloc
                 
             }
             else throw new OutOfMemoryException($"Could not allocate {(ulong)_Length * ElementSizeInBytes} bytes for {Name}");
-
         }
 
         public FixedBuffer(int length, bool isReadOnly) : this(length)
@@ -84,6 +83,7 @@ namespace jemalloc
 
         bool IEquatable<FixedBuffer<T>>.Equals(FixedBuffer<T> buffer)
         {
+            ThrowIfInvalid();
             return this._Ptr == buffer.Ptr && this.Length == buffer.Length && this._Timestamp == buffer.Timestamp 
                 && this.AllocateThreadId == buffer.AllocateThreadId && this.Rid == buffer.Rid;
         }
@@ -176,7 +176,6 @@ namespace jemalloc
         {
             get
             {
-                ThrowIfInvalid();
                 return _Timestamp;
             }
         }
@@ -210,26 +209,35 @@ namespace jemalloc
 
         public void Fill(T value)
         {
-            Retain();
             WriteSpan.Fill(value);
-            Release();
         }
 
         public void CopyTo(T[] array)
         {
-            AcquireSpan().CopyTo(new Span<T>(array));
-            Release();
+            WriteSpan.CopyTo(new Span<T>(array));
         }
 
         public T[] CopyToArray()
         {
             T[] array = new T[Length];
-            AcquireSpan().CopyTo(new Span<T>(array));
-            Release();
+            WriteSpan.CopyTo(new Span<T>(array));
             return array;
         }
 
-        public T[] FreeAndCopyToArray()
+        public T[] CopyToArray(T[] array)
+        {
+            if (_Length != array.Length)
+            {
+                throw new ArgumentException($"Array length {array.Length} is not the same as length {_Length} of {Name}.");
+            }
+            else
+            {
+                Span.CopyTo(new Span<T>(array));
+                return array;
+            }
+        }
+
+        public T[] CopyToArrayAndFree()
         {
             T[] array = CopyToArray();
             Free();
@@ -238,16 +246,15 @@ namespace jemalloc
 
         public bool EqualTo(T[] array)
         {
+            ThrowIfInvalid();
             if (_Length != array.Length)
             {
                 return false;
             }
             else
             {
-                Retain();
                 ReadOnlySpan<T> span = new ReadOnlySpan<T>(array);
                 bool ret = this.Span.SequenceEqual(span);
-                Release();
                 return ret;
             }
         }
@@ -259,6 +266,21 @@ namespace jemalloc
             return new ReadOnlySpan<T>((void*) _Ptr, (int)Length);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe ReadOnlySpan<C> AcquireSpan<C>() where C : struct, IEquatable<T>, IComparable<T>, IConvertible
+        {
+            int size = checked((int)(Size / (ulong)JemUtil.SizeOfStruct<C>()));
+            if (size == 0)
+            {
+                throw new ArgumentException($"Type {typeof(T).Name} is too small to be reinterpreted as {typeof(C).Name}.");
+            }
+            else
+            {
+                Acquire();
+                return new ReadOnlySpan<C>((void*)_Ptr, size);
+            }
+        }
+
 
         public ReadOnlySpan<T> Slice(int start, int length)
         {
@@ -267,7 +289,7 @@ namespace jemalloc
 
         public Vector<T> AcquireAsSingleVector()
         {
-            if (this.Length != Vector<T>.Count)
+            if (this._Length != Vector<T>.Count)
             {
                 throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {JemUtil.CLRType<T>().Name}.");
             }
@@ -280,6 +302,7 @@ namespace jemalloc
         public unsafe ReadOnlySpan<Vector<T>> AcquireVectorSpan()
         {
             ThrowIfNotVectorizable();
+            ThrowIfInvalid();
             return new ReadOnlySpan<Vector<T>>(_Ptr.ToPointer(), Length / JemUtil.VectorLength<T>());
         }
         
@@ -292,7 +315,8 @@ namespace jemalloc
         public unsafe Span<Vector<T>> AcquireVectorWriteSpan()
         {
             ThrowIfNotVectorizable();
-            return AcquireWriteSpan().NonPortableCast<T, Vector<T>>();
+            Acquire();
+            return new Span<Vector<T>>(_Ptr.ToPointer(), _Length / JemUtil.VectorLength<T>());
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -307,15 +331,6 @@ namespace jemalloc
         {
             ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
             return Unsafe.Read<C>(Unsafe.AsPointer(ref ret));
-        }
-
-        internal unsafe ref T Write(int index, ref T value)
-        {
-            Retain();
-            ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
-            v = value;
-            Release();
-            return ref v;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -386,11 +401,18 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorFill(T value)
         {
-            Span<Vector<T>> s = AcquireVectorWriteSpan();
+            Acquire();
+            int c = JemUtil.VectorLength<T>();
+            int i;
             Vector<T> fill = new Vector<T>(value);
-            for (int i = 0; i < s.Length; i++)
+            for (i = 0; i < _Length - c; i += c)
             {
-                s[i] = fill;
+                Write(i, ref fill);
+            }
+
+            for (; i < _Length; ++i)
+            {
+                Write(i, ref value);
             }
             Release();
         }
@@ -398,52 +420,85 @@ namespace jemalloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorMultiply(T value)
         {
-            Span<Vector<T>> vectorSpan = AcquireVectorWriteSpan();
-            Vector<T> mulVector = new Vector<T>(value);
-            for (int i = 0; i < vectorSpan.Length; i++)
+            ThrowIfInvalid();
+            int c = JemUtil.VectorLength<T>();
+            int i;
+            T r;
+            Vector<T> mul = new Vector<T>(value);
+            for (i = 0; i < _Length - c; i += c)
             {
-                vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
+                Vector<T> f = Read<Vector<T>>(i);
+                Vector<T> result = f * mul;
+                Write(i, ref result);
             }
-            Release();
+            
+            for (; i < _Length; ++i)
+            {
+                r = GM<T>.Multiply(this[i], value);
+                Write(i, ref r);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorSqrt()
         {
-            Span<Vector<T>> vector = AcquireVectorWriteSpan();
-            for (int i = 0; i < vector.Length; i++)
+            ThrowIfInvalid();
+            int c = JemUtil.VectorLength<T>();
+            int i;
+            T r;
+            for (i = 0; i < _Length - c; i += c)
             {
-                vector[i] = Vector.SquareRoot(vector[i]);
+                Vector<T> f = Read<Vector<T>>(i);
+                Vector<T> result = Vector.SquareRoot(f);
+                Write(i, ref result);
             }
-            Release();
+
+            for (; i < _Length; ++i)
+            {
+                r = JemUtil.ValToGenericStruct<double, T>(GM<T>.Sqrt(this[i]));
+                Write(i, ref r);
+            }
         }
 
         public unsafe bool VectorLessThanAll(T value, out int index)
         {
             index = -1;
             bool r = true;
+            int c = Vector<T>.Count;
+            int i;
             Vector<T> v = new Vector<T>(value);
-            for (int i = 0; i < _Length; i+=JemUtil.VectorLength<T>())
+            Vector<T> O = Vector<T>.One;
+            for (i = 0; i <= _Length - c; i+= c)
             {
                 Vector<T> s = Unsafe.Read<Vector<T>>(BufferHelpers.Add<T>(_Ptr, i).ToPointer());
                 Vector<T> cmp = Vector.LessThan(s, v);
-                if (cmp.Equals(Vector<T>.One))
+                if (cmp == O)
                 {
                     continue;
                 }
                 else
-                { 
+                {
+                    index = 0;
                     r = false;
-                    for (int j = 0; j < JemUtil.VectorLength<T>(); j++)
+                    for (int j = 0; j < c; j++)
                     {
                         if (cmp[j].Equals(default))                      
                         {
-                            index = i  + j;
+                            index = i + j;
                             break;
                         }
                     }
                     break;
+                }
+            }
 
+            for (; i < _Length; ++i)
+            {
+                if (Read(i).CompareTo(value) >= 0)
+                {
+                    r = false;
+                    index = i;
+                    break;
                 }
             }
             return r;
