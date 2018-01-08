@@ -52,7 +52,11 @@ namespace jemalloc.Benchmarks
 
         public string GetValue(Summary summary, Benchmark benchmark)
         {
-            if (JemUtil.BenchmarkStatistics.ContainsKey($"{benchmark.Target.Method.Name}_{ColumnName}"))
+            if (JemUtil.BenchmarkStatistics.ContainsKey($"{benchmark.Target.Method.Name}_{ColumnName}_{benchmark.Parameters[0].Value.GetHashCode()}"))
+            {       
+                return JemUtil.BenchmarkStatistics[$"{benchmark.Target.Method.Name}_{ColumnName}_{benchmark.Parameters[0].Value.GetHashCode()}"];
+            }
+            else if (JemUtil.BenchmarkStatistics.ContainsKey($"{benchmark.Target.Method.Name}_{ColumnName}"))
             {
                 return JemUtil.BenchmarkStatistics[$"{benchmark.Target.Method.Name}_{ColumnName}"];
             }
@@ -100,6 +104,7 @@ namespace jemalloc.Benchmarks
         public static readonly IColumn JemResident = new BenchmarkStatisticColumn("JemResident", "Resident memory allocated by jemalloc(native only, inclusive, 1KB = 1024B)");
         public static readonly IColumn ThreadCycles = new BenchmarkStatisticColumn("ThreadCycles", "RDTSC time elapsed.");
         public static readonly IColumn ISPCResult = new BenchmarkStatisticColumn("ISPCResult", "Result obtained with Intel ISPC compiler on a AVX2 CPU.");
+        public static readonly IColumn ISPCResult2 = new BenchmarkStatisticColumn("ISPCResult2", "Result obtained with Intel ISPC compiler on a SSE4.2 CPU.");
         #endregion
     }
 }

@@ -344,6 +344,14 @@ namespace jemalloc
             Unsafe.Write(Unsafe.AsPointer(ref ret), value);
         }
 
+        internal unsafe Span<Vector<T>> WriteVectorSpan
+        {
+            get
+            {
+                ThrowIfInvalid();
+                return new Span<Vector<T>>(_Ptr.ToPointer(), _Length / JemUtil.VectorLength<T>());
+            }
+        }
 
         internal void ThrowIfInvalid()
         {
@@ -409,14 +417,10 @@ namespace jemalloc
             int c = JemUtil.VectorLength<T>();
             int i;
             Vector<T> fill = new Vector<T>(value);
-            for (i = 0; i < _Length - c; i += c)
+            Span<Vector<T>> s = WriteVectorSpan;
+            for (i = 0; i < s.Length; i ++)
             {
-                Write(i, ref fill);
-            }
-
-            for (; i < _Length; ++i)
-            {
-                Write(i, ref value);
+                s[i] = fill;
             }
         }
 
@@ -475,24 +479,23 @@ namespace jemalloc
             for (i = 0; i <= _Length - c; i+= c)
             {
                 Vector<T> s = Unsafe.Read<Vector<T>>(BufferHelpers.Add<T>(_Ptr, i).ToPointer());
-                Vector<T> cmp = Vector.LessThan(s, v);
-                if (cmp == O)
+                Vector<T> vcmp = Vector.LessThan(s, v);
+                if (vcmp == O)
                 {
                     continue;
                 }
                 else
                 {
-                    index = 0;
                     r = false;
                     for (int j = 0; j < c; j++)
                     {
-                        if (cmp[j].Equals(default))                      
+                        if (vcmp[j].Equals(default))                      
                         {
                             index = i + j;
-                            break;
+                            return r;
                         }
                     }
-                    break;
+                    return r;
                 }
             }
 
@@ -502,7 +505,7 @@ namespace jemalloc
                 {
                     r = false;
                     index = i;
-                    break;
+                    return r;
                 }
             }
             return r;

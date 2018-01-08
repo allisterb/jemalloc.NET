@@ -290,7 +290,7 @@ namespace jemalloc
         public static readonly HashSet<Type> NumericTypes = new HashSet<Type>(new Type[]
         {
             Int8CLRType, UInt8CLRType, Int16CLRType, UInt16CLRType, Int32CLRType, UInt32CLRType, Int64CLRType, UInt64CLRType,
-            SingleCLRType, DoubleCLRType, CharCLRType, IntPtrCLRType, BoolCLRType
+            SingleCLRType, DoubleCLRType, CharCLRType, BoolCLRType
         });
 
         #endregion

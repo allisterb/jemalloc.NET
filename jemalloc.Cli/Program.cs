@@ -260,7 +260,7 @@ namespace jemalloc.Cli
 
                  if (!BenchmarkOptions.ContainsKey("Operation"))
                  {
-                     Log.Error("You must select an operation to benchmark with --mandel or --fill.");
+                     Log.Error("You must select a vector operation to benchmark with --mandel or --fill or --test.");
                      Exit(ExitResult.INVALID_OPTIONS);
                  }
                  else
@@ -497,10 +497,13 @@ namespace jemalloc.Cli
                         VectorBenchmark<T>.Debug = (bool)BenchmarkOptions["Debug"];
                         VectorBenchmark<T>.Category = JemBenchmarkAttribute.Category;
                         VectorBenchmark<T>.Operation = JemBenchmarkAttribute.Operation;
-                        config = config.With(BenchmarkStatisticColumn.ISPCResult);
+                        
                         switch ((Operation)BenchmarkOptions["Operation"])
                         {
                             case Operation.MANDELBROT:
+                                config = config.With(BenchmarkStatisticColumn.ThreadCycles);
+                                config = config.With(BenchmarkStatisticColumn.ISPCResult);
+                                config = config.With(BenchmarkStatisticColumn.ISPCResult2);
                                 config = config.With(new NameFilter(name => name.StartsWith("Mandelbrot")));
                                 L.Information("Starting vector Mandelbrot benchmarks with scale: {s}", VectorBenchmark<T>.BenchmarkParameters);
                                 break;

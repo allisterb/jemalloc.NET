@@ -96,10 +96,7 @@ namespace jemalloc.Benchmarks
         public IEnumerable<IParam> GetParameters() 
         {
             IEnumerable<IParam> param;
-            lock (benchmarkLock)
-            {
-                param = BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
-            }
+            param = BenchmarkParameters.Select(p => new JemBenchmarkParam<TParam>(p));
             return param;
         }
         public static int GetBenchmarkMethodCount<TBench>() where TBench : JemBenchmark<TData, TParam>
@@ -158,7 +155,7 @@ namespace jemalloc.Benchmarks
 
         public void SetStatistic(string name, string value, [CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
         {
-            JemUtil.BenchmarkStatistics.AddOrUpdate($"{name}_{Parameter.GetHashCode()}", value, ((k, v) => value));
+            JemUtil.BenchmarkStatistics.AddOrUpdate($"{memberName}_{name}", value, ((k, v) => value));
         }
 
         public void SetMemoryStatistics([CallerMemberName] string memberName = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0)
