@@ -521,6 +521,13 @@ namespace jemalloc
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref this.Read(index);
         }
+
+        public static implicit operator IntPtr (FixedBuffer<T> buffer)
+        {
+            return buffer._Ptr;
+        }
+
+       
         #endregion
 
         #region Fields

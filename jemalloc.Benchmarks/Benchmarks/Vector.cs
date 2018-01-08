@@ -105,17 +105,19 @@ namespace jemalloc.Benchmarks
         */
 
 
-        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v3.")]
+
+        [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using managed memory v4.")]
         [BenchmarkCategory("Mandelbrot")]
-        public unsafe void MandelbrotManagedv3()
+        public unsafe void MandelbrotManagedv4()
         {
-            int[] managedArray = GetValue<int[]>("managed3Array");
+
             ulong start = JemUtil.GetCurrentThreadCycles();
-            _MandelbrotManagedv3(ref managedArray);
+            int[] managedArray = _MandelbrotManagedv4();
             ulong end = JemUtil.GetCurrentThreadCycles();
+            SetValue("managed4Array", managedArray);
             SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
-            SetStatistic($"ISPCResult", GetISPCResult());
-            SetStatistic($"ISPCResult2", GetISPCResult2());
+            SetStatistic($"ISPCResult", GetISPCTasksResult());
+            SetStatistic($"ISPCResult2", GetISPCTasksResult2());
         }
 
         [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using unmanaged memory v2.")]
@@ -125,6 +127,47 @@ namespace jemalloc.Benchmarks
             FixedBuffer<int> nativeArray = GetValue<FixedBuffer<int>>("native2Array");
             ulong start = JemUtil.GetCurrentThreadCycles();
             _MandelbrotUnmanagedv2(ref nativeArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"ISPCResult", GetISPCResult());
+            SetStatistic($"ISPCResult2", GetISPCResult2());
+        }
+
+
+
+        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v5.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public void MandelbrotManagedv5()
+        {
+            int[] managedArray = GetValue<int[]>("managed5Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotManagedv5(ref managedArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"ISPCResult", GetISPCResult());
+            SetStatistic($"ISPCResult2", GetISPCResult2());
+        }
+
+        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v7.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public void MandelbrotManagedv7()
+        {
+            int[] managedArray = GetValue<int[]>("managed7Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotManagedv7(ref managedArray);
+            ulong end = JemUtil.GetCurrentThreadCycles();
+            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
+            SetStatistic($"ISPCResult", GetISPCResult());
+            SetStatistic($"ISPCResult2", GetISPCResult2());
+        }
+
+        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v3.")]
+        [BenchmarkCategory("Mandelbrot")]
+        public unsafe void MandelbrotManagedv3()
+        {
+            int[] managedArray = GetValue<int[]>("managed3Array");
+            ulong start = JemUtil.GetCurrentThreadCycles();
+            _MandelbrotManagedv3(ref managedArray);
             ulong end = JemUtil.GetCurrentThreadCycles();
             SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
             SetStatistic($"ISPCResult", GetISPCResult());
@@ -144,20 +187,6 @@ namespace jemalloc.Benchmarks
             SetStatistic($"ISPCResult2", GetISPCResult2());
         }
 
-        [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using managed memory v4.")]
-        [BenchmarkCategory("Mandelbrot")]
-        public unsafe void MandelbrotManagedv4()
-        {
-            
-            ulong start = JemUtil.GetCurrentThreadCycles();
-            int[] managedArray = _MandelbrotManagedv4();
-            ulong end = JemUtil.GetCurrentThreadCycles();
-            SetValue("managed4Array", managedArray);
-            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
-            SetStatistic($"ISPCResult", GetISPCTasksResult());
-            SetStatistic($"ISPCResult2", GetISPCTasksResult2());
-        }
-
         [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using unmanaged memory v4.")]
         [BenchmarkCategory("Mandelbrot")]
         public unsafe void MandelbrotUnmanagedv4()
@@ -171,24 +200,11 @@ namespace jemalloc.Benchmarks
             SetStatistic($"ISPCResult2", GetISPCTasksResult2());
         }
 
-        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v5.")]
-        [BenchmarkCategory("Mandelbrot")]
-        public void MandelbrotManagedv5()
-        {
-            int[] managedArray = GetValue<int[]>("managed5Array");
-            ulong start = JemUtil.GetCurrentThreadCycles();
-            _MandelbrotManagedv5(ref managedArray);
-            ulong end = JemUtil.GetCurrentThreadCycles();
-            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
-            SetStatistic($"ISPCResult", GetISPCResult());
-            SetStatistic($"ISPCResult2", GetISPCResult2());
-        }
-
         [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using managed memory v6.")]
         [BenchmarkCategory("Mandelbrot")]
         public void MandelbrotManagedv6()
         {
-             
+
             ulong start = JemUtil.GetCurrentThreadCycles();
             int[] managedArray = _MandelbrotManagedv6();
             ulong end = JemUtil.GetCurrentThreadCycles();
@@ -196,19 +212,6 @@ namespace jemalloc.Benchmarks
             SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
             SetStatistic($"ISPCResult", GetISPCTasksResult());
             SetStatistic($"ISPCResult2", GetISPCTasksResult2());
-        }
-
-        [Benchmark(Description = "Create Mandelbrot plot bitmap single-threaded using managed memory v7.")]
-        [BenchmarkCategory("Mandelbrot")]
-        public void MandelbrotManagedv7()
-        {
-            int[] managedArray = GetValue<int[]>("managed7Array");
-            ulong start = JemUtil.GetCurrentThreadCycles();
-            _MandelbrotManagedv7(ref managedArray);
-            ulong end = JemUtil.GetCurrentThreadCycles();
-            SetStatistic($"ThreadCycles", JemUtil.PrintSize(end - start));
-            SetStatistic($"ISPCResult", GetISPCResult());
-            SetStatistic($"ISPCResult2", GetISPCResult2());
         }
 
         [Benchmark(Description = "Create Mandelbrot plot bitmap multi-threaded using managed memory v8.")]
@@ -223,7 +226,6 @@ namespace jemalloc.Benchmarks
             SetStatistic($"ISPCResult", GetISPCTasksResult());
             SetStatistic($"ISPCResult2", GetISPCTasksResult2());
         }
-
 
         [GlobalCleanup(Target = nameof(MandelbrotManagedv8))]
         public void MandelbrotValidateAndCleanup()
@@ -856,50 +858,31 @@ namespace jemalloc.Benchmarks
 
         private int[] _MandelbrotManagedv8()
         {
-            int VectorWidth = Vector<float>.Count;
             int[] output = new int[MandelbrotArraySize];
-
-            float[] Vectors = new float[6];
-            Span<Vector2> Vector2Span = new Span<float>(Vectors).NonPortableCast<float, Vector2>(); //Lets us read individual Vector2
-
-            Vectors[0] = -2f;
-            Vectors[1] = -1f;
-            Vectors[2] = 1f;
-            Vectors[3] = 1f;
-            Vectors[4] = Mandelbrot_Width;
-            Vectors[5] = Mandelbrot_Height;
-
-            Vector2 C0 = Vector2Span[0];
-            Vector2 C1 = Vector2Span[1];
-            Vector2 B = Vector2Span[2];
+            Vector2 C0 = new Vector2(-2, -1);
+            Vector2 C1 = new Vector2(1, 1);
+            Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
             Vector2 D = (C1 - C0) / B;
-
-
-            for (int j = 0; j < Mandelbrot_Height; j++)
+            float[][] scanLines = new float[Mandelbrot_Height][];
+            Parallel.For(0, Mandelbrot_Height, (j) =>
             {
-                Parallel.ForEach(MandelbrotBitmapLocation(j), (p) =>
+                float[] scanLine = scanLines[j] = new float[Mandelbrot_Width];
+                for (int x = 0; x < Mandelbrot_Width; x++)
                 {
-                    int i = p.Item1;
-                    float[] PimArray = new float[VectorWidth];
-                    float[] PreArray = new float[VectorWidth];
-                    for (int h = 0; h < VectorWidth; h++)
-                    {
-                        PreArray[h] = C0.X + (D.X * (i + h));
-                        PimArray[h] = C0.Y + (D.Y * j);
-
-                    }
-                    Vector<float> Pre = new Vector<float>(PreArray);
-                    Vector<float> Pim = new Vector<float>(PimArray);
-                    int index = unchecked(p.Item2 * Mandelbrot_Width + p.Item1);
-                    Vector<int> outputVector = GetByte(ref Pre, ref Pim, 256);
+                    scanLine[x] = C0.X + (D.X * (x));
+                }
+                Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
+                int index;
+                for (int h = 0; h < Mandelbrot_Width; h += VectorWidth)
+                {
+                    Vector<float> Vre = new Vector<float>(scanLine, h);
+                    index = unchecked(j * Mandelbrot_Width + h);
+                    Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
                     outputVector.CopyTo(output, index);
-
-                });
-
-            }
+                }
+            });
             return output;
         }
-
 
         private FixedBuffer<byte> _MandelbrotUnmanagedv1(ref FixedBuffer<byte> output)
         {
@@ -1016,24 +999,27 @@ namespace jemalloc.Benchmarks
             Vector2 C0 = new Vector2(-2, -1);
             Vector2 C1 = new Vector2(1, 1);
             Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
-            Vector2 D = (C1 - C0) / B;
+            Vector2 D = (C1 - C0) / B;          
             Parallel.For(0, Mandelbrot_Height, (j) =>
             {
                 FixedBuffer<float> scanLine = new FixedBuffer<float>(Mandelbrot_Width);
                 for (int x = 0; x < Mandelbrot_Width; x++)
                 {
-                    scanLine[x] = C0.X + (D.X * (x));
+                    float px = C0.X + (D.X * (x));
+                    scanLine.Write(x, ref px);
                 }
                 Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
-                int index;
                 for (int h = 0; h < Mandelbrot_Width; h+=VectorWidth)
                 {
+                    int index = unchecked(j * Mandelbrot_Width + h);
                     Vector<float> Vre = scanLine.Read<Vector<float>>(h);
-                    index = unchecked(j * Mandelbrot_Width + h);
                     Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
                     output.Write(index, ref outputVector);
                 }
-            });            
+                //Unsafe.Copy<float>(Unsafe.AsPointer(output[index], ref scanLine[0]);
+                scanLine.Free();
+            });
+            
             return;
         }
 
