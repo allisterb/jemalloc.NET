@@ -1017,23 +1017,23 @@ namespace jemalloc.Benchmarks
             Vector2 C1 = new Vector2(1, 1);
             Vector2 B = new Vector2(Mandelbrot_Width, Mandelbrot_Height);
             Vector2 D = (C1 - C0) / B;
-            for (int j = 0; j < Mandelbrot_Height; j++)
+            Parallel.For(0, Mandelbrot_Height, (j) =>
             {
-                Parallel.ForEach(MandelbrotBitmapLocation(j), (p) =>
+                FixedBuffer<float> scanLine = new FixedBuffer<float>(Mandelbrot_Width);
+                for (int x = 0; x < Mandelbrot_Width; x++)
                 {
-                    int i = p.Item1;
-                    Vector<float> Vre = new Vector<float>();
-                    float* pVre = (float *) Unsafe.AsPointer(ref Vre);
-                    for (int h = 0; h < VectorWidth; h++)
-                    {
-                        Unsafe.Write(pVre + h, C0.X + (D.X * (i + h)));
-                    }
-                    int index = unchecked(j * Mandelbrot_Width + i);
-                    Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
+                    scanLine[x] = C0.X + (D.X * (x));
+                }
+                Vector<float> Vim = new Vector<float>(C0.Y + (D.Y * j));
+                int index;
+                for (int h = 0; h < Mandelbrot_Width; h+=VectorWidth)
+                {
+                    Vector<float> Vre = scanLine.Read<Vector<float>>(h);
+                    index = unchecked(j * Mandelbrot_Width + h);
                     Vector<int> outputVector = GetByte(ref Vre, ref Vim, 256);
                     output.Write(index, ref outputVector);
-                });
-            }
+                }
+            });            
             return;
         }
 
