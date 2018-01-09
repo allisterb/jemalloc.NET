@@ -291,6 +291,11 @@ namespace jemalloc
             return Span.Slice(start, length);
         }
 
+        public unsafe void * PtrTo(int index)
+        {
+            return BufferHelpers.Add<T>(_Ptr, index).ToPointer();
+        }
+
         public Vector<T> AcquireAsSingleVector()
         {
             if (this._Length != Vector<T>.Count)
@@ -307,7 +312,7 @@ namespace jemalloc
         {
             ThrowIfNotVectorizable();
             ThrowIfInvalid();
-            return new ReadOnlySpan<Vector<T>>(_Ptr.ToPointer(), Length / JemUtil.VectorLength<T>());
+            return new ReadOnlySpan<Vector<T>>(_Ptr.ToPointer(), _Length / JemUtil.VectorLength<T>());
         }
         
         public unsafe Span<T> AcquireWriteSpan()
@@ -331,17 +336,17 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe C Read<C>(int index) where C : struct
+        public unsafe ref C Read<C>(int index) where C : struct
         {
-            ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
-            return Unsafe.Read<C>(Unsafe.AsPointer(ref ret));
+            //ref C ret = ref Unsafe.aAdd(ref Unsafe.AsRef<C>(_Ptr.ToPointer()), index);
+            //return re
+            return ref Unsafe.AsRef<C>(PtrTo(index));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Write<C>(int index, ref C value) where C : struct
         {
-            ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(_Ptr.ToPointer()), index);
-            Unsafe.Write(Unsafe.AsPointer(ref ret), value);
+            Unsafe.Write(PtrTo(index), value);
         }
 
         internal unsafe Span<Vector<T>> WriteVectorSpan
