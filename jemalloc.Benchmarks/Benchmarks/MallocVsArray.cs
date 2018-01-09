@@ -16,7 +16,7 @@ namespace jemalloc.Benchmarks
         public const int SmallBlockSize = 90000;
         public int LoopCount => Parameter;
 
-        [GlobalSetup]
+        
         public override void GlobalSetup()
         {
             base.GlobalSetup();

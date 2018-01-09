@@ -15,7 +15,7 @@ namespace jemalloc.Benchmarks
         public T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
         public (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
 
-        [GlobalSetup]
+        
         public override void GlobalSetup()
         {
             DebugInfoThis();
