@@ -33,15 +33,6 @@ namespace jemalloc.Benchmarks
                 Info($"Array fill value is {fill}.");
                 SetValue("fill", fill);
             }
-            else if (Operation == Operation.MATH)
-            {
-                Info($"Array fill value is {mul.max}.");
-                new Span<T>(managedArray).Fill(mul.max);
-                hugeArray.Fill(mul.max);
-                SetValue("fill", mul.max);
-                Info($"Array multiply factor is {mul.factor}.");
-                SetValue("mul", mul.factor);
-            }
         }
 
         #region Fill
@@ -113,7 +104,6 @@ namespace jemalloc.Benchmarks
             RemoveValue("hugeArray");
             RemoveValue("fill");
         }
-
         #endregion
 
         #region Create
@@ -133,63 +123,6 @@ namespace jemalloc.Benchmarks
         }
         #endregion
 
-        #region Arithmetic
-        [Benchmark(Description = "Multiply all values of a managed array with the maximum size [2146435071] with a single value.")]
-        [BenchmarkCategory("Arithmetic")]
-        public void ArithmeticMultiplyManagedArray()
-        {
-            DebugInfoThis();
-            T mul = GetValue<T>("mul");
-            T fill = GetValue<T>("fill");
-            T[] managedArray = GetValue<T[]>("managedArray");
 
-            for (int i = 0; i < managedArray.Length; i++)
-            {
-                managedArray[i] = GM<T>.Multiply(managedArray[i], mul);
-            }
-            T r = managedArray[ArraySize / 2];
-        }
-
-        [Benchmark(Description = "Vector multiply all values of a native array with a single value.")]
-        [BenchmarkCategory("Arithmetic")]
-        public void ArithmeticMultiplyHugeNativeArray()
-        {
-            DebugInfoThis();
-            T mul = GetValue<T>("mul");
-            T fill = GetValue<T>("fill");
-            HugeArray<T> hugeArray = GetValue<HugeArray<T>>("hugeArray");
-            hugeArray.Fill(fill);
-            hugeArray.VectorMultiply(mul);
-        }
-
-        [GlobalCleanup(Target = nameof(ArithmeticMultiplyHugeNativeArray))]
-        public void ArithmeticMultiplyValidateAndCleanup()
-        {
-            InfoThis();
-            ulong index = (ulong) (GM<T>.Rng.NextDouble() * ArraySize);
-            HugeArray<T> hugeArray = GetValue<HugeArray<T>>("hugeArray");
-            T[] managedArray = GetValue<T[]>("managedArray");
-            T mul = GetValue<T>("mul");
-            T fill = GetValue<T>("fill");
-            T val = GM<T>.Multiply(fill, mul);
-            if (!hugeArray[index].Equals(val))
-            {
-                Error($"Native array at index {index} is {hugeArray[index]} not {val}.");
-                throw new Exception();
-            }
-            else if (!managedArray[index].Equals(val))
-            {
-                Error($"Managed array at index {index} is {managedArray[index]} not {val}.");
-                throw new Exception();
-            }
-            managedArray = null;
-            hugeArray.Release();
-            hugeArray.Close();
-            RemoveValue("managedArray");
-            RemoveValue("hugeArray");
-            RemoveValue("fill");
-            RemoveValue("mul");
-        }
-        #endregion
     }
 }

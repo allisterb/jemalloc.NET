@@ -53,19 +53,19 @@ namespace jemalloc.Tests
         public void CanConvertToVector()
         {
             HugeArray<uint> a = new HugeArray<uint>(8, 1, 11, 94, 5, 0, 0, 0, 8);
-            Vector<uint> v = a.AcquireAsSingleVector();
+            Vector<uint> v = a.GetAsSingleVector();
             Assert.Equal(a[0], v[0]);
             Assert.Equal(a[3], v[3]);
             Assert.Equal(a[7], v[7]);
             HugeArray<uint> a2 = new HugeArray<uint>(12, 11, 112, 594, 65, 0, 0, 0, 8, 14, 90, 2, 8);
-            Vector<uint> v2 = a2.AcquireSliceAsVector(0);
+            Vector<uint> v2 = a2.GetSliceAsSingleVector(0);
             Assert.Equal(11u, v2[0]);
             Assert.Equal(8u, v2[7]);
             HugeArray<uint> a3 = new HugeArray<uint>((ulong)Int32.MaxValue + 10000);
             a3.Fill(7u);
             a3[(ulong)Int32.MaxValue + 100] = 9;
             a3[(ulong)Int32.MaxValue + 101] = 4;
-            Vector<uint> v3 = a3.AcquireSliceAsVector((ulong)Int32.MaxValue + 99);
+            Vector<uint> v3 = a3.GetSliceAsSingleVector((ulong)Int32.MaxValue + 99);
             Assert.Equal(9u, v3[1]);
             Assert.Equal(4u, v3[2]);
             Assert.Equal(a3[(ulong)Int32.MaxValue + 99], v3[0]);
@@ -84,21 +84,5 @@ namespace jemalloc.Tests
             Assert.Equal(33, array[999]);
             array.Close();
         }
-
-
-        [Fact(DisplayName = "Can correctly vector multiply")]
-        public void CanVectorMultiply()
-        {
-            HugeArray<uint> a = new HugeArray<uint>(8, 1, 2, 3, 4, 5, 6, 7, 8);
-            HugeArray<int> b = new HugeArray<int>(8, 111, 22, 345, 40888, 3, 777, 99, 6);
-            a.VectorMultiply(2);
-            Assert.Equal(2u, a[0]);
-            Assert.Equal(8u, a[3]);
-            Assert.Equal(16u, a[7]);
-            b.VectorMultiply(6);
-            Assert.Equal(666, b[0]);
-
-        }
-
     }
 }

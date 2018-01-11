@@ -40,10 +40,41 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected override bool ReleaseHandle()
         {
-            return Jem.Free(handle);
+            bool r = Jem.Free(handle);
+            if (!r)
+            {
+                return false;
+            }
+            else
+            {
+                handle = IntPtr.Zero;
+                unsafe
+                {
+                    voidPtr = (void *) 0;
+                }
+                Length = 0;
+                SizeInBytes = 0;
+                return true;
+            }
         }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
+
+        #region Disposer
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ThrowIfNotAllocatedOrInvalid();
+                ThrowIfRetained();
+                ReleaseHandle();
+            }
+            base.Dispose(disposing);
+        }
+
+        #endregion
+
         #endregion
 
         #region Implemented members
@@ -53,7 +84,7 @@ namespace jemalloc
         public bool Release()
         {
             
-            if (IsNotAllocated || IsInvalid || RefCount == 0)
+            if (IsNotAllocated || IsInvalid)
             {
                 return false;
             }
@@ -67,8 +98,13 @@ namespace jemalloc
 
         public bool Equals(SafeBuffer<T> other)
         {
+            ThrowIfNotAllocatedOrInvalid();
             return this.handle == other.handle && this.Length == other.Length;
         }
+
+        public IEnumerator<T> GetEnumerator() => new SafeBufferEnumerator<T>(this);
+
+        IEnumerator IEnumerable.GetEnumerator() => new SafeBufferEnumerator<T>(this);
         #endregion
 
         #region Properties
@@ -82,191 +118,35 @@ namespace jemalloc
 
         public bool IsValid => !IsInvalid;
 
-        public int RefCount
+        public bool IsRetained => IsValid ? _RefCount > 0 : false;
+
+        public bool IsVectorizable { get; protected set; }
+
+        public Span<T> Span
         {
             get
             {
                 ThrowIfNotAllocatedOrInvalid();
-                return Jem.GetRefCount(handle);
+                return _Span;
             }
         }
 
-        public bool IsRetained => RefCount > 0;
+        protected int _RefCount => Jem.GetRefCount(handle);
 
-        public bool IsVectorizable { get; protected set; }
+        protected unsafe Span<T> _Span => new Span<T>(voidPtr, Length);
+
         #endregion
 
         #region Methods
 
         #region Memory management
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public bool Acquire()
-        {
-            if (IsNotAllocated || IsInvalid)
-                return false;
-            bool success = false;
-            DangerousAddRef(ref success);
-            if (success)
-            {
-                Jem.IncrementRefCount(handle);
-            }
-            return success;
-        }
-
-        protected unsafe ref T DangerousAsRef(int index)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfIndexOutOfRange(index);
-            return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-        }
-
-        public void CopyFrom(T[] array)
-        {
-            Span<T> s = AcquireSpan();
-            new Span<T>(array).CopyTo(s);
-            Release();
-        }
-
-        public T[] CopyToArray()
-        {
-            T[] a = new T[this.Length];
-            ThrowIfCannotAcquire();
-            Span<T> span = AcquireSpan();
-            span.CopyTo(new Span<T>(a));
-            Release();
-            return a;
-        }
-
-        public bool EqualTo(T[] array)
-        {
-            if (this.Length != array.Length)
-            {
-                return false;
-            }
-            if (IsVectorizable)
-            {
-                Span<Vector<T>> span = this.AcquireVectorSpan();
-                Span<Vector<T>> arraySpan = new Span<T>(array).NonPortableCast<T, Vector<T>>();
-
-                for (int i = 0; i < arraySpan.Length; i++)
-                {
-                    if (!Vector.EqualsAll(span[i], arraySpan[i]))
-                    {
-                        Release();
-                        return false;
-                    }
-                }
-                Release();
-                return true;
-            }
-            else
-            {
-                Span<T> span = this.AcquireSpan();
-                Span<T> arraySpan = new Span<T>(array);
-                for (int i = 0; i < arraySpan.Length; i++)
-                {
-                    if (!(span[i].Equals(arraySpan[i])))
-                    {
-                        Release();
-                        return false;
-                    }
-                }
-                Release();
-                return true;
-            }
-
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Span<T> AcquireSpan()
-        {
-            ThrowIfCannotAcquire();
-            return new Span<T>((void*)handle, (int)Length);
-        }
-
-        public unsafe Span<C> AcquireSpan<C>() where C : struct, IEquatable<C>
-        {
-            ThrowIfCannotAcquire();
-            return new Span<T>((void*)handle, (int)Length).NonPortableCast<T,C>();
-        }
-        public void Fill(T value)
-        {
-            Span<T> s = AcquireSpan();
-            s.Fill(value);
-            Release();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<Vector<byte>> AcquireByteSpan()
-        {
-            ThrowIfNotVectorisable();
-            return AcquireSpan().AsBytes().NonPortableCast<byte, Vector<byte>>();
-        }
-
-        public Vector<T> AcquireAsSingleVector()
-        {
-            ThrowIfNotNumeric();
-            if (this.Length != Vector<T>.Count)
-            {
-                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
-            }
-            Span<T> span = AcquireSpan();
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            return vector[0];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<Vector<T>> AcquireVectorSpan()
-        {
-            ThrowIfNotVectorisable();
-            return AcquireSpan().NonPortableCast<T, Vector<T>>();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Vector<T> AcquireSliceAsVector(int index)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfNotNumeric();
-            if ((index + VectorLength) > Length)
-            {
-                BufferIndexIsOutOfRange(index);
-            }
-            Span<T> span = AcquireSpan().Slice(index, VectorLength);
-            return span.NonPortableCast<T, Vector<T>>()[0];
-        }
-
-        public void CopyFrom(Vector<T> v, int index)
-        {
-
-            Vector<T> dest = AcquireSliceAsVector(index);
-
-        }
-        public bool Release(int n)
-        {
-            bool r = false;
-            for (int i = 0; i < n; i++)
-            {
-                r = Release();
-                if (r)
-                {
-                    continue;
-                }
-                else
-                {
-                    return r;
-                }
-            }
-            return r;
-        }
-        #endregion
-
         protected unsafe virtual IntPtr Allocate(int length)
         {
             if (length <= 0)
                 throw new ArgumentOutOfRangeException("length");
             Contract.EndContractBlock();
             ulong s = checked((uint)length * ElementSizeInBytes);
-            handle = Jem.Calloc((uint) length, ElementSizeInBytes);
+            handle = Jem.Calloc((uint)length, ElementSizeInBytes);
             if (handle != IntPtr.Zero)
             {
                 voidPtr = handle.ToPointer();
@@ -289,38 +169,145 @@ namespace jemalloc
             }
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected unsafe void AcquirePointer(ref byte* pointer)
-        {
-            ThrowIfCannotAcquire();
-            pointer = (byte*)handle;
-        }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe ref T Read(int index)
         {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfIndexOutOfRange(index);
             // return (T*) (_ptr + byteOffset);
-            ref T ret =  ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-            return ref ret;
+            return ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+
         }
 
-        
-        protected unsafe T Write(int index, T value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected unsafe void Write(int index, T value)
+        {
+
+            ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
+            v = value;
+        }
+
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+        public bool Acquire()
+        {
+            if (IsNotAllocated || IsInvalid)
+                return false;
+            bool success = false;
+            DangerousAddRef(ref success);
+            if (success)
+            {
+                Jem.IncrementRefCount(handle);
+            }
+            return success;
+        }
+
+        public bool Release(int n)
+        {
+            bool r = false;
+            for (int i = 0; i < n; i++)
+            {
+                r = Release();
+                if (r)
+                {
+                    continue;
+                }
+                else
+                {
+                    return r;
+                }
+            }
+            return r;
+        }
+        #endregion
+
+        #region Values
+
+        public bool EqualTo(T[] array)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            return _Span.SequenceEqual<T>(new ReadOnlySpan<T>(array));
+
+        }
+
+        public void Fill(T value)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            Span.Fill(value);
+        }
+
+
+        public void CopyFrom(T[] array)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            Span<T> s = _Span;
+            new Span<T>(array).CopyTo(_Span);
+        }
+
+        public T[] CopyToArray()
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            T[] a = new T[this.Length];
+            _Span.CopyTo(new Span<T>(a));
+            return a;
+        }
+
+        public unsafe Span<C> GetSpan<C>(int index = 0, int length = 1) where C : struct, IEquatable<C>
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            ref T v = ref Unsafe.Add(ref Unsafe.AsRef<T>(voidPtr), index);
-            v = value;
-            return value ;
-         }
+            ulong s = (ulong) (index * ElementSizeInBytes + length * Unsafe.SizeOf<C>());
+            if (s > SizeInBytes)
+            {
+                SizeIsOutOfRange(s);
+            }
+            void* p = BufferHelpers.Add<T>(handle, index).ToPointer();
+            return new Span<C>(p, length);
+        }
 
-        public IEnumerator<T> GetEnumerator() => new SafeBufferEnumerator<T>(this);
+        public unsafe Span<T> Slice(int index) => GetSpan<T>(index, Length - index);
 
-        IEnumerator IEnumerable.GetEnumerator() => new SafeBufferEnumerator<T>(this);
+        public unsafe Span<T> Slice(int start, int end)
+        {
+            if (start >= end)
+            {
+                throw new ArgumentOutOfRangeException($"The end {end} of the slice must be greater than the start {start}.");
+            }
+            else
+            {
+                return GetSpan<T>(start, end - start);
+            }
+        }
+
+        public unsafe Vector<C> GetVector<C>() where C : struct, IEquatable<C>, IConvertible, IComparable, IFormattable
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotNumeric();
+            if (this.Length != Vector<C>.Count)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<C>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            else
+            {
+                return Unsafe.Read<Vector<C>>(voidPtr);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Vector<T> GetSliceAsVector(int index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotNumeric();
+            if ((index + VectorLength) > Length)
+            {
+                BufferIndexIsOutOfRange(index);
+            }
+            return Unsafe.Read<Vector<T>>(BufferHelpers.Add<T>(handle, index).ToPointer());
+        }
+        #endregion
+
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotAllocatedOrInvalid()
         {
@@ -335,6 +322,18 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private void ThrowIfRetained()
+        {
+            if (IsRetained)
+            {
+                throw new InvalidOperationException($"SafeBuffer<{typeof(T)}[{Length}] has outstanding references.");
+            }
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotAllocated()
         {
@@ -345,6 +344,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfCannotAcquire()
         {
@@ -355,6 +355,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotVectorisable()
         {
@@ -365,6 +366,7 @@ namespace jemalloc
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfNotNumeric()
         {
@@ -376,6 +378,7 @@ namespace jemalloc
 
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
         private void ThrowIfIndexOutOfRange(int index)
         {
@@ -385,50 +388,84 @@ namespace jemalloc
             }
         }
 
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private void ThrowIfLengthOutOfRange(int length)
+        {
+            if (length < 0 || length>= Length)
+            {
+                LengthIsOutOfRange(length);
+            }
+        }
+
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static InvalidOperationException HandleIsInvalid()
+        private static void HandleIsInvalid()
         {
-            return new InvalidOperationException("The handle is invalid.");
+            throw new InvalidOperationException("The handle is invalid.");
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static InvalidOperationException BufferIsNotAllocated()
+        private static void BufferIsNotAllocated()
         {
             Contract.Assert(false, "Unallocated safe buffer used.");
-            return new InvalidOperationException("Unallocated safe buffer used.");
+            throw new InvalidOperationException("Unallocated safe buffer used.");
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static InvalidOperationException BufferIsNotVectorisable()
+        private static void BufferIsNotVectorisable()
         {
             Contract.Assert(false, "Buffer is not vectorisable.");
-            return new InvalidOperationException("Buffer is not vectorisable.");
+            throw new InvalidOperationException("Buffer is not vectorisable.");
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static InvalidOperationException BufferIsNotNumeric()
+        private static void BufferIsNotNumeric()
         {
             Contract.Assert(false, "Buffer is not numeric.");
-            return new InvalidOperationException("Buffer is not numeric.");
+            throw new InvalidOperationException("Buffer is not numeric.");
         }
 
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static IndexOutOfRangeException BufferIndexIsOutOfRange(int index)
+        private static void BufferIndexIsOutOfRange(int index)
         {
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
-            return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
+            throw new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private static void LengthIsOutOfRange(int length)
+        {
+            Contract.Assert(false, $"Length {length} exceeds buffer length.");
+            throw new Exception($"Length {length} exceeds buffer length.");
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private static void SizeIsOutOfRange(ulong size)
+        {
+            Contract.Assert(false, $"Length {size} exceeds buffer size.");
+            throw new Exception($"Length {size} exceeds buffer size.");
         }
 
         #region Arithmetic
         public void VectorFill(T value)
         {
-            Span<Vector<T>> s = AcquireVectorSpan();
+            Span<Vector<T>> s = GetSpan<Vector<T>>();
             Vector<T> fill = new Vector<T>(value);
             for (int i = 0; i < s.Length; i++)
             {
@@ -440,25 +477,23 @@ namespace jemalloc
         public void VectorMultiply(T value)
         {
             ThrowIfNotVectorisable();
-            Span<Vector<T>> vectorSpan = AcquireVectorSpan();
+            Span<Vector<T>> vectorSpan = GetSpan<Vector<T>>();
             Vector<T> mulVector = new Vector<T>(value);
             for (int i = 0; i < vectorSpan.Length; i++)
             {
                 vectorSpan[i] = Vector.Multiply(vectorSpan[i], mulVector);
             }
-            Release();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void VectorSqrt()
         {
             ThrowIfNotVectorisable();
-            Span<Vector<T>> vector = AcquireVectorSpan();
+            Span<Vector<T>> vector = GetSpan<Vector<T>>();
             for (int i = 0; i < vector.Length; i++)
             {
                 vector[i] = Vector.SquareRoot(vector[i]);
             }
-            Release();
         }
         #endregion
 
@@ -468,7 +503,12 @@ namespace jemalloc
         public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref this.Read(index);
+            get
+            {
+                ThrowIfNotAllocatedOrInvalid();
+                ThrowIfIndexOutOfRange(index);
+                return ref this.Read(index);
+            }
          }
         #endregion
 
@@ -480,7 +520,6 @@ namespace jemalloc
         protected static bool IsNumeric = JemUtil.IsNumericType<T>();
         protected static int VectorLength = IsNumeric ? Vector<T>.Count : 0;
         protected static bool SIMD = Vector.IsHardwareAccelerated;
-
         protected internal unsafe void* voidPtr;
         //Debugger Display = {T[length]}
         protected string DebuggerDisplay => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);

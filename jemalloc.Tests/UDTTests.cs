@@ -21,7 +21,7 @@ namespace jemalloc.Tests
 
         public void CanVectorize()
         {
-            Span<byte> s = Employees.AcquireSpan().AsBytes();
+            Span<byte> s = Employees.GetSpan<byte>();
             
             int size = JemUtil.SizeOfStruct<TestUDT>();
             /*

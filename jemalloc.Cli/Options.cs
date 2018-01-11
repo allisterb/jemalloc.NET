@@ -107,9 +107,6 @@ namespace jemalloc.Cli
         [Option("fill", Required = false, HelpText = "Benchmark huge native array fill vs managed arrays.")]
         public bool Fill { get; set; }
 
-        [Option("math", Required = false, HelpText = "Benchmark arithmetic and other math operations on native array vs managed arrays.")]
-        public bool Math { get; set; }
-
         [Value(0, Required = true, HelpText = "The sizes of data structures to benchmark.")]
         public IEnumerable<ulong> Sizes { get; set; }
     }

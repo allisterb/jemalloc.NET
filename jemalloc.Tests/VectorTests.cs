@@ -119,8 +119,8 @@ namespace jemalloc.Tests
         {
             SafeArray<Vector<float>> Vectors = new SafeArray<Vector<float>>(8); // New unmanaged array of vectors
             FixedBuffer<int> output = new FixedBuffer<int>(((int)Mandelbrot_Width * (int)Mandelbrot_Height)); //New unmanaged array for bitmap output
-            Span<float> VectorSpan = Vectors.AcquireSpan<float>(); //Lets us write to individual vector elements
-            Span<Vector2> Vector2Span = Vectors.AcquireSpan<Vector2>(); //Lets us read to individual vectors
+            Span<float> VectorSpan = Vectors.GetSpan<float>(); //Lets us write to individual vector elements
+            Span<Vector2> Vector2Span = Vectors.GetSpan<Vector2>(); //Lets us read to individual vectors
 
             VectorSpan[0] = -2f;
             VectorSpan[1] = -1f;
@@ -148,7 +148,6 @@ namespace jemalloc.Tests
                     output[index] = GetByte(ref V, 256);
                 }
             }
-            Vectors.Release(2);
             Vectors.Close();
             return output;
 

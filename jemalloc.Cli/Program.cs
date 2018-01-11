@@ -224,11 +224,7 @@ namespace jemalloc.Cli
                 {
                     BenchmarkOptions.Add("Operation", Operation.FILL);
                 }
-                else if (o.Math)
-                {
-                    BenchmarkOptions.Add("Operation", Operation.MATH);
-                }
-
+                
                 if (!BenchmarkOptions.ContainsKey("Operation"))
                 {
                     Log.Error("You must select an operation to benchmark with --create or --fill or --math.");
@@ -473,14 +469,6 @@ namespace jemalloc.Cli
                             case Operation.FILL:
                                 config = config.With(new NameFilter(name => name.Contains("Fill")));
                                 L.Information("Starting {num} huge array fill benchmarks for data type {t} with array sizes: {s}",
-                                    JemBenchmark<T, ulong>.GetBenchmarkMethodCount<HugeNativeVsManagedArrayBenchmark<T>>(),
-                                    typeof(T).Name, HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
-                                L.Information("This benchmark does not have a warmup phase but can still take a while (10-15 minutes.)");
-                                break;
-
-                            case Operation.MATH:
-                                config = config.With(new NameFilter(name => name.Contains("Arithmetic")));
-                                L.Information("Starting {num} huge array math benchmarks for data type {t} with array sizes: {s}",
                                     JemBenchmark<T, ulong>.GetBenchmarkMethodCount<HugeNativeVsManagedArrayBenchmark<T>>(),
                                     typeof(T).Name, HugeNativeVsManagedArrayBenchmark<T>.BenchmarkParameters);
                                 L.Information("This benchmark does not have a warmup phase but can still take a while (10-15 minutes.)");

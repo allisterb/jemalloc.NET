@@ -14,8 +14,7 @@ namespace jemalloc.Benchmarks
         public int ArraySize  => Parameter;
         public readonly T fill = typeof(T) == typeof(TestUDT) ? JemUtil.ValToGenericStruct<TestUDT, T>(TestUDT.MakeTestRecord(JemUtil.Rng)) : GM<T>.Random();
         public readonly (T factor, T max) mul = GM<T>.RandomMultiplyFactorAndValue();
-      
-        
+
         public override void GlobalSetup()
         {
             DebugInfoThis();
@@ -24,7 +23,6 @@ namespace jemalloc.Benchmarks
             T[] managedArray = new T[ArraySize];
             SetValue("managedArray", managedArray);
             SafeArray<T> nativeArray = new SafeArray<T>(ArraySize);
-            nativeArray.Acquire();
             SetValue("nativeArray", nativeArray);
             if (Operation == Operation.FILL)
             {
@@ -104,9 +102,8 @@ namespace jemalloc.Benchmarks
                 Log.WriteLineError($"Native array at index {index} is {nativeArray[index]} not {fill}.");
                 throw new Exception();
             }
-            nativeArray.Release();
-            nativeArray.Close();
             managedArray = null;
+            nativeArray.Close();
             RemoveValue("managedArray");
             RemoveValue("nativeArray");
             RemoveValue("fill");
@@ -160,7 +157,7 @@ namespace jemalloc.Benchmarks
                 throw new Exception();
             }
             managedArray = null;
-            nativeArray.Release();
+            nativeArray.Close();
             RemoveValue("managedArray");
             RemoveValue("nativeArray");
             RemoveValue("fill");

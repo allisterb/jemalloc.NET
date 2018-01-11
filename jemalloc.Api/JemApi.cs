@@ -159,12 +159,19 @@ namespace jemalloc
             }
             finally
             {
-                allocLock.EnterWriteLock();
-                _Allocations.Remove(ptr);
-                allocLock.ExitWriteLock();
+                allocLock.EnterUpgradeableReadLock();
+                ret = _Allocations.ContainsKey(ptr);
+                if (ret)
+                {
+                    allocLock.EnterWriteLock();
+                    _Allocations.Remove(ptr);
+                    __Internal.JeFree(ptr);
+                    allocLock.ExitWriteLock();
+                }
+                allocLock.ExitUpgradeableReadLock();
             }
-
             return ret;
+            
         }
 
         public static global::System.IntPtr Mallocx(ulong size, int flags)
@@ -465,11 +472,12 @@ namespace jemalloc
             fixedBufferLock.ExitWriteLock();
             if (!r)
             {
-                return r;
+                return false;
             }
             else
             {
-                return Jem.Free(ptr);
+                Jem.Free(ptr);
+                return true;
             }
             
         }

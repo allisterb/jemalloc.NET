@@ -410,6 +410,8 @@ namespace jemalloc
             }
         }
 
+        
+
         internal string Name => $"{nameof(FixedBuffer<T>)}({this._Length})";
 
         private string DebuggerDisplay() => string.Format("{{{0}[{1}]}}", typeof(T).Name, Length);

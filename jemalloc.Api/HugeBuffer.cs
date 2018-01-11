@@ -40,10 +40,41 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         protected override bool ReleaseHandle()
         {
-            return Jem.Free(handle);        
+            bool r = Jem.Free(handle);
+            if (!r)
+            {
+                return false;
+            }
+            else
+            {
+                handle = IntPtr.Zero;
+                unsafe
+                {
+                    voidPtr = (void*)0;
+                }
+                Length = 0;
+                SizeInBytes = 0;
+                return true;
+            }
         }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
+
+        #region Disposer
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ThrowIfNotAllocatedOrInvalid();
+                ThrowIfRetained();
+                ReleaseHandle();
+            }
+            base.Dispose(disposing);
+        }
+
+        #endregion
+  
         #endregion
 
         #region Implemented members
@@ -54,7 +85,7 @@ namespace jemalloc
         public bool Release()
         {
 
-            if (IsNotAllocated || IsInvalid || RefCount == 0)
+            if (IsNotAllocated || IsInvalid)
             {
                 return false;
             }
@@ -68,8 +99,16 @@ namespace jemalloc
 
         public bool Equals(HugeBuffer<T> other)
         {
+            ThrowIfNotAllocatedOrInvalid();
             return this.handle == other.handle && this.Length == other.Length;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        IEnumerator IEnumerable.GetEnumerator() => new HugeBufferEnumerator<T>(this);
+
         #endregion
 
         #region Properties
@@ -83,202 +122,16 @@ namespace jemalloc
 
         public bool IsValid => !IsInvalid;
 
-        public int RefCount
-        {
-            get
-            {
-                ThrowIfNotAllocatedOrInvalid();
-                return Jem.GetRefCount(handle);
-            }
-        }
-
-        public bool IsRetained => RefCount > 0;
+        public bool IsRetained => _RefCount > 0;
 
         public bool IsVectorizable { get; protected set; }
 
+        protected int _RefCount => Jem.GetRefCount(handle);
         #endregion
 
         #region Methods
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        public bool Acquire()
-        {
-            if (IsNotAllocated || IsInvalid)
-                return false;
-            bool success = false;
-            DangerousAddRef(ref success);
-            if (success)
-            {
-                Jem.IncrementRefCount(handle);
-            }
-            return success;
-        }
 
-        protected unsafe ref T DangerousAsRef(ulong index)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            ThrowIfIndexOutOfRange(index);
-            GetSegment(index, out void* ptr, out int offset);
-            return ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-        }
-
-        public void CopyFrom(T[] array)
-        {
-            ThrowIfNotAllocatedOrInvalid();
-            new Span<T>(array).CopyTo(AcquireSegmentSpan(0));
-            Release();
-        }
-
-        public T[] CopyToArray()
-        {
-            if (this.Length > Int32.MaxValue)
-            {
-                throw new ArgumentOutOfRangeException("This length of this array exceeds the max length of a managed array.");
-            }
-            T[] a = new T[this.Length];
-            AcquireSegmentSpan(0).CopyTo(new Span<T>(a));
-            Release();
-            return a;
-        }
-
-        public bool EqualTo(T[] array)
-        {
-            if (this.Length != (ulong) array.Length)
-            {
-                return false;
-            }
-            if (IsVectorizable)
-            {
-                Span<Vector<T>> span = this.AcquireSegmentSpan(0).NonPortableCast<T, Vector<T>>();
-                Span<Vector<T>> arraySpan = new Span<T>(array).NonPortableCast<T, Vector<T>>();
-
-                for (int i = 0; i < arraySpan.Length; i++)
-                {
-                    if (!Vector.EqualsAll(span[i], arraySpan[i]))
-                    {
-                        Release();
-                        return false;
-                    }
-                }
-                Release();
-                return true;
-            }
-            else
-            {
-                Span<T> span = this.AcquireSegmentSpan(0);
-                Span<T> arraySpan = new Span<T>(array);
-                for (int i = 0; i < arraySpan.Length; i++)
-                {
-                    if (!(span[i].Equals(arraySpan[i])))
-                    {
-                        Release();
-                        return false;
-                    }
-                }
-                Release();
-                return true;
-            }
-        }
-
-        public unsafe Span<T> AcquireSegmentSpan(ulong index)
-        {
-            ThrowIfIndexOutOfRange(index);
-            ThrowIfCannotAcquire();
-            int i = GetSegmentIndex(index);
-            return new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
-        }
-
-        public unsafe void Fill(T value)
-        {
-            ThrowIfCannotAcquire();
-            for (int i = 0; i < segments.Length; i++)
-            {
-                Span<T> s = new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
-                s.Fill(value);
-            }
-            Release();
-        }
-
-        public unsafe Vector<T> AcquireAsSingleVector()
-        {
-            ThrowIfNotNumeric();
-            if (this.Length != (ulong) VectorLength)
-            {
-                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
-            }
-            ThrowIfCannotAcquire();
-            Span<T> span = new Span<T>(segments[0].ToPointer(), VectorLength);
-            Span<Vector<T>> vector = span.NonPortableCast<T, Vector<T>>();
-            return vector[0];
-        }
-
-        public unsafe Span<Vector<T>> AcquireSegmentAsVectorSpan(ulong index)
-        {
-            if ((Length - index) < (ulong) VectorLength)
-            {
-                ThrowIfIndexOutOfRange(index);
-            }
-            ThrowIfCannotAcquire();
-            T v = this[index];
-            int i = GetSegmentIndex(index);
-            if (segments2[i].Item2 % VectorLength != 0)
-            {
-                BufferIsNotVectorisable();
-            }
-            return new Span<Vector<T>>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
-        }
-        public unsafe Vector<T> AcquireSliceAsVector(ulong index)
-        {
-            ThrowIfIndexOutOfRange(index);
-            if ((Length - index) < (ulong) VectorLength)
-            {
-                BufferIsNotVectorisable();
-            }
-            int i = GetSegmentIndex(index);
-            GetSegment(index, out void* ptr, out int offset);
-            IntPtr start = BufferHelpers.Add<T>(segments2[i].Item1, offset);
-            Acquire();
-            Span<T> s = new Span<T>(start.ToPointer(), VectorLength);
-            return s.NonPortableCast<T, Vector<T>>()[0];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void VectorMultiply(T value)
-        {
-            ThrowIfNotVectorisable();
-            ThrowIfCannotAcquire();
-            for (int h = 0; h < segments2.Length; h++)
-            {
-                Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> segmentVectorSpan = span.NonPortableCast<T, Vector<T>>();         
-                T[] fill = new T[VectorLength];
-                Span<T> sFil = new Span<T>(fill);
-                sFil.Fill(value);
-                Vector<T> fillVector = sFil.NonPortableCast<T, Vector<T>>()[0];
-                for (int i = 0; i < segmentVectorSpan.Length; i++)
-                {
-                    segmentVectorSpan[i] = Vector.Multiply(segmentVectorSpan[i], fillVector);
-                }
-            }
-            Release();
-        }
-
-        public unsafe void VectorSqrt()
-        {
-            ThrowIfNotVectorisable();
-            ThrowIfCannotAcquire();
-            for (int h = 0; h < segments2.Length; h++)
-            {
-                Span<T> span = new Span<T>(segments[h].ToPointer(), segments2[h].Item2);
-                Span<Vector<T>> vectorvectorSpan = span.NonPortableCast<T, Vector<T>>();
-                for (int i = 0; i < vectorvectorSpan.Length; i++)
-                {
-                    vectorvectorSpan[i] = Vector.SquareRoot(vectorvectorSpan[i]);
-                }
-            }
-            Release();
-        }
-
-  
+        #region Memory management
         protected unsafe virtual IntPtr Allocate(ulong length)
         {
             if (length < 0)
@@ -299,7 +152,7 @@ namespace jemalloc
 
         protected unsafe void InitSegments()
         {
-            int n = (int) ((Length - 1) / Int32.MaxValue) + 1;
+            int n = (int)((Length - 1) / Int32.MaxValue) + 1;
             segments = new IntPtr[n];
             segments2 = new Tuple<IntPtr, int>[segments.Length];
             segments[0] = handle;
@@ -316,27 +169,11 @@ namespace jemalloc
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected int GetSegmentIndex(ulong index)
-        {
-            ThrowIfIndexOutOfRange(index);
-            return (int)(index / Int32.MaxValue);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected unsafe void GetSegment(ulong index, out void* ptr, out int offset)
-        {
-            int s = GetSegmentIndex(index);
-            int l = segments.Length;
-            ptr = segments[s].ToPointer();
-            offset = (int) (index - ((ulong)(s) * Int32.MaxValue));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected unsafe void InitVectors()
         {
             if (IsNumeric && Length % (ulong)VectorLength == 0 && SIMD)
             {
-         
+
                 IsVectorizable = true;
             }
             else
@@ -345,55 +182,228 @@ namespace jemalloc
             }
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
-        protected unsafe void DangerousAcquirePointer(ref byte* pointer)
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected int _GetSegmentIndex(ulong index)
         {
-            pointer = null;
-            if (IsNotAllocated || IsInvalid) return;
-            RuntimeHelpers.PrepareConstrainedRegions();
-            try
-            {
-            }
-            finally
-            {
-                bool result = false;
-                DangerousAddRef(ref result);
-                pointer = (byte*)handle;
-            }
+            return (int)(index / Int32.MaxValue);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected unsafe ref T Read(ulong index)
+        protected unsafe void _GetSegment(ulong index, out void* ptr, out int offset)
         {
-            ThrowIfIndexOutOfRange(index);
+            int s = _GetSegmentIndex(index);
+            int l = segments.Length;
+            ptr = segments[s].ToPointer();
+            offset = (int)(index - ((ulong)(s) * Int32.MaxValue));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected unsafe Span<T> _GetSegmentSpan(ulong index)
+        {
+            int i = _GetSegmentIndex(index);
+            return new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected unsafe Span<Vector<T>> _GetSegmentVectorSpan(ulong index)
+        {
+            int i = _GetSegmentIndex(index);
+            return new Span<Vector<T>>(segments2[i].Item1.ToPointer(), segments2[i].Item2 / VectorLength + 1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected unsafe ref T _Read(ulong index)
+        {
+
             // return (T*) (seg_ptr + byteOffset);
-            ThrowIfCannotAcquire();                
-            GetSegment(index, out void* ptr, out int offset);
+
+            _GetSegment(index, out void* ptr, out int offset);
             ref T ret = ref Unsafe.Add(ref Unsafe.AsRef<T>(ptr), offset);
-            Release();
+
             return ref ret;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected unsafe T Write(ulong index, T value)
+        protected unsafe T _Write(ulong index, T value)
+        {
+
+            // return (T*) (seg_ptr + byteOffset);
+            _GetSegment(index, out void* ptr, out int offset);
+            ref T v = ref Unsafe.AsRef<T>(BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer());
+            v = value;
+            return value;
+        }
+
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.MayFail)]
+        public bool Acquire()
+        {
+            if (IsNotAllocated || IsInvalid)
+                return false;
+            bool success = false;
+            DangerousAddRef(ref success);
+            if (success)
+            {
+                Jem.IncrementRefCount(handle);
+            }
+            return success;
+        }
+
+        public bool Release(int n)
+        {
+            bool r = false;
+            for (int i = 0; i < n; i++)
+            {
+                r = Release();
+                if (r)
+                {
+                    continue;
+                }
+                else
+                {
+                    return r;
+                }
+            }
+            return r;
+        }
+        #endregion
+
+        #region Values
+
+        public bool EqualTo(T[] array)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            if (this.Length != (ulong)array.Length)
+            {
+                return false;
+            }
+            return _GetSegmentSpan(0).SequenceEqual(new ReadOnlySpan<T>(array));
+        }
+
+        public unsafe void Fill(T value)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            for (int i = 0; i < segments.Length; i++)
+            {
+                Span<T> s = new Span<T>(segments2[i].Item1.ToPointer(), segments2[i].Item2);
+                s.Fill(value);
+            }
+        }
+
+        public void CopyFrom(T[] array)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            new Span<T>(array).CopyTo(_GetSegmentSpan(0));
+        }
+
+        public T[] CopyToArray()
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            if (this.Length > Int32.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException("This length of this array exceeds the max length of a managed array.");
+            }
+            T[] a = new T[this.Length];
+            _GetSegmentSpan(0).CopyTo(new Span<T>(a));
+            return a;
+        }
+
+        public unsafe Span<C> GetSpan<C>(ulong index = 0, int length = 1) where C : struct, IEquatable<C>
         {
             ThrowIfNotAllocatedOrInvalid();
             ThrowIfIndexOutOfRange(index);
-            // return (T*) (seg_ptr + byteOffset);
-            ThrowIfCannotAcquire();
-            GetSegment(index, out void* ptr, out int offset);
-            ref T v = ref Unsafe.AsRef<T>(BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer());
-            v = value;
-            Release();
-            return value; 
+            ulong s = (index * (ulong) ElementSizeInBytes + (ulong) length * (ulong) Unsafe.SizeOf<C>());
+            if (s > SizeInBytes)
+            {
+                BufferSizeIsOutOfRange(s);
+            }
+            _GetSegment(index, out void* ptr, out int offset);
+            void* p = BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer();
+            return new Span<C>(p, length);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public IEnumerator<T> GetEnumerator() => new HugeBufferEnumerator<T>(this);
+        public unsafe Span<T> Slice(ulong start, ulong end)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(start);
+            ThrowIfIndexOutOfRange(end);
+            if (start >= end)
+            {
+                throw new ArgumentOutOfRangeException($"The end {end} of the slice must be greater than the start {start}.");
+            }
+            else if (end - start > Int32.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException($"The size of the slice must be less than or equal to {Int32.MaxValue}.");
+            }
+            _GetSegment(end, out void* ptr, out int offset);
+            void* p = BufferHelpers.Add<T>(new IntPtr(ptr), offset).ToPointer();
+            return new Span<T>(p, (int) (end - start));
+        }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        IEnumerator IEnumerable.GetEnumerator() => new HugeBufferEnumerator<T>(this);
 
+        public unsafe Vector<T> GetAsSingleVector()
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            if (this.Length != (ulong) VectorLength)
+            {
+                throw new InvalidOperationException($"The length of the array must be {Vector<T>.Count} elements to create a vector of type {CLRType.Name}.");
+            }
+            return Unsafe.Read<Vector<T>>(handle.ToPointer());
+        }
+
+        public unsafe Span<Vector<T>> GetSliceSegmentAsVectorSpan(ulong index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            if ((Length - index) < (ulong) VectorLength)
+            {
+                ThrowIfIndexOutOfRange(index);
+            }
+            T v = this[index];
+            int i = _GetSegmentIndex(index);
+            if (segments2[i].Item2 % VectorLength != 0)
+            {
+                BufferIsNotVectorisable();
+            }
+            return new Span<Vector<T>>(segments2[i].Item1.ToPointer(), segments2[i].Item2 / VectorLength + 1);
+        }
+
+        public unsafe Vector<T> GetSliceAsSingleVector(ulong index)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfIndexOutOfRange(index);
+            if ((Length - index) < (ulong) VectorLength)
+            {
+                BufferIsNotVectorisable();
+            }
+            int i = _GetSegmentIndex(index);
+            _GetSegment(index, out void* ptr, out int offset);
+            IntPtr start = BufferHelpers.Add<T>(segments2[i].Item1, offset);
+            return Unsafe.Read<Vector<T>>(start.ToPointer());
+        }
+        #endregion
+
+        #region Vector
+        /*
+        public unsafe void VectorMultiply(T value)
+        {
+            ThrowIfNotAllocatedOrInvalid();
+            ThrowIfNotNumeric();
+            Vector<T> mul = new Vector<T>(value);
+            for (int h = 0; h < segments2.Length; h++)
+            {
+                int i = 0;
+                for (; i < segments2[h].Item2 - VectorLength; i++ )
+                {
+                    Vector<T> v = Unsafe.Read<Vector<T>>(BufferHelpers.Add<T>(segments2[h].Item1, i).ToPointer());
+                    v = v * mul;
+                }
+                f
+            }
+        }*/
+        #endregion
+
+        #region Helpers
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
@@ -428,6 +438,17 @@ namespace jemalloc
             else if (IsInvalid)
             {
                 HandleIsInvalid();
+            }
+        }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private void ThrowIfRetained()
+        {
+            if (IsRetained)
+            {
+                throw new InvalidOperationException($"SafeBuffer<{typeof(T)}[{Length}] has outstanding references.");
             }
         }
 
@@ -503,11 +524,21 @@ namespace jemalloc
         [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [DebuggerStepThrough]
-        private static IndexOutOfRangeException BufferIndexIsOutOfRange(ulong index)
+        private void BufferIndexIsOutOfRange(ulong index)
         {
             Contract.Assert(false, $"Index {index} into buffer is out of range.");
-            return new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
+            throw new IndexOutOfRangeException($"Index {index} into buffer is out of range.");
         }
+
+        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [DebuggerStepThrough]
+        private void BufferSizeIsOutOfRange(ulong index)
+        {
+            Contract.Assert(false, $"Size {index} exceeds the size of the buffer.");
+            throw new IndexOutOfRangeException($"Size {index} exceeds the size of the buffer.");
+        }
+        #endregion
 
         #endregion
 
@@ -515,7 +546,7 @@ namespace jemalloc
         public ref T this[ulong index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Read(index);
+            get => ref _Read(index);
             
         }
         #endregion
